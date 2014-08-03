@@ -28,9 +28,3 @@ http://digitalmusics.dartmouth.edu/bregman/
 Installation
 ------------
 run python setup.py install
-
-
-
-
-
-
