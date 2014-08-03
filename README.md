@@ -1,4 +1,3 @@
-=============================================
 vmo - Python Variable Markov Oracle Library
 =============================================
 Under development by the Center for Research in Entertainment and Learning 
