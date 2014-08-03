@@ -137,7 +137,6 @@ class FactorOracle(object):
         pass
 
     def encode(self): #Referenced from IR module
-        
         if self.compror == []:
             j = 0
         else:
@@ -448,6 +447,7 @@ class MO(FactorOracle):
         
         if self.lrs[i] > self.max_lrs:
             self.max_lrs = self.lrs[i]
+            
                          
 def _entropy(x):
     x = np.divide(x, sum(x), dtype = float)

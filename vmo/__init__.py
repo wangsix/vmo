@@ -1,2 +1,2 @@
 
-from vmo.VMO.oracle import FO, MO
+from vmo.VMO.oracle import build_oracle

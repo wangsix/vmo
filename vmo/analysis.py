@@ -23,6 +23,7 @@ import numpy as np
 import scipy.spatial.distance as dist
 import sys
 import itertools
+from functools import partial
 
 def create_selfsim(oracle, method = 'compror'): 
     """ Create self similarity matrix from compror codes or suffix links
@@ -52,9 +53,8 @@ def create_selfsim(oracle, method = 'compror'):
                 mat[s-1][i-1] = 1 
                 s = oracle.sfx[s] 
     elif method == 'rsfx':
-        latent = infer_latent_var(oracle)
-        for i in range(len(latent)):
-            _l = latent[i]
+        for i in range(len(oracle.latent)):
+            _l = oracle.latent[i]
             p = itertools.product(_l, repeat = 2)
             for _p in p:
                 mat[_p[0]-1][_p[1]-1] = 1            
@@ -152,21 +152,7 @@ def _rsfx_count(oracle, s, count, hist, ab, VERBOSE = 0):
         rsfx_candidate.extend(oracle.rsfx[s])
         
     return count, hist
-                     
-def infer_latent_var(oracle):
-    """ Return lists of states connected by suffix links"""
-    l = []
-    for k in oracle.rsfx[0]:
-        tmp = []
-        tmp.append(k)
-        _c = oracle.rsfx[k][:]
-        while _c != []:
-            _k = _c.pop(0)
-            tmp.append(_k)
-            _c.extend(oracle.rsfx[_k])
-        l.append(tmp)
-    return l
-            
+                                 
 def logEval(oracle, testSequence, ab = [], m_order = None, VERBOSE = 0):
     ''' Evaluate the average log-loss of a sequence given an oracle 
     '''
@@ -215,30 +201,6 @@ def cluster(oracle):
 def segment(oracle):
     raise NotImplementedError("segment() is under construction, coming soon!")
 
-# def _rsfxmin(oracle, n, x, theta, c):
-#     if oracle.rsfx[n] == []:
-#         return c, theta
-#     else:
-#         for k in oracle.rsfx[n]:
-#             theta_hat = get_distance(x, oracle.feature[k], oracle.params['weights'], oracle.params['dfunc'])
-#             if theta > theta_hat:
-#                 theta = theta_hat
-#                 c = k
-#             _c, _theta = _rsfxmin(oracle, k, x, theta, c)
-#             if _theta < theta:
-#                 theta = _theta
-#                 c = _c            
-#         return c, theta 
-#     
-# def _sfxmin(oracle, n, x, theta, c):
-#     while oracle.sfx[n] != 0:
-#         theta_hat = get_distance(x, oracle.feature[oracle.sfx[n]], oracle.params['weights'], oracle.params['dfunc'])
-#         if theta > theta_hat:
-#             theta = theta_hat
-#             c = oracle.sfx[n]        
-#         n = oracle.sfx[n]
-#     return c, theta
-
 def _get_sfx(oracle, s_set, k):
     while oracle.sfx[k] != 0:
         s_set.add(oracle.sfx[k])
@@ -254,7 +216,47 @@ def _get_rsfx(oracle, rs_set, k):
             rs_set = rs_set.union(_get_rsfx(oracle, rs_set, _k))
         return rs_set
             
-        
+def _query_init(k, oracle, query): 
+    a = np.subtract(query, [oracle.f_array[t] for t in oracle.latent[oracle.data[k]]])       
+    dvec = (a*a).sum(axis=1) # Could skip the sqrt
+    _d = dvec.argmin()
+    return oracle.latent[oracle.data[k]][_d], dvec[_d] 
+
+def _query_decode(oracle, query, trn_list): 
+    a = np.subtract(query, [oracle.f_array[t] for t in trn_list])  
+    return (a*a).sum(axis=1)
+
+def _query_k(k, i, P, oracle, query, trn, state_cache, dist_cache, smooth = False, D = None, weight = 0.5):
+    _trn = trn(oracle, P[i-1][k])      
+    t = list(itertools.chain.from_iterable([oracle.latent[oracle.data[j]] for j in _trn]))
+    _trn_unseen = [_t for _t in _trn if _t not in state_cache]
+    state_cache.extend(_trn_unseen)
+                        
+    if _trn_unseen != []:
+        t_unseen = list(itertools.chain.from_iterable([oracle.latent[oracle.data[j]] for j in _trn_unseen]))
+        dist_cache[t_unseen] = _query_decode(oracle, query[i], t_unseen)
+    dvec = dist_cache[t]
+    if smooth and P[i-1][k] < oracle.n_states-1:
+        dvec = dvec * (1.0-weight) + weight*np.array([D[_t-1][P[i-1][k]] for _t in t])            
+    _m = np.argmin(dvec)
+    return t[_m], dvec[_m]
+    
+def _create_trn_complete(oracle, prev):
+    return list(itertools.chain.from_iterable([oracle.latent[_c] for _c in list(oracle.con[oracle.data[prev]])]))
+    
+def _create_trn_self(oracle, prev):
+    _trn = oracle.trn[prev][:] # Sub-optimal
+    if _trn == []:
+        _trn = oracle.trn[oracle.sfx[prev]][:]
+    _trn.append(prev)    
+    return _trn
+
+def _create_trn(oracle, prev):
+    _trn = oracle.trn[prev][:] # Sub-optimal
+    if _trn == []:
+        _trn = oracle.trn[oracle.sfx[prev]][:]
+    return _trn
+
 def query_complete(oracle, query, method = 'trn', selftrn = True, smooth = False, weight = 0.5):
     """ Return the closest path in target oracle given a query sequence
     
@@ -269,50 +271,59 @@ def query_complete(oracle, query, method = 'trn', selftrn = True, smooth = False
     
     """
     N = len(query)
-    K = oracle.get_num_symbols()
-    C = [0] * K # cost vector
-    P = [[0]* N for _i in range(K)] # path matrix 
-    
+    K = oracle.num_clusters()
+    # C = np.zeros(K)
+    P = [[0]* K for _i in range(N)]
     if smooth:
         D = dist.pdist(oracle.f_array[1:], 'sqeuclidean')
         D = dist.squareform(D, checks = False)
-    
-    for ind,k in enumerate(oracle.rsfx[0]): # emission transition
-        a = np.array(query[0]) - np.array([oracle.f_array[t] for t in oracle.latent[oracle.data[k]]])
-        dvec = (a*a).sum(axis=1) # Could skip the sqrt
-        P[ind][0] = oracle.latent[oracle.data[k]][dvec.argmin()]
-        C[ind] += dvec.min()
+        map_k_outer = partial(_query_k, oracle = oracle, query = query, smooth = smooth, D = D, weight = weight)  
+    else:
+        map_k_outer = partial(_query_k, oracle = oracle, query = query)
         
-    for i in range(1,N): # iterate over the rest of query
-        state_cache = []
-        distance_cache = np.array([0.0] * oracle.n_states)
-        for k in range(K): # iterate over the K possible paths                
-            if method == 'complete':
-                _trn = list(itertools.chain.from_iterable([oracle.latent[_c] for _c in list(oracle.con[oracle.data[P[k][i-1]]])]))
-            else:
-                _trn = oracle.trn[P[k][i-1]][:] # Sub-optimal
-                if _trn == []:
-                    _trn = oracle.trn[oracle.sfx[P[k][i-1]]][:]
-                if selftrn:  
-                    _trn.append(P[k][i-1])
+    map_query = partial(_query_init, oracle = oracle, query = query[0])
+    P[0], C = zip(*map(map_query, oracle.rsfx[0][:]))
+    P[0] = list(P[0])
+    C = np.array(C)	
+    
+    if method == 'complete':
+        trn = _create_trn_complete
+    else:
+        if selftrn:
+            trn = _create_trn_self
+        else:
+            trn = _create_trn
+    
             
-            _trn_unseen = [_t for _t in _trn if _t not in state_cache]
-            state_cache.extend(_trn_unseen)
-                                
-            t = list(itertools.chain.from_iterable([oracle.latent[oracle.data[j]] for j in _trn]))
-#             a = np.array(query[i]) - np.array([oracle.f_array[_t] for _t in t])
-            t_unseen = list(itertools.chain.from_iterable([oracle.latent[oracle.data[j]] for j in _trn_unseen]))
-            if t_unseen != []:
-                a = np.array(query[i]) - np.array([oracle.f_array[_t] for _t in t_unseen])
-                dvec = (a*a).sum(axis=1) # Could skip the sqrt
-                distance_cache[t_unseen] = dvec
-            dvec = distance_cache[t]
-            if smooth and P[k][i-1] < oracle.n_states-1:
-                dvec = dvec * (1.0-weight) + weight*np.array([D[_t-1][P[k][i-1]] for _t in t])
-            P[k][i] = t[dvec.argmin()]
-            C[k] += dvec.min()
+    argmin = np.argmin
+#     from_iterable = itertools.chain.from_iterable
+    distance_cache = np.zeros(oracle.n_states)
+    for i in xrange(1,N): # iterate over the rest of query
+        state_cache = []
+        dist_cache = distance_cache
+        
+        map_k_inner = partial(map_k_outer, i=i, P=P, trn = trn, state_cache = state_cache, dist_cache = dist_cache)
+        P[i], _c = zip(*map(map_k_inner, range(K)))
+        P[i] = list(P[i])
+        C += np.array(_c)
+        
+#         for k in xrange(K): # iterate over the K possible paths                
+#             _trn = trn(oracle, P[i-1][k])      
+#             t = list(from_iterable([oracle.latent[oracle.data[j]] for j in _trn]))
+#             _trn_unseen = [_t for _t in _trn if _t not in state_cache]
+#             state_cache.extend(_trn_unseen)
+#                                 
+#             if _trn_unseen != []:
+#                 t_unseen = list(from_iterable([oracle.latent[oracle.data[j]] for j in _trn_unseen]))
+#                 dist_cache[t_unseen] = _query_decode(oracle, query[i], t_unseen)
+#             dvec = dist_cache[t]
+#             if smooth and P[i-1][k] < oracle.n_states-1:
+#                 dvec = dvec * (1.0-weight) + weight*np.array([D[_t-1][P[i-1][k]] for _t in t])            
+#             _m = argmin(dvec)
+#             P[i][k] = t[_m]
+#             C[k] += dvec[_m]
                           
-    i_hat = np.argmin(C)
+    i_hat = argmin(C)
     return P, C, i_hat    
 
 
