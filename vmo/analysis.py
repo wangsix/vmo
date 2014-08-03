@@ -293,7 +293,6 @@ def query_complete(oracle, query, method = 'trn', selftrn = True, smooth = False
             trn = _create_trn_self
         else:
             trn = _create_trn
-    
             
     argmin = np.argmin
 #     from_iterable = itertools.chain.from_iterable
