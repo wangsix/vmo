@@ -13,8 +13,9 @@ About
 -----
 vmo is a Python library for time series and symbolic sequence analysis/synthesis 
 in the family of software built around the Factor Oracle and Variable Markov Oracle algorithms. 
-One of the main innovations in vmo is using functions related to
-Music Information Dynamics for tuning of sound models with multiple sound features. 
+One of the main innovations in vmo is using functions related to Information Dynamics to
+determine oracle structure and query-matching algorithms.
+
 
 
 Dependencies

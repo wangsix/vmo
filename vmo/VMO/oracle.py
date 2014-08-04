@@ -155,13 +155,7 @@ class FactorOracle(object):
                 self.compror.append((i,i-j)) 
             j = i
         return self.code, self.compror
-    
-    def get_code(self):
-        if self.code == []:
-            print "Generating codes with encode()."
-            self.encode()
-        return [(i, self.data[j]) if i == 0 else (i, j) for i, j in self.code]    
-    
+        
     def segment(self):
         """An non-overlap version Compror"""
         if self.seg == []:
@@ -194,38 +188,71 @@ class FactorOracle(object):
             j = i
         return self.seg
     
-    def get_seg(self):
-        if self.code == []:
-            print "Generating codes with segment()."
-            self.segment()
-        return [(i, self.data[j]) if i == 0 else (i, j) for i, j in self.seg]    
-    
-    def get_IR(self, alpha = 1.0):
+    def _ir(self, alpha = 1.0):
         """Referenced from IR.py
         """
-        if self.code == []:
-            raise ValueError("encode first then get IR!!")
+        code, _ = self.encode()
+        cw = np.zeros(len(code))
+        for i, c in enumerate(code):
+            cw[i] = c[0]+1
+    
+        c0 = [1 if x[0] == 0 else 0 for x in self.code]
+        h0 = np.log2(np.cumsum(c0))
+#         h0 = np.array([np.log2(x) for x in np.cumsum(c0)])
+    
+        dti = [1 if x[0] == 0 else x[0] for x in self.code]
+        ti = np.cumsum(dti)
+    
+        h = np.zeros(len(cw))
+    
+        for i in range(1, len(cw)):
+            h[i] = _entropy(cw[0:i+1])
+    
+#         h = np.array(h)
+#         h0 = np.array(h0)
+        ir = ti, alpha*h0-h
+    
+        return ir, self.code, self.compror
+            
+    def _ir_cum(self, alpha=1.0):
+        code, _ = self.encode()
+        
+        N = self.n_states
+    
+        cw0 = np.zeros(N) #cw0 counts the appearance of new states only 
+        cw1 = np.zeros(N) #cw1 counts the appearance of all compror states
+        BL = np.zeros(N)  #BL is the block length of compror codewords
+    
+        j = 0
+        for i in range(len(code)):
+            if self.code[i][0] == 0:
+                cw0[j] = 1
+                cw1[j] = 1
+                BL[j] = 1
+                j = j+1
+            else:
+                L = code[i][0]    
+#                 cw0[j:j+L] = np.zeros(L)
+                cw1[j] = 1
+#                 cw1[j:j+L] = np.concatenate(([1], np.zeros(L-1)))
+                BL[j:j+L] = L #range(1,L+1)
+                j = j+L
+    
+        H0 = np.log2(np.cumsum(cw0))
+        H1 = np.log2(np.cumsum(cw1))
+        H1 = H1/BL
+        ir = alpha*H0 - H1
+        ir[ir<0] = 0
+#         ir = np.max(np.append(ir,0))
+        
+        return ir, self.code, self.compror        
+    
+    def IR(self, alpha = 1.0, ir_type = 'cum'):
+        if ir_type == 'cum':
+            ir, code, compror = self._ir_cum(alpha)
         else:
-            cw = np.zeros(len(self.code))
-            for i, c in enumerate(self.code):
-                cw[i] = c[0]+1
-        
-            c0 = [1 if x[0] == 0 else 0 for x in self.code]
-            h0 = np.array([np.log2(x) for x in np.cumsum(c0)])
-        
-            dti = [1 if x[0] == 0 else x[0] for x in self.code]
-            ti = np.cumsum(dti)
-        
-            h = np.zeros(len(cw))
-        
-            for i in range(1, len(cw)):
-                h[i] = _entropy(cw[0:i+1])
-        
-            h = np.array(h)
-            h0 = np.array(h0)
-            IR = ti, alpha*h0-h
-        
-            return IR, self.code, self.compror
+            ir, code, compror = self._ir(alpha)
+        return ir, code, compror 
         
     def num_clusters(self):
         return len(self.rsfx[0])
@@ -362,8 +389,6 @@ class MO(FactorOracle):
 
         # Experiment with pointer-based  
         self.feature.append(new_data)
-#         f = new_data.popitem()[1]
-#         self.f_array.append(f)        
         self.f_array.append(new_data)        
 
         self.n_states += 1 
@@ -376,7 +401,6 @@ class MO(FactorOracle):
     
         # iteratively backtrack suffixes from state i-1
         dvec = []
-#         suffix_candidate = []
         trn_list = []
         suffix_candidate = 0        
         '''
@@ -403,29 +427,11 @@ class MO(FactorOracle):
                 trn_list.append(k)
                 pi_1 = k
             else:
-#                 suffix_candidate.append((self.trn[k][I[argmin(dvec[I])]], 
-#                                          min(dvec)))
                 suffix_candidate = self.trn[k][I[np.argmin(dvec[I])]]
                 trn_list.append(i-1)
                 break
             k = self.sfx[k]
-        # if no candidate found
-#         if suffix_candidate == []:
-#             self.sfx[i] = 0
-#             self.lrs[i] = 0
-#             self.latent.append([i])
-#             self.data.append(len(self.latent)-1)
-#             if i > 1:
-#                 self.con[self.data[i-1]].add(self.data[i]) 
-#                 self.con.append(set([self.data[i]]))
-#             else:
-#                 self.con.append(set([]))
-#         else:
-#             self.sfx[i] = sorted(suffix_candidate, key = lambda suffix:suffix[1])[0][0]
-#             self.lrs[i] = self._len_common_suffix(pi_1, self.sfx[i]-1) + 1
-#             self.latent[self.data[self.sfx[i]]].append(i)
-#             self.data.append(self.data[self.sfx[i]])
-#             self.con[self.data[i-1]].add(self.data[i])
+
         if k == None:
             self.sfx[i] = 0
             self.lrs[i] = 0
@@ -481,4 +487,25 @@ def build_oracle(input_data, flag, threshold = 0, feature = None, weights = None
              
     oracle = _build_factor_oracle(oracle, input_data)
     return oracle 
+    
 
+def find_threshold(input_data, r = (0,1,0.1), flag = 'a', feature = None, ir_type='cum', dfunc ='euclidean', VERBOSE = False):
+    thresholds = np.arange(r[0], r[1], r[2])
+    irs = []
+    for t in thresholds:
+        if VERBOSE:
+            print 'testing threshold:', t
+        tmp_oracle = build_oracle(input_data, flag = flag, threshold = t, feature = feature, dfunc = dfunc)
+        tmp_ir, code, compror = tmp_oracle.IR(ir_type = ir_type)
+        # is it a sum?
+        if ir_type=='old' or ir_type=='cum':
+            irs.append(tmp_ir.sum())
+        else:
+            irs.append(tmp_ir[1].sum())
+    # now pair irs and thresholds in a vector, and sort by ir
+    ir_thresh_pairs = [(a,b) for a, b in zip(irs, thresholds)]
+    pairs_return = ir_thresh_pairs
+    ir_thresh_pairs = sorted(ir_thresh_pairs, key= lambda x: x[0], reverse = True)
+    return ir_thresh_pairs[0], pairs_return     
+    
+    
