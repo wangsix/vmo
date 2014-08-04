@@ -20,9 +20,7 @@ determine oracle structure and query-matching algorithms.
 
 Dependencies
 ------------
-Numpy, Scipy, Matplotlib &
-Bregman Audio-Visual Information Toolbox:
-http://digitalmusics.dartmouth.edu/bregman/
+Numpy, Scipy & Matplotlib
 
 
 Installation
