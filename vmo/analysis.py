@@ -237,7 +237,8 @@ def _query_k(k, i, P, oracle, query, trn, state_cache, dist_cache, smooth = Fals
         dist_cache[t_unseen] = _query_decode(oracle, query[i], t_unseen)
     dvec = dist_cache[t]
     if smooth and P[i-1][k] < oracle.n_states-1:
-        dvec = dvec * (1.0-weight) + weight*np.array([D[_t-1][P[i-1][k]] for _t in t])            
+#         dvec = dvec * (1.0-weight) + weight*np.array([D[_t-1][P[i-1][k]] for _t in t])            
+        dvec = dvec * (1.0-weight) + weight*np.array([D[P[i-1][k]][_t-1] for _t in t])            
     _m = np.argmin(dvec)
     return t[_m], dvec[_m]
     
@@ -295,7 +296,6 @@ def query_complete(oracle, query, method = 'trn', selftrn = True, smooth = False
             trn = _create_trn
             
     argmin = np.argmin
-#     from_iterable = itertools.chain.from_iterable
     distance_cache = np.zeros(oracle.n_states)
     for i in xrange(1,N): # iterate over the rest of query
         state_cache = []
@@ -305,24 +305,9 @@ def query_complete(oracle, query, method = 'trn', selftrn = True, smooth = False
         P[i], _c = zip(*map(map_k_inner, range(K)))
         P[i] = list(P[i])
         C += np.array(_c)
-        
-#         for k in xrange(K): # iterate over the K possible paths                
-#             _trn = trn(oracle, P[i-1][k])      
-#             t = list(from_iterable([oracle.latent[oracle.data[j]] for j in _trn]))
-#             _trn_unseen = [_t for _t in _trn if _t not in state_cache]
-#             state_cache.extend(_trn_unseen)
-#                                 
-#             if _trn_unseen != []:
-#                 t_unseen = list(from_iterable([oracle.latent[oracle.data[j]] for j in _trn_unseen]))
-#                 dist_cache[t_unseen] = _query_decode(oracle, query[i], t_unseen)
-#             dvec = dist_cache[t]
-#             if smooth and P[i-1][k] < oracle.n_states-1:
-#                 dvec = dvec * (1.0-weight) + weight*np.array([D[_t-1][P[i-1][k]] for _t in t])            
-#             _m = argmin(dvec)
-#             P[i][k] = t[_m]
-#             C[k] += dvec[_m]
-                          
+                              
     i_hat = argmin(C)
+    P = map(list, zip(*P))
     return P, C, i_hat    
 
 
