@@ -117,7 +117,8 @@ class FactorOracle(object):
         self.params = {
                        'threshold':0,
                        'weights': {},
-                       'dfunc': 'euclidean'
+                       'dfunc': 'euclidean',
+                       'dfunc_handle':None
                        }
         self.update_params(**kwargs)
         
@@ -274,12 +275,16 @@ class FactorOracle(object):
             return self.params.get('dfunc')
         else:
             raise ValueError("dfunc is not set!")
+    
+    def dfunc_handle(self, a, b_vec):     
+        fun = self.params['dfunc_handle']  
+        return fun(a, b_vec) 
 
     def _len_common_suffix(self, p1, p2):
         if p2 == self.sfx[p1]:
             return self.lrs[p1]
         else:
-            while self.sfx[p1] != self.sfx[p2] and p2 != 0:
+            while self.sfx[p2] != self.sfx[p1] and p2 != 0:
 #             while self.sfx[p1] != self.sfx[p2]:
                 p2 = self.sfx[p2]
         return min(self.lrs[p1], self.lrs[p2])
@@ -419,18 +424,22 @@ class MO(FactorOracle):
             # NEW Implementation
             if self.params['dfunc'] == 'euclidean':
                 a = np.array(new_data) - np.array([self.f_array[t] for t in self.trn[k]])
-                dvec = np.sqrt((a*a).sum(axis=1)) 
+                dvec = np.sqrt((a*a).sum(axis=1))
+            elif self.params['dfunc'] == 'other':
+                dvec = self.dfunc_handle(new_data, [self.f_array[t] for t in self.trn[k]])
+                
             # if no transition from suffix
             I = find(dvec < self.params['threshold'])
             if len(I) == 0:
                 self.trn[k].append(i) # Create a new forward lint to unvisited state
                 trn_list.append(k)
                 pi_1 = k
+                k = self.sfx[k]
             else:
                 suffix_candidate = self.trn[k][I[np.argmin(dvec[I])]]
                 trn_list.append(i-1)
                 break
-            k = self.sfx[k]
+#             k = self.sfx[k]
 
         if k == None:
             self.sfx[i] = 0
@@ -473,7 +482,7 @@ def _build_factor_oracle(oracle, input_data):
         oracle.add_state(obs)
     return oracle
  
-def build_oracle(input_data, flag, threshold = 0, feature = None, weights = None, dfunc = 'euclidean'):
+def build_oracle(input_data, flag, threshold = 0, feature = None, weights = None, dfunc = 'euclidean', dfunc_handle = None):
     
     # initialize weights if needed 
     if weights == None:
@@ -481,21 +490,21 @@ def build_oracle(input_data, flag, threshold = 0, feature = None, weights = None
         weights.setdefault(feature, 1.0)
 
     if flag == 'a' or flag == 'f':
-        oracle = _create_oracle(flag, threshold = threshold, weights = weights, dfunc = dfunc)
+        oracle = _create_oracle(flag, threshold = threshold, weights = weights, dfunc = dfunc, dfunc_handle = dfunc_handle)
     else:
-        oracle = _create_oracle('a', threshold = threshold, weights = weights, dfunc = dfunc)
+        oracle = _create_oracle('a', threshold = threshold, weights = weights, dfunc = dfunc, dfunc_handle = dfunc_handle)
              
     oracle = _build_factor_oracle(oracle, input_data)
     return oracle 
     
 
-def find_threshold(input_data, r = (0,1,0.1), flag = 'a', feature = None, ir_type='cum', dfunc ='euclidean', VERBOSE = False):
+def find_threshold(input_data, r = (0,1,0.1), flag = 'a', feature = None, ir_type='cum', dfunc ='euclidean', dfunc_handle = None, VERBOSE = False):
     thresholds = np.arange(r[0], r[1], r[2])
     irs = []
     for t in thresholds:
         if VERBOSE:
             print 'testing threshold:', t
-        tmp_oracle = build_oracle(input_data, flag = flag, threshold = t, feature = feature, dfunc = dfunc)
+        tmp_oracle = build_oracle(input_data, flag = flag, threshold = t, feature = feature, dfunc = dfunc, dfunc_handle = dfunc_handle)
         tmp_ir, code, compror = tmp_oracle.IR(ir_type = ir_type)
         # is it a sum?
         if ir_type=='old' or ir_type=='cum':

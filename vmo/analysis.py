@@ -36,7 +36,7 @@ def create_selfsim(oracle, method = 'compror'):
             oracle.encode()
         ind = 0
         inc = 1
-        for l, p in oracle.code:
+        for l, p in oracle.code: # l for length, p for position
             if l == 0:
                 inc = 1
             else:
@@ -47,18 +47,24 @@ def create_selfsim(oracle, method = 'compror'):
                     mat[p+i-1][ind+i] = 1
             ind = ind + inc
     elif method == 'suffix':
-        for i, s in enumerate(oracle.sfx):
-            while s != None and s != 0:
-                mat[i-1][s-1] = 1
-                mat[s-1][i-1] = 1 
+        for i, s in enumerate(oracle.sfx[1:]):
+            while s != 0:
+                mat[i][s-1] = 1
+                mat[s-1][i] = 1 
                 s = oracle.sfx[s] 
     elif method == 'rsfx':
-        for i in range(len(oracle.latent)):
-            _l = oracle.latent[i]
+        for _l in oracle.latent:
             p = itertools.product(_l, repeat = 2)
             for _p in p:
-                mat[_p[0]-1][_p[1]-1] = 1            
+                mat[_p[0]-1][_p[1]-1] += 1   
+    elif method == 'lrs':
+        for i,l in enumerate(oracle.lrs[1:]):
+            if l != 0:
+                s = oracle.sfx[i+1]
+                mat[range((s-l)+1,s+1), range(i-l+1,i+1)] = 1
+                mat[range(i-l+1,i+1), range((s-l)+1,s+1)] = 1
     return mat
+
 
 def create_transition(oracle, method = 'trn'):
     if oracle.kind == 'r':
@@ -196,7 +202,14 @@ def logEval(oracle, testSequence, ab = [], m_order = None, VERBOSE = 0):
             
             
 def cluster(oracle):
-    raise NotImplementedError("cluster() is under construction, coming soon!")
+    prev_sfx = -1
+    
+    for i in range(oracle.n_states-1,0,-1): 
+        if oracle.sfx[i] != prev_sfx:
+            _l = oracle.lrs[i]
+            _s = oracle.sfx[i]
+            _suffix = oracle.data[i-_l+1:i+1]
+            _factor = oracle.data[_s-_l+1:_s+1]
     
 def segment(oracle):
     raise NotImplementedError("segment() is under construction, coming soon!")
@@ -237,7 +250,6 @@ def _query_k(k, i, P, oracle, query, trn, state_cache, dist_cache, smooth = Fals
         dist_cache[t_unseen] = _query_decode(oracle, query[i], t_unseen)
     dvec = dist_cache[t]
     if smooth and P[i-1][k] < oracle.n_states-1:
-#         dvec = dvec * (1.0-weight) + weight*np.array([D[_t-1][P[i-1][k]] for _t in t])            
         dvec = dvec * (1.0-weight) + weight*np.array([D[P[i-1][k]][_t-1] for _t in t])            
     _m = np.argmin(dvec)
     return t[_m], dvec[_m]

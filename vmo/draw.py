@@ -1,23 +1,23 @@
 '''
 DrawOracle.py
-drawing routines for PyOracle
+drawing routines for vmo
 
-Copyright (C) 12.02.2013 Greg Surges
+Copyright (C) 8.20.2014 Cheng-i Wang
 
-This file is part of PyOracle.
+This file is part of vmo.
 
-PyOracle is free software: you can redistribute it and/or modify
+vmo is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation, either version 3 of the License, or
 (at your option) any later version.
 
-PyOracle is distributed in the hope that it will be useful,
+vmo is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with PyOracle.  If not, see <http://www.gnu.org/licenses/>.
+along with vmo.  If not, see <http://www.gnu.org/licenses/>.
 '''
 
 from random import randint
@@ -29,35 +29,22 @@ except:
 
 width = 900 * 4 
 height = 400 * 4
-oracle = None
-image = None
-
 lrs_threshold = 0
 
 def start_draw(_oracle, size=(900*4, 400*4)):
-    global oracle
-    global image
-    global width, height
     
     width = size[0]
     height = size[1]
     current_state = 0
-    image = Image.new('RGB', (size[0], size[1]))
+    image = Image.new('RGB', (width, height))
     oracle = _oracle 
-    return draw(current_state)
+    return draw(oracle, current_state, width, height, image)
 
-def draw(current_state):
+def draw(oracle, current_state, width, height, image):
     
-    if type(oracle) == dict:
-        trn = oracle['trn']
-        sfx = oracle['sfx']
-        lrs = oracle['lrs']
-        rsfx = oracle['rsfx']
-    else:
-        trn = oracle.trn
-        sfx = oracle.sfx
-        lrs = oracle.lrs
-        rsfx = oracle.rsfx
+    trn = oracle.trn
+    sfx = oracle.sfx
+    lrs = oracle.lrs
     
     # handle to Draw object - PIL
     N_states = len(sfx)
@@ -101,3 +88,9 @@ def draw(current_state):
 
 def draw_compror():
     raise NotImplementedError("Compror drawing is under construction, coming soon!")
+
+
+
+
+
+
