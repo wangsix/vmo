@@ -1,11 +1,12 @@
 from distutils.core import setup
 
 setup(name="vmo",
+      packages = ['vmo'],
       version="0.1",
       description="vmo - Variable Markov Oracle in Python",
       author="Cheng-i Wang",
       author_email='chw160@ucsd.edu',
-      url='',
+      url='https://bitbucket.org/ciwang/vmo',
       py_modules = [
                     'vmo',
                     'vmo.analysis',

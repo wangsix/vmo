@@ -24,6 +24,7 @@ import scipy.spatial.distance as dist
 import sys
 import itertools
 from functools import partial
+from scipy.stats import multivariate_normal
 
 def create_selfsim(oracle, method = 'compror'): 
     """ Create self similarity matrix from compror codes or suffix links
@@ -67,23 +68,23 @@ def create_selfsim(oracle, method = 'compror'):
 
 
 def create_transition(oracle, method = 'trn'):
-    if oracle.kind == 'r':
-        mat, hist = _create_trn_mat_symbolic(oracle, method)
-        return mat, hist
-    elif oracle.kind ==  'a':
-        raise NotImplementedError("Audio version is under construction, coming soon!")
+#     if oracle.kind == 'r':
+#         mat, hist = _create_trn_mat_symbolic(oracle, method)
+#         return mat, hist
+#     elif oracle.kind ==  'a':
+#         raise NotImplementedError("Audio version is under construction, coming soon!")
+    mat, hist = _create_trn_mat_symbolic(oracle, method)
+    return mat, hist
 
 def _create_trn_mat_symbolic(oracle, method):
-    n = oracle.get_num_symbols()
-    sym_list = [oracle.data[_s] for _s in oracle.trn[0]]
+    n = oracle.num_clusters()
+    sym_list = [oracle.data[_s] for _s in oracle.rsfx[0]]
     hist = np.zeros((n))
     mat = np.zeros((n,n))
     for i in range(1, oracle.n_states-1):
         _i = sym_list.index(oracle.data[i])
         if method == 'trn':
             trn_list = oracle.trn[i]
-#         elif method == 'rsfx':
-#             trn_list = oracle.rsfx[i]
         elif method == 'seq':
             trn_list = [i+1]
 
@@ -322,4 +323,33 @@ def query_complete(oracle, query, method = 'trn', selftrn = True, smooth = False
     P = map(list, zip(*P))
     return P, C, i_hat    
 
+def infer(oracle, obs):
+    pass
 
+def query(oracle, query):    
+    if oracle.kind == 'a':
+        mean = [np.mean([oracle.f_array[i] for i in la], axis = 0) for la in oracle.latent]
+    elif oracle.kind == 'v':
+        mean = oracle.centroid[:]
+    
+    tran_mat, hist = create_transition(oracle)
+    hist = hist/hist.sum()
+
+    N = len(query)
+    K = oracle.num_clusters()
+    covariance = [np.cov([oracle.f_array[i] for i in la], rowvar = 0) for la in oracle.latent]
+    rv  = [multivariate_normal(mean[i], covariance[i]) for i in range(K)]
+    C = np.zeros(K)
+    A = np.zeros((N,K))
+    L = np.zeros(N)
+    #Initialization
+    for k in range(K):
+        A[0][k] = hist[k]*rv[k].pdf(query[0])
+    L[0] = A[0].sum()
+    #Induction
+    for i in range(1,N):
+        for k in range(K):
+            A[i][k] = (A[i-1]*tran_mat[k]).sum()*rv[k].pdf(query[i])
+        L[i] = A[i].sum()
+            
+    return A, L

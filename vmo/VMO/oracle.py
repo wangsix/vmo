@@ -128,7 +128,26 @@ class FactorOracle(object):
         self.trn.append([])
         self.lrs.append(0)
         self.data.append(0)
-
+    
+    def reset(self, **kwargs):
+        self.update_params(**kwargs)
+        # Basic attributes
+        self.sfx = []
+        self.trn = []
+        self.rsfx= []
+        self.lrs = []
+        self.data= [] 
+        
+        # Compression attributes
+        self.compror = []
+        self.code = []    
+        self.seg = []   
+        self.name = ''
+        
+        # Oracle statistics
+        self.n_states = 1
+        self.max_lrs = 0
+        
     def update_params(self, **kwargs):
         """Subclass this"""
         self.params.update(kwargs)
@@ -250,10 +269,11 @@ class FactorOracle(object):
     
     def IR(self, alpha = 1.0, ir_type = 'cum'):
         if ir_type == 'cum':
-            ir, code, compror = self._ir_cum(alpha)
-        else:
-            ir, code, compror = self._ir(alpha)
-        return ir, code, compror 
+            ir, _code, _compror = self._ir_cum(alpha)
+            return ir
+        elif ir_type == 'all':
+            ir, _code, _compror = self._ir(alpha)
+            return ir[1]
         
     def num_clusters(self):
         return len(self.rsfx[0])
@@ -377,13 +397,30 @@ class MO(FactorOracle):
     def __init__(self, **kwargs):
         super(MO, self).__init__(**kwargs)
         self.kind = 'a'
-        self.feature = [0]
         self.f_array = [0]
         self.data[0] = None
         self.latent = []
         
         # including connectivity
         self.con = []
+    
+    def reset(self, **kwargs):
+        super(MO, self).reset(**kwargs)
+
+        self.sfx.append(None)
+        self.rsfx.append([])
+        self.trn.append([])
+        self.lrs.append(0)
+        self.data.append(0)
+
+        self.kind = 'a'
+        self.f_array = [0]
+        self.data[0] = None
+        self.latent = []
+        
+        # including connectivity
+        self.con = []
+
     
     def add_state(self, new_data):
         """Create new state and update related links and compressed state"""
@@ -393,7 +430,6 @@ class MO(FactorOracle):
         self.lrs.append(0)
 
         # Experiment with pointer-based  
-        self.feature.append(new_data)
         self.f_array.append(new_data)        
 
         self.n_states += 1 
@@ -431,7 +467,7 @@ class MO(FactorOracle):
             # if no transition from suffix
             I = find(dvec < self.params['threshold'])
             if len(I) == 0:
-                self.trn[k].append(i) # Create a new forward lint to unvisited state
+                self.trn[k].append(i) # Create a new forward link to unvisited state
                 trn_list.append(k)
                 pi_1 = k
                 k = self.sfx[k]
@@ -463,7 +499,89 @@ class MO(FactorOracle):
         if self.lrs[i] > self.max_lrs:
             self.max_lrs = self.lrs[i]
             
-                         
+class VMO(FactorOracle):                 
+    def __init__(self, **kwargs):
+        super(VMO, self).__init__(**kwargs)
+        self.kind = 'v'
+        self.f_array = [0]
+        self.data[0] = None
+        self.latent = []
+        self.centroid = []
+        self.hist = []
+        
+        # including connectivity
+        self.con = []
+        self.transition = []
+        
+    def add_state(self, new_data):          
+        self.sfx.append(0)
+        self.rsfx.append([])
+        self.trn.append([])
+        self.lrs.append(0)
+
+        # Experiment with pointer-based  
+        self.f_array.append(new_data)        
+
+        self.n_states += 1 
+        i = self.n_states - 1
+    
+        # assign new transition from state i-1 to i
+        self.trn[i - 1].append(i)
+        k = self.sfx[i - 1] 
+        pi_1 = i - 1
+
+        dvec = []
+        trn_list = []
+        suffix_candidate = 0        
+        
+        while k != None:
+            # NEW Implementation
+            if self.params['dfunc'] == 'euclidean':
+                a = np.array(new_data) - np.array([self.centroid[self.data[t]] for t in self.trn[k]])
+                dvec = np.sqrt((a*a).sum(axis=1))
+            elif self.params['dfunc'] == 'other':
+                dvec = self.dfunc_handle(new_data, [self.centroid[self.data[t]] for t in self.trn[k]])
+                
+            # if no transition from suffix
+            I = find(dvec < self.params['threshold'])
+            if len(I) == 0:
+                self.trn[k].append(i) # Create a new forward link to unvisited state
+                trn_list.append(k)
+                pi_1 = k
+                k = self.sfx[k]
+            else:
+                suffix_candidate = self.trn[k][I[np.argmin(dvec[I])]]
+                trn_list.append(i-1)
+                break
+
+        if k == None:
+            self.sfx[i] = 0
+            self.lrs[i] = 0
+            self.latent.append([i])
+            self.hist.append(1)
+            self.data.append(len(self.latent)-1)
+            self.centroid.append(new_data)
+            if i > 1:
+                self.con[self.data[i-1]].add(self.data[i]) 
+                self.con.append(set([self.data[i]]))
+            else:
+                self.con.append(set([]))
+        else:
+            self.sfx[i] = suffix_candidate
+            self.lrs[i] = self._len_common_suffix(pi_1, self.sfx[i]-1) + 1
+            _i = self.data[self.sfx[i]]
+            self.latent[_i].append(i)
+            self.hist[_i] += 1
+            self.data.append(_i)
+            self.centroid[_i] = (self.centroid[_i] * (self.hist[_i]-1) + new_data)/self.hist[_i]
+            self.con[self.data[i-1]].add(self.data[i])
+            map(set.add, [self.con[self.data[c]] for c in trn_list], [self.data[i]]*len(trn_list))
+        self.rsfx[self.sfx[i]].append(i)
+        
+        if self.lrs[i] > self.max_lrs:
+            self.max_lrs = self.lrs[i]        
+                 
+                       
 def _entropy(x):
     x = np.divide(x, sum(x), dtype = float)
     return sum(np.multiply(-np.log2(x),x))
@@ -474,10 +592,15 @@ def _create_oracle(oracle_type, **kwargs):
         return FO(**kwargs)
     elif oracle_type == 'a':
         return MO(**kwargs)
+    elif oracle_type == 'v':
+        return VMO(**kwargs)
     else:
         return MO(**kwargs)
 
-def _build_factor_oracle(oracle, input_data):    
+def _build_factor_oracle(oracle, input_data):
+    if type(input_data) != np.ndarray or type(input_data[0]) != np.ndarray:
+        input_data = np.array(input_data)
+            
     for obs in input_data:
         oracle.add_state(obs)
     return oracle
@@ -489,7 +612,7 @@ def build_oracle(input_data, flag, threshold = 0, feature = None, weights = None
         weights = {}
         weights.setdefault(feature, 1.0)
 
-    if flag == 'a' or flag == 'f':
+    if flag == 'a' or flag == 'f' or flag == 'v':
         oracle = _create_oracle(flag, threshold = threshold, weights = weights, dfunc = dfunc, dfunc_handle = dfunc_handle)
     else:
         oracle = _create_oracle('a', threshold = threshold, weights = weights, dfunc = dfunc, dfunc_handle = dfunc_handle)
@@ -505,12 +628,9 @@ def find_threshold(input_data, r = (0,1,0.1), flag = 'a', feature = None, ir_typ
         if VERBOSE:
             print 'testing threshold:', t
         tmp_oracle = build_oracle(input_data, flag = flag, threshold = t, feature = feature, dfunc = dfunc, dfunc_handle = dfunc_handle)
-        tmp_ir, code, compror = tmp_oracle.IR(ir_type = ir_type)
+        tmp_ir = tmp_oracle.IR(ir_type = ir_type)
         # is it a sum?
-        if ir_type=='old' or ir_type=='cum':
-            irs.append(tmp_ir.sum())
-        else:
-            irs.append(tmp_ir[1].sum())
+        irs.append(tmp_ir.sum())
     # now pair irs and thresholds in a vector, and sort by ir
     ir_thresh_pairs = [(a,b) for a, b in zip(irs, thresholds)]
     pairs_return = ir_thresh_pairs
