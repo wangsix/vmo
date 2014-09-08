@@ -323,6 +323,44 @@ def query_complete(oracle, query, method = 'trn', selftrn = True, smooth = False
     P = map(list, zip(*P))
     return P, C, i_hat    
 
+def find_repeated_patterns(oracle, lower = 1):
+    pattern_list = []
+    prev_sfx = oracle.sfx[-1]+1
+    prev_pre = oracle.n_states - oracle.lrs[-1] -1
+    for i in range(oracle.n_states-1,2,-1):
+        sfx = oracle.sfx[i]
+        pattern_found = False
+        if (prev_sfx - sfx != 1 
+            and sfx != 0 
+            and i-oracle.lrs[i]+1 > sfx 
+            and oracle.lrs[i] > lower
+            and i-oracle.lrs[i] != prev_pre):
+            for p in pattern_list:
+                if sfx in p[0]:
+                    p[0].append(i)
+                    lrs_len = np.min([p[1], oracle.lrs[i]])
+                    p[1] = lrs_len
+                    pattern_found = True
+                    break
+                else:
+                    pattern_found = False
+            if not pattern_found:
+                pattern_rsfx = False
+                for p in pattern_list:
+                    if oracle.rsfx[i] in p[0]:
+                        pattern_list.append([[oracle.rsfx[i], i, sfx], oracle.lrs[i]])
+                        pattern_rsfx = True
+                        break
+                    else:
+                        pattern_rsfx = False
+                if not pattern_rsfx:
+                    pattern_list.append([[i, sfx], oracle.lrs[i]])
+            prev_sfx = sfx
+            prev_pre = i - oracle.lrs[i]
+        else:
+            prev_sfx = oracle.sfx[i-1]
+    return pattern_list
+            
 def infer(oracle, obs):
     pass
 
