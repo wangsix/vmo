@@ -325,18 +325,15 @@ def query_complete(oracle, query, method = 'trn', selftrn = True, smooth = False
 
 def find_repeated_patterns(oracle, lower = 1):
     pattern_list = [] 
-    prev_sfx = oracle.sfx[-1]+1
-#     prev_pre = oracle.n_states - oracle.lrs[-1] - 1
+    prev_sfx = -1
     for i in range(oracle.n_states-1,2,-1):
         sfx = oracle.sfx[i]
         rsfx = oracle.rsfx[i]        
         pattern_found = False
         if (
-#             prev_sfx - sfx != 1 # discontinuity of suffixes 
             sfx != 0 # not pointing to zeroth state
             and i-oracle.lrs[i]+1 > sfx 
             and oracle.lrs[i] > lower # constraint on length of patterns
-#             and i-oracle.lrs[i] != prev_pre # avoid duplicate pattern
             ): 
             for p in pattern_list: # for existing pattern
                 if [_p for _p in p[0] if _p - p[1] < i and _p > i] == []:           
@@ -344,33 +341,27 @@ def find_repeated_patterns(oracle, lower = 1):
                         p[0].append(i)
                         lrs_len = np.min([p[1], oracle.lrs[i]])
                         p[1] = lrs_len
-                        print str(p) + ' updated at position '+ str(i)
                         pattern_found = True
                         break
                     else:
                         pattern_found = False
             if (prev_sfx - sfx != 1
-#                 and i-oracle.lrs[i] != prev_pre
                 and not pattern_found 
                 ):
-#                 rsfx_lrs = np.array(oracle.lrs)[rsfx]
-#                 _rsfx = np.array(rsfx)[np.where(rsfx_lrs >= oracle.lrs[i])[0]].tolist()              
                 _rsfx = np.array(rsfx).tolist()             
                 if _rsfx != []:
                     _rsfx.extend([i, sfx])
                     _len =np.array(oracle.lrs)[_rsfx[:-1]].min()
                     if _len > lower:
                         pattern_list.append([_rsfx, _len])                    
-                        print str(pattern_list[-1]) + ' pattern found at position '+ str(i)
                 else:
                     pattern_list.append([[i, sfx], oracle.lrs[i]])
-                    print str(pattern_list[-1]) + ' pattern found at position '+ str(i)
             prev_sfx = sfx
-#             prev_pre = i - oracle.lrs[i]
         else:
-            prev_sfx = oracle.sfx[i-1]
+#             prev_sfx = oracle.sfx[i-1]
+            prev_sfx = -1
     return pattern_list
-            
+
 def infer(oracle, obs):
     pass
 
