@@ -20,9 +20,21 @@ determine oracle structure and query-matching algorithms.
 
 Dependencies
 ------------
-Numpy, Scipy & Matplotlib, (optional for ipython notebooks) bregman, sklearn 
+Numpy, Scipy & Matplotlib 
+
+(optional for ipython notebooks) bregman, sklearn 
 
 
 Installation
 ------------
 run python setup.py install
+
+Friendly Reminder
+————————
+If the VMO package is used for any research works result in publications, please cite the following paper.
+
+>@InProceedings{Wang2014,
+>  Title                    = {Guided Music Synthesis with Variable Markov Oracle},
+>  Author                   = {Wang, Cheng-i and Dubnov, Shlomo},
+>  Booktitle                = {3rd International Workshop on Musical Metacreation, 10th Artificial Intelligence and Interactive Digital Entertainment Conference},
+>  Year                     = {2014}}
