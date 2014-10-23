@@ -20,8 +20,7 @@ determine oracle structure and query-matching algorithms.
 
 Dependencies
 ------------
-Numpy, Scipy & Matplotlib
-(optional for ipython notebooks) bregman, sklearn 
+Numpy, Scipy & Matplotlib, (optional for ipython notebooks) bregman, sklearn 
 
 
 Installation
