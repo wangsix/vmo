@@ -2,7 +2,7 @@
 oracle.py
 Variable Markov Oracle in python
 
-Copyright (C) 7.28.2013 Cheng-i Wang, Greg Surges
+Copyright (C) 9.2014 Cheng-i Wang, Greg Surges
 
 This file is part of vmo.
 
