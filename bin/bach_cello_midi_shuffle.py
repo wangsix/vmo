@@ -28,9 +28,22 @@ import os
 
 def main():
     """
-    This example shows how to parse a music mxl file (music21 required) 
-    and create a simple oracle representation. A self-similarity matrix based
-    on suffix links and a new melody line are created using the pyoracle. 
+    This example shows how to parse a music mxl file (music21 and musescore/finale required) 
+    and create a simple oracle representation. The output is a reshuffled midi stream shown
+    in either musescore or finale based on your installation of music21. 
+    
+    OPTIONAL ARGS:
+        seq_len: an integer for the length of the output sequence. 
+        p: a float of the probability using the forward links.
+        k: an integer for the starting state.
+        LRS: an integer for the lower limit of the LRS of sfx/rsfx allowed to 
+            jump to.
+        weight:
+            None: choose uniformly among all the possible sfx/rsfx given 
+                current state.
+            "max": always choose the sfx/rsfx having the longest LRS.
+            "weight": choose sfx/rsfx in a way that favors longer ones than 
+            shorter ones.        
     """
     filename = os.path.abspath('') + '/Suite_No_1_for_Cello_M1_Prelude.mxl'
     s = music21.converter.parse(filename)
