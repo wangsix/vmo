@@ -273,7 +273,6 @@ class FactorOracle(object):
 #             h0 = np.log2(self.num_clusters())
 
         h0 = np.log2(self.num_clusters())
-
         
         if self.max_lrs[-1] == 0:
             h1 = np.log2(self.n_states-1) 
