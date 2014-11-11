@@ -111,7 +111,11 @@ class FactorOracle(object):
         
         # Oracle statistics
         self.n_states = 1
-        self.max_lrs = 0
+#         self.max_lrs = 0 
+        self.max_lrs = []
+        self.max_lrs.append(0)
+        self.avg_lrs = []
+        self.avg_lrs.append(0.0)
         
         # Oracle parameters
         self.params = {
@@ -146,7 +150,8 @@ class FactorOracle(object):
         
         # Oracle statistics
         self.n_states = 1
-        self.max_lrs = 0
+        self.max_lrs = []
+        self.avg_lrs = []
         
     def update_params(self, **kwargs):
         """Subclass this"""
@@ -155,25 +160,51 @@ class FactorOracle(object):
     def add_state(self, new_data):
         """Subclass this"""
         pass
-
-    def encode(self): #Referenced from IR module
+    
+    def _encode(self):
+        _code = []
+        _compror = []
         if self.compror == []:
             j = 0
         else:
             j = self.compror[-1][0]
-            
+        
         i = j
         while j < self.n_states-1:
             while i < self.n_states - 1 and self.lrs[i + 1] >= i - j + 1:
                 i = i + 1
             if i == j:
                 i = i + 1
-                self.code.append((0,i))
-                self.compror.append((i,0))
+                _code.append((0,i))
+                _compror.append((i,0))
             else:
-                self.code.append((i - j, self.sfx[i] - i + j + 1))
-                self.compror.append((i,i-j)) 
+                _code.append((i - j, self.sfx[i] - i + j + 1))
+                _compror.append((i,i-j)) 
             j = i
+        return _code, _compror
+        
+    def encode(self): #Referenced from IR module
+        _c, _cmpr = self._encode()
+        self.code.extend(_c)
+        self.compror.extend(_cmpr)
+        
+#         if self.compror == []:
+#             j = 0
+#         else:
+#             j = self.compror[-1][0]
+#              
+#         i = j
+#         while j < self.n_states-1:
+#             while i < self.n_states - 1 and self.lrs[i + 1] >= i - j + 1:
+#                 i = i + 1
+#             if i == j:
+#                 i = i + 1
+#                 self.code.append((0,i))
+#                 self.compror.append((i,0))
+#             else:
+#                 self.code.append((i - j, self.sfx[i] - i + j + 1))
+#                 self.compror.append((i,i-j)) 
+#             j = i
         return self.code, self.compror
         
     def segment(self):
@@ -212,13 +243,12 @@ class FactorOracle(object):
         """Referenced from IR.py
         """
         code, _ = self.encode()
-        cw = np.zeros(len(code))
+        cw = np.zeros(len(code)) # Number of code words
         for i, c in enumerate(code):
             cw[i] = c[0]+1
     
         c0 = [1 if x[0] == 0 else 0 for x in self.code]
         h0 = np.log2(np.cumsum(c0))
-#         h0 = np.array([np.log2(x) for x in np.cumsum(c0)])
     
         dti = [1 if x[0] == 0 else x[0] for x in self.code]
         ti = np.cumsum(dti)
@@ -228,20 +258,50 @@ class FactorOracle(object):
         for i in range(1, len(cw)):
             h[i] = _entropy(cw[0:i+1])
     
-#         h = np.array(h)
-#         h0 = np.array(h0)
         ir = ti, alpha*h0-h
     
         return ir, self.code, self.compror
-            
+    
+    def _ir_fixed(self):
+        code, _ = self.encode()
+         
+#         if self.kind == 'v':
+#             p = np.array([len(sym) for sym in self.latent])
+#             p = p/(self.n_states-1.0)
+#             h0 = np.log2(p).dot(-p)
+#         else:
+#             h0 = np.log2(self.num_clusters())
+
+        h0 = np.log2(self.num_clusters())
+
+        
+        if self.max_lrs[-1] == 0:
+            h1 = np.log2(self.n_states-1) 
+        else:
+            h1 = np.log2(self.n_states-1) + np.log2(self.max_lrs[-1])
+                
+        BL = np.zeros(self.n_states-1)        
+        j = 0
+        for i in range(len(code)):
+            if self.code[i][0] == 0:
+                BL[j] = 1
+                j = j+1
+            else:
+                L = code[i][0]    
+                BL[j:j+L] = L #range(1,L+1)
+                j = j+L
+        ir = h0 - h1/BL
+        ir[ir<0] = 0
+        return ir, self.code, self.compror
+        
     def _ir_cum(self, alpha=1.0):
         code, _ = self.encode()
         
         N = self.n_states
     
-        cw0 = np.zeros(N) #cw0 counts the appearance of new states only 
-        cw1 = np.zeros(N) #cw1 counts the appearance of all compror states
-        BL = np.zeros(N)  #BL is the block length of compror codewords
+        cw0 = np.zeros(N-1) #cw0 counts the appearance of new states only 
+        cw1 = np.zeros(N-1) #cw1 counts the appearance of all compror states
+        BL = np.zeros(N-1)  #BL is the block length of compror codewords
     
         j = 0
         for i in range(len(code)):
@@ -252,9 +312,7 @@ class FactorOracle(object):
                 j = j+1
             else:
                 L = code[i][0]    
-#                 cw0[j:j+L] = np.zeros(L)
                 cw1[j] = 1
-#                 cw1[j:j+L] = np.concatenate(([1], np.zeros(L-1)))
                 BL[j:j+L] = L #range(1,L+1)
                 j = j+L
     
@@ -263,9 +321,41 @@ class FactorOracle(object):
         H1 = H1/BL
         ir = alpha*H0 - H1
         ir[ir<0] = 0
-#         ir = np.max(np.append(ir,0))
         
-        return ir, self.code, self.compror        
+        return ir, self.code, self.compror 
+        
+    def _ir_cum2(self):
+        code, _ = self.encode()
+        
+        N = self.n_states        
+        BL = np.zeros(N-1)  #BL is the block length of compror codewords
+    
+        h0 = np.log2(np.cumsum([1.0 if sfx == 0 else 0.0 for sfx in self.sfx[1:]]))
+        """
+        h1 = np.array([h if m == 0 else h+np.log2(m) 
+                       for h,m in zip(h0,self.lrs[1:])])
+        h1 = np.array([h if m == 0 else h+np.log2(m) 
+                       for h,m in zip(h0,self.max_lrs[1:])])
+        h1 = np.array([h if m == 0 else h+np.log2(m) 
+                       for h,m in zip(h0,self.avg_lrs[1:])])
+        """
+        h1 = np.array([np.log2(i+1) if m == 0 else np.log2(i+1)+np.log2(m) 
+                       for i,m in enumerate(self.max_lrs[1:])])
+        
+        j = 0
+        for i in range(len(code)):
+            if self.code[i][0] == 0:
+                BL[j] = 1
+                j = j+1
+            else:
+                L = code[i][0]    
+                BL[j:j+L] = L #range(1,L+1)
+                j = j+L
+    
+        h1 = h1/BL
+        ir = h0 - h1
+        ir[ir<0] = 0 #Really a HACK here!!!!!
+        return ir, self.code, self.compror
     
     def IR(self, alpha = 1.0, ir_type = 'cum'):
         if ir_type == 'cum':
@@ -274,6 +364,12 @@ class FactorOracle(object):
         elif ir_type == 'all':
             ir, _code, _compror = self._ir(alpha)
             return ir[1]
+        elif ir_type == 'fixed':
+            ir, _code, _compror = self._ir_fixed()
+            return ir
+        elif ir_type == 'cum2':
+            ir, _code, _compror = self._ir_cum2()
+            return ir
         
     def num_clusters(self):
         return len(self.rsfx[0])
@@ -365,8 +461,13 @@ class FO(FactorOracle):
             self.sfx[i] = k
         self.rsfx[self.sfx[i]].append(i)
         
-        if self.lrs[i] > self.max_lrs:
-            self.max_lrs = self.lrs[i]
+        if self.lrs[i] > self.max_lrs[i-1]:
+            self.max_lrs.append(self.lrs[i])
+        else:
+            self.max_lrs.append(self.max_lrs[i-1])
+        
+        self.avg_lrs.append(self.avg_lrs[i-1]*((i-1.0)/(self.n_states-1.0)) + 
+                            self.lrs[i]*(1.0/(self.n_states-1.0)))
     
     def accept(self, context):
         """ Check if the context could be accepted by the oracle
@@ -496,8 +597,17 @@ class MO(FactorOracle):
             map(set.add, [self.con[self.data[c]] for c in trn_list], [self.data[i]]*len(trn_list))
         self.rsfx[self.sfx[i]].append(i)
         
-        if self.lrs[i] > self.max_lrs:
-            self.max_lrs = self.lrs[i]
+#         if self.lrs[i] > self.max_lrs:
+#             self.max_lrs = self.lrs[i]
+
+        if self.lrs[i] > self.max_lrs[i-1]:
+            self.max_lrs.append(self.lrs[i])
+        else:
+            self.max_lrs.append(self.max_lrs[i-1])
+        
+        self.avg_lrs.append(self.avg_lrs[i-1]*((i-1.0)/(self.n_states-1.0)) + 
+                            self.lrs[i]*(1.0/(self.n_states-1.0)))
+
             
 class VMO(FactorOracle):                 
     def __init__(self, **kwargs):
@@ -578,8 +688,15 @@ class VMO(FactorOracle):
             map(set.add, [self.con[self.data[c]] for c in trn_list], [self.data[i]]*len(trn_list))
         self.rsfx[self.sfx[i]].append(i)
         
-        if self.lrs[i] > self.max_lrs:
-            self.max_lrs = self.lrs[i]        
+#         if self.lrs[i] > self.max_lrs:
+#             self.max_lrs = self.lrs[i]        
+        if self.lrs[i] > self.max_lrs[i-1]:
+            self.max_lrs.append(self.lrs[i])
+        else:
+            self.max_lrs.append(self.max_lrs[i-1])
+
+        self.avg_lrs.append(self.avg_lrs[i-1]*((i-1.0)/(self.n_states-1.0)) + 
+                            self.lrs[i]*(1.0/(self.n_states-1.0)))
                  
                        
 def _entropy(x):
@@ -621,7 +738,7 @@ def build_oracle(input_data, flag, threshold = 0, feature = None, weights = None
     return oracle 
     
 
-def find_threshold(input_data, r = (0,1,0.1), flag = 'a', feature = None, ir_type='cum', dfunc ='euclidean', dfunc_handle = None, VERBOSE = False):
+def find_threshold(input_data, r = (0,1,0.1), flag = 'v', feature = None, ir_type='cum', dfunc ='euclidean', dfunc_handle = None, VERBOSE = False):
     thresholds = np.arange(r[0], r[1], r[2])
     irs = []
     for t in thresholds:
