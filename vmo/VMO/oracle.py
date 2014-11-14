@@ -111,7 +111,6 @@ class FactorOracle(object):
         
         # Oracle statistics
         self.n_states = 1
-#         self.max_lrs = 0 
         self.max_lrs = []
         self.max_lrs.append(0)
         self.avg_lrs = []
@@ -146,13 +145,25 @@ class FactorOracle(object):
         self.compror = []
         self.code = []    
         self.seg = []   
+        
+        # Object attributes
+        self.kind = 'f'
         self.name = ''
         
         # Oracle statistics
         self.n_states = 1
         self.max_lrs = []
+        self.max_lrs.append(0)
         self.avg_lrs = []
-        
+        self.avg_lrs.append(0.0)
+
+        # Adding zero state
+        self.sfx.append(None)
+        self.rsfx.append([])
+        self.trn.append([])
+        self.lrs.append(0)
+        self.data.append(0)
+
     def update_params(self, **kwargs):
         """Subclass this"""
         self.params.update(kwargs)
@@ -187,24 +198,25 @@ class FactorOracle(object):
         _c, _cmpr = self._encode()
         self.code.extend(_c)
         self.compror.extend(_cmpr)
-        
-#         if self.compror == []:
-#             j = 0
-#         else:
-#             j = self.compror[-1][0]
-#              
-#         i = j
-#         while j < self.n_states-1:
-#             while i < self.n_states - 1 and self.lrs[i + 1] >= i - j + 1:
-#                 i = i + 1
-#             if i == j:
-#                 i = i + 1
-#                 self.code.append((0,i))
-#                 self.compror.append((i,0))
-#             else:
-#                 self.code.append((i - j, self.sfx[i] - i + j + 1))
-#                 self.compror.append((i,i-j)) 
-#             j = i
+        """
+        if self.compror == []:
+            j = 0
+        else:
+            j = self.compror[-1][0]
+              
+        i = j
+        while j < self.n_states-1:
+            while i < self.n_states - 1 and self.lrs[i + 1] >= i - j + 1:
+                i = i + 1
+            if i == j:
+                i = i + 1
+                self.code.append((0,i))
+                self.compror.append((i,0))
+            else:
+                self.code.append((i - j, self.sfx[i] - i + j + 1))
+                self.compror.append((i,i-j)) 
+            j = i
+        """
         return self.code, self.compror
         
     def segment(self):
@@ -356,6 +368,16 @@ class FactorOracle(object):
         ir[ir<0] = 0 #Really a HACK here!!!!!
         return ir, self.code, self.compror
     
+    def _ir_cum3(self):
+        
+        h0 = np.log2(np.cumsum([1.0 if sfx == 0 else 0.0 for sfx in self.sfx[1:]]))
+        h1 = np.array([h if m == 0 else (h+np.log2(m))/m 
+                       for h,m in zip(h0,self.lrs[1:])])
+        
+        ir = h0 - h1
+        ir[ir<0] = 0 #Really a HACK here!!!!!
+        return ir, self.code, self.compror        
+    
     def IR(self, alpha = 1.0, ir_type = 'cum'):
         if ir_type == 'cum':
             ir, _code, _compror = self._ir_cum(alpha)
@@ -369,7 +391,10 @@ class FactorOracle(object):
         elif ir_type == 'cum2':
             ir, _code, _compror = self._ir_cum2()
             return ir
-        
+        elif ir_type == 'cum3':
+            ir, _code, _compror = self._ir_cum3()
+            return ir
+    
     def num_clusters(self):
         return len(self.rsfx[0])
     
