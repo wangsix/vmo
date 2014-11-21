@@ -532,12 +532,6 @@ class MO(FactorOracle):
     def reset(self, **kwargs):
         super(MO, self).reset(**kwargs)
 
-        self.sfx.append(None)
-        self.rsfx.append([])
-        self.trn.append([])
-        self.lrs.append(0)
-        self.data.append(0)
-
         self.kind = 'a'
         self.f_array = [0]
         self.data[0] = None
@@ -646,7 +640,21 @@ class VMO(FactorOracle):
         # including connectivity
         self.con = []
         self.transition = []
+     
+    def reset(self, **kwargs):
+        super(VMO, self).reset(**kwargs)
+
+        self.kind = 'v'
+        self.f_array = [0]
+        self.data[0] = None
+        self.latent = []
+        self.centroid = []
+        self.hist = []
         
+        # including connectivity
+        self.con = []     
+        self.transition = []
+ 
     def add_state(self, new_data):          
         self.sfx.append(0)
         self.rsfx.append([])
