@@ -271,6 +271,10 @@ def _create_trn(oracle, prev):
         _trn = oracle.trn[oracle.sfx[prev]][:]
     return _trn
 
+
+def tracking(oracle, obs):
+    pass
+
 def query_complete(oracle, query, method = 'trn', selftrn = True, smooth = False, weight = 0.5):
     """ Return the closest path in target oracle given a query sequence
     
@@ -345,7 +349,8 @@ def find_repeated_patterns(oracle, lower = 1):
                         break
                     else:
                         pattern_found = False
-            if (prev_sfx - sfx != 1
+            if (
+                prev_sfx - sfx != 1
                 and not pattern_found 
                 ):
                 _rsfx = np.array(rsfx).tolist()             
@@ -358,7 +363,6 @@ def find_repeated_patterns(oracle, lower = 1):
                     pattern_list.append([[i, sfx], oracle.lrs[i]])
             prev_sfx = sfx
         else:
-#             prev_sfx = oracle.sfx[i-1]
             prev_sfx = -1
     return pattern_list
 
