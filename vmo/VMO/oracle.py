@@ -119,7 +119,7 @@ class FactorOracle(object):
         # Oracle parameters
         self.params = {
                        'threshold':0,
-                       'weights': {},
+#                        'weights': {},
                        'dfunc': 'euclidean',
                        'dfunc_handle':None
                        }
@@ -373,7 +373,7 @@ class FactorOracle(object):
         h0 = np.log2(np.cumsum([1.0 if sfx == 0 else 0.0 for sfx in self.sfx[1:]]))
         h1 = np.array([h if m == 0 else (h+np.log2(m))/m 
                        for h,m in zip(h0,self.lrs[1:])])
-        
+
         ir = h0 - h1
         ir[ir<0] = 0 #Really a HACK here!!!!!
         return ir, self.code, self.compror        
@@ -527,7 +527,7 @@ class MO(FactorOracle):
         self.latent = []
         
         # including connectivity
-        self.con = []
+#         self.con = []
     
     def reset(self, **kwargs):
         super(MO, self).reset(**kwargs)
@@ -538,10 +538,9 @@ class MO(FactorOracle):
         self.latent = []
         
         # including connectivity
-        self.con = []
+#         self.con = []
 
-    
-    def add_state(self, new_data):
+    def add_state(self, new_data, method = 'inc'):
         """Create new state and update related links and compressed state"""
         self.sfx.append(0)
         self.rsfx.append([])
@@ -562,7 +561,11 @@ class MO(FactorOracle):
         # iteratively backtrack suffixes from state i-1
         dvec = []
         trn_list = []
-        suffix_candidate = 0        
+        if method == 'inc':
+            suffix_candidate = 0   
+        elif method == 'complete':
+            suffix_candidate = []
+                      
         '''
         c = list(itertools.chain.from_iterable([self.latent[_c] for _c in list(self.con[self.data[k]])]))        
         if self.params['dfunc'] == 'euclidean':
@@ -572,11 +575,6 @@ class MO(FactorOracle):
         '''
         
         while k != None:
-            ''' OLD implementation
-            dvec = [get_distance(new_data, self.feature[s], self.params['weights'], self.params['dfunc']) for s in self.trn[k] if s != 0]
-            dvec = array(dvec)
-            '''
-            # NEW Implementation
             if self.params['dfunc'] == 'euclidean':
                 a = np.array(new_data) - np.array([self.f_array[t] for t in self.trn[k]])
                 dvec = np.sqrt((a*a).sum(axis=1))
@@ -587,32 +585,58 @@ class MO(FactorOracle):
             I = find(dvec < self.params['threshold'])
             if len(I) == 0:
                 self.trn[k].append(i) # Create a new forward link to unvisited state
-                trn_list.append(k)
+#                 trn_list.append(k)
                 pi_1 = k
+                if method != 'complete':
+                    k = self.sfx[k]
+            else:
+                if method == 'inc':
+                    suffix_candidate = self.trn[k][I[np.argmin(dvec[I])]]
+                    break
+                elif method == 'complete':
+                    suffix_candidate.append((self.trn[k][I[np.argmin(dvec[I])]], 
+                                             np.min(dvec)))
+#                 trn_list.append(i-1)
+            if method == 'complete':
                 k = self.sfx[k]
+                        
+        if method == 'complete':
+            if suffix_candidate == []:
+                self.sfx[i] = 0
+                self.lrs[i] = 0
+                self.latent.append([i])
+                self.data.append(len(self.latent)-1)
+#                 if i > 1:
+#                     self.con[self.data[i-1]].add(self.data[i]) 
+#                     self.con.append(set([self.data[i]]))
+#                 else:
+#                     self.con.append(set([]))
             else:
-                suffix_candidate = self.trn[k][I[np.argmin(dvec[I])]]
-                trn_list.append(i-1)
-                break
-#             k = self.sfx[k]
-
-        if k == None:
-            self.sfx[i] = 0
-            self.lrs[i] = 0
-            self.latent.append([i])
-            self.data.append(len(self.latent)-1)
-            if i > 1:
-                self.con[self.data[i-1]].add(self.data[i]) 
-                self.con.append(set([self.data[i]]))
-            else:
-                self.con.append(set([]))
+                self.sfx[i] = sorted(suffix_candidate, key = lambda suffix:suffix[1])[0][0]
+                self.lrs[i] = self._len_common_suffix(pi_1, self.sfx[i]-1) + 1
+                self.latent[self.data[self.sfx[i]]].append(i)
+                self.data.append(self.data[self.sfx[i]])
+#                 self.con[self.data[i-1]].add(self.data[i])
+#                 map(set.add, [self.con[self.data[c]] for c in trn_list], [self.data[i]]*len(trn_list))
         else:
-            self.sfx[i] = suffix_candidate
-            self.lrs[i] = self._len_common_suffix(pi_1, self.sfx[i]-1) + 1
-            self.latent[self.data[self.sfx[i]]].append(i)
-            self.data.append(self.data[self.sfx[i]])
-            self.con[self.data[i-1]].add(self.data[i])
-            map(set.add, [self.con[self.data[c]] for c in trn_list], [self.data[i]]*len(trn_list))
+            if k == None:
+                self.sfx[i] = 0
+                self.lrs[i] = 0
+                self.latent.append([i])
+                self.data.append(len(self.latent)-1)
+#                 if i > 1:
+#                     self.con[self.data[i-1]].add(self.data[i]) 
+#                     self.con.append(set([self.data[i]]))
+#                 else:
+#                     self.con.append(set([]))
+            else:
+                self.sfx[i] = suffix_candidate                    
+                self.lrs[i] = self._len_common_suffix(pi_1, self.sfx[i]-1) + 1
+                self.latent[self.data[self.sfx[i]]].append(i)
+                self.data.append(self.data[self.sfx[i]])
+#                 self.con[self.data[i-1]].add(self.data[i])
+#                 map(set.add, [self.con[self.data[c]] for c in trn_list], [self.data[i]]*len(trn_list))
+            
         self.rsfx[self.sfx[i]].append(i)
         
 #         if self.lrs[i] > self.max_lrs:
@@ -735,7 +759,7 @@ def _entropy(x):
     x = np.divide(x, sum(x), dtype = float)
     return sum(np.multiply(-np.log2(x),x))
 
-def _create_oracle(oracle_type, **kwargs):
+def _create_oracle(oracle_type,**kwargs):
     """A routine for creating a factor oracle."""
     if oracle_type == 'f':
         return FO(**kwargs)
@@ -746,15 +770,17 @@ def _create_oracle(oracle_type, **kwargs):
     else:
         return MO(**kwargs)
 
-def _build_factor_oracle(oracle, input_data):
+def _build_oracle(oracle, input_data, suffix_method = 'inc'):
     if type(input_data) != np.ndarray or type(input_data[0]) != np.ndarray:
         input_data = np.array(input_data)
             
     for obs in input_data:
-        oracle.add_state(obs)
+        oracle.add_state(obs, suffix_method)
     return oracle
  
-def build_oracle(input_data, flag, threshold = 0, feature = None, weights = None, dfunc = 'euclidean', dfunc_handle = None):
+def build_oracle(input_data, flag, 
+                 threshold = 0, suffix_method = 'inc', 
+                 feature = None, weights = None, dfunc = 'euclidean', dfunc_handle = None):
     
     # initialize weights if needed 
     if weights == None:
@@ -762,21 +788,24 @@ def build_oracle(input_data, flag, threshold = 0, feature = None, weights = None
         weights.setdefault(feature, 1.0)
 
     if flag == 'a' or flag == 'f' or flag == 'v':
-        oracle = _create_oracle(flag, threshold = threshold, weights = weights, dfunc = dfunc, dfunc_handle = dfunc_handle)
+        oracle = _create_oracle(flag, threshold = threshold, dfunc = dfunc, dfunc_handle = dfunc_handle)
     else:
-        oracle = _create_oracle('a', threshold = threshold, weights = weights, dfunc = dfunc, dfunc_handle = dfunc_handle)
+        oracle = _create_oracle('a', threshold = threshold, dfunc = dfunc, dfunc_handle = dfunc_handle)
              
-    oracle = _build_factor_oracle(oracle, input_data)
+    oracle = _build_oracle(oracle, input_data, suffix_method)
     return oracle 
     
 
-def find_threshold(input_data, r = (0,1,0.1), flag = 'v', feature = None, ir_type='cum', dfunc ='euclidean', dfunc_handle = None, VERBOSE = False):
+def find_threshold(input_data, r = (0,1,0.1), flag = 'a', suffix_method = 'inc', 
+                   feature = None, ir_type='cum', dfunc ='euclidean', dfunc_handle = None, VERBOSE = False):
     thresholds = np.arange(r[0], r[1], r[2])
     irs = []
     for t in thresholds:
         if VERBOSE:
-            print 'testing threshold:', t
-        tmp_oracle = build_oracle(input_data, flag = flag, threshold = t, feature = feature, dfunc = dfunc, dfunc_handle = dfunc_handle)
+            print 'Testing threshold:', t
+        tmp_oracle = build_oracle(input_data, flag = flag, 
+                                  threshold = t, suffix_method = suffix_method, 
+                                  feature = feature, dfunc = dfunc, dfunc_handle = dfunc_handle)
         tmp_ir = tmp_oracle.IR(ir_type = ir_type)
         # is it a sum?
         irs.append(tmp_ir.sum())
