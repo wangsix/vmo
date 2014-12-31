@@ -68,13 +68,8 @@ def create_selfsim(oracle, method = 'compror'):
 
 
 def create_transition(oracle, method = 'trn'):
-#     if oracle.kind == 'r':
-#         mat, hist = _create_trn_mat_symbolic(oracle, method)
-#         return mat, hist
-#     elif oracle.kind ==  'a':
-#         raise NotImplementedError("Audio version is under construction, coming soon!")
-    mat, hist = _create_trn_mat_symbolic(oracle, method)
-    return mat, hist
+    mat, hist, n = _create_trn_mat_symbolic(oracle, method)
+    return mat, hist, n
 
 def _create_trn_mat_symbolic(oracle, method):
     n = oracle.num_clusters()
@@ -97,7 +92,7 @@ def _create_trn_mat_symbolic(oracle, method):
             hist[_i] += 1
     mat = mat.transpose()/hist
     mat = mat.transpose()
-    return mat, hist
+    return mat, hist, n
 
 def _test_context(oracle, context):
     _b, _s = oracle.accept(context)
@@ -270,10 +265,62 @@ def _create_trn(oracle, prev):
     if _trn == []:
         _trn = oracle.trn[oracle.sfx[prev]][:]
     return _trn
+    
+    
+def _dist2prob(f, a):
+    return np.exp(-f/a)
+    
+def _tracking(oracle, obs, t = 1.0, trn_weight = 1.0, decay_rate=1.0):
+    """ The off-line tracking function (A proof of concept)"""
+    
+    a,pi,K = create_transition(oracle, method='seq')
+    N = len(obs)
+#     q_vec = np.zeros((K,)) # recursive factor
+#     s_vec = np.zeros((K,), dtype = int) # previous state record
+    path = [0]*N # path sequence
+    
+    s_vec = [oracle.latent[oracle.data[k]][0] for k in range(K)]
+    d_vec = np.subtract(obs[0], oracle.f_array[s_vec])
+    b = _dist2prob(d_vec,t)
+    q_vec = np.multiply(b, pi)
+    path[0] = s_vec[np.argmax(q_vec)]
+    
+#     for i in range(1,N):
+#         oracle.trn[]
+    
+    
+def tracking(oracle, obs, selftrn = True):
+    """ Off-line tracking function using sub-optimal query-matching algorithm"""
+    N = len(obs)
+    K = oracle.num_clusters()
 
+    P = np.zeros((N,K), dtype = 'int')
+    T = np.zeros((N,), dtype = 'int')
+    map_k_outer = partial(_query_k, oracle = oracle, query = obs)
+    map_query = partial(_query_init, oracle = oracle, query = obs[0])
 
-def tracking(oracle, obs):
-    pass
+    P[0], C = zip(*map(map_query, oracle.rsfx[0][:]))
+    C = np.array(C)
+    
+    if selftrn:
+        trn = _create_trn_self
+    else:
+        trn = _create_trn
+    
+    argmin = np.argmin
+    distance_cache = np.zeros(oracle.n_states)
+    
+    for i in xrange(1,N): # iterate over the rest of query
+        state_cache = []
+        dist_cache = distance_cache
+        
+        map_k_inner = partial(map_k_outer, i=i, P=P, trn = trn, state_cache = state_cache, dist_cache = dist_cache)
+        P[i], _c = zip(*map(map_k_inner, range(K)))
+        C += np.array(_c)
+        T[i] = P[i][argmin(C)]
+    
+    return T
+    
 
 def query_complete(oracle, query, method = 'trn', selftrn = True, smooth = False, weight = 0.5):
     """ Return the closest path in target oracle given a query sequence
@@ -290,7 +337,6 @@ def query_complete(oracle, query, method = 'trn', selftrn = True, smooth = False
     """
     N = len(query)
     K = oracle.num_clusters()
-    # C = np.zeros(K)
     P = [[0]* K for _i in range(N)]
     if smooth:
         D = dist.pdist(oracle.f_array[1:], 'sqeuclidean')
