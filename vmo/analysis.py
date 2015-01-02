@@ -18,13 +18,14 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with vmo.  If not, see <http://www.gnu.org/licenses/>.
 """
-
+import vmo
 import numpy as np
 import scipy.spatial.distance as dist
 import sys
 import itertools
 from functools import partial
 from scipy.stats import multivariate_normal
+from vmo import VMO
 
 def create_selfsim(oracle, method = 'compror'): 
     """ Create self similarity matrix from compror codes or suffix links
@@ -265,41 +266,38 @@ def _create_trn(oracle, prev):
     if _trn == []:
         _trn = oracle.trn[oracle.sfx[prev]][:]
     return _trn
-    
-    
+        
 def _dist2prob(f, a):
     return np.exp(-f/a)
-    
-def _tracking(oracle, obs, t = 1.0, trn_weight = 1.0, decay_rate=1.0):
-    """ The off-line tracking function (A proof of concept)"""
-    
-    a,pi,K = create_transition(oracle, method='seq')
-    N = len(obs)
-#     q_vec = np.zeros((K,)) # recursive factor
-#     s_vec = np.zeros((K,), dtype = int) # previous state record
-    path = [0]*N # path sequence
-    
-    s_vec = [oracle.latent[oracle.data[k]][0] for k in range(K)]
-    d_vec = np.subtract(obs[0], oracle.f_array[s_vec])
-    b = _dist2prob(d_vec,t)
-    q_vec = np.multiply(b, pi)
-    path[0] = s_vec[np.argmax(q_vec)]
-    
-#     for i in range(1,N):
-#         oracle.trn[]
-    
-    
-def tracking(oracle, obs, selftrn = True):
+        
+def create_reverse_oracle(oracle):
+    reverse_data = oracle.f_array[-1:0:-1]
+    r_oracle = vmo.build_oracle(reverse_data, 'v', threshold=oracle.params['threshold'])
+    return r_oracle
+        
+def tracking(oracle, obs, selftrn = True, reverse_init = False):
     """ Off-line tracking function using sub-optimal query-matching algorithm"""
     N = len(obs)
-    K = oracle.num_clusters()
-
+    if reverse_init:
+        r_oracle = create_reverse_oracle(oracle)
+        _ind =  [r_oracle.n_states - rsfx for rsfx in r_oracle.rsfx[0][:]]
+        init_ind = []
+        for i in _ind:
+            s = i
+            while oracle.sfx[s] != 0:
+                s = oracle.sfx[s]
+            init_ind.append(s)
+        K = r_oracle.num_clusters()    
+    else:
+        init_ind = oracle.rsfx[0][:]
+        K = oracle.num_clusters()
+   
     P = np.zeros((N,K), dtype = 'int')
     T = np.zeros((N,), dtype = 'int')
     map_k_outer = partial(_query_k, oracle = oracle, query = obs)
     map_query = partial(_query_init, oracle = oracle, query = obs[0])
-
-    P[0], C = zip(*map(map_query, oracle.rsfx[0][:]))
+ 
+    P[0], C = zip(*map(map_query, init_ind))
     C = np.array(C)
     
     if selftrn:
@@ -320,8 +318,37 @@ def tracking(oracle, obs, selftrn = True):
         T[i] = P[i][argmin(C)]
     
     return T
-    
 
+def tracking2(oracle_vec, obs, selftrn = True):
+    N = len(obs) # Number of gesture candidates
+    K = len(oracle_vec)
+    
+    P = np.ones((N,K), dtype = 'int')
+    C = np.zeros((K,))
+    T = np.zeros((N,), dtype = 'int')
+    G = np.zeros((N,), dtype = 'int')
+
+    if selftrn:
+        trn = _create_trn_self
+    else:
+        trn = _create_trn
+
+    for i,_obs in enumerate(obs):
+        for k,vo in enumerate(oracle_vec):
+            if i == 0:
+                a = np.subtract(_obs, vo.f_array[1]) 
+                C[k] += (a*a).sum()
+            else:
+                s = P[i-1][k]
+                _trn = trn(vo, s)
+                dvec = _query_decode(vo, _obs, _trn)
+                C[k] += np.min(dvec) 
+                P[i][k] = _trn[np.argmin(dvec)]
+        g = np.argmin(C)
+        T[i] = P[i][g]
+        G[i] = g
+    return T, G
+    
 def query_complete(oracle, query, method = 'trn', selftrn = True, smooth = False, weight = 0.5):
     """ Return the closest path in target oracle given a query sequence
     
@@ -442,3 +469,20 @@ def query(oracle, query):
         L[i] = A[i].sum()
             
     return A, L
+
+"""    
+def _tracking(oracle, obs, t = 1.0, trn_weight = 1.0, decay_rate=1.0):
+    The off-line tracking function (A proof of concept)
+    
+    a,pi,K = create_transition(oracle, method='seq')
+    N = len(obs)
+#     q_vec = np.zeros((K,)) # recursive factor
+#     s_vec = np.zeros((K,), dtype = int) # previous state record
+    path = [0]*N # path sequence
+    
+    s_vec = [oracle.latent[oracle.data[k]][0] for k in range(K)]
+    d_vec = np.subtract(obs[0], oracle.f_array[s_vec])
+    b = _dist2prob(d_vec,t)
+    q_vec = np.multiply(b, pi)
+    path[0] = s_vec[np.argmax(q_vec)]
+"""

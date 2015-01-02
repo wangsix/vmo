@@ -704,7 +704,10 @@ class VMO(FactorOracle):
             # NEW Implementation
             if self.params['dfunc'] == 'euclidean':
                 a = np.array(new_data) - np.array([self.centroid[self.data[t]] for t in self.trn[k]])
-                dvec = np.sqrt((a*a).sum(axis=1))
+                if a.ndim >1:
+                    dvec = np.sqrt((a*a).sum(axis=1))
+                else:
+                    dvec = np.sqrt((a*a))
             elif self.params['dfunc'] == 'other':
                 dvec = self.dfunc_handle(new_data, [self.centroid[self.data[t]] for t in self.trn[k]])
                 
@@ -770,12 +773,16 @@ def _create_oracle(oracle_type,**kwargs):
     else:
         return MO(**kwargs)
 
-def _build_oracle(oracle, input_data, suffix_method = 'inc'):
+def _build_oracle(flag, oracle, input_data, suffix_method = 'inc'):
     if type(input_data) != np.ndarray or type(input_data[0]) != np.ndarray:
         input_data = np.array(input_data)
-            
-    for obs in input_data:
-        oracle.add_state(obs, suffix_method)
+    
+    if flag == 'a':
+        for obs in input_data:
+            oracle.add_state(obs, suffix_method)
+    else:
+        for obs in input_data:
+            oracle.add_state(obs)
     return oracle
  
 def build_oracle(input_data, flag, 
@@ -787,12 +794,16 @@ def build_oracle(input_data, flag,
         weights = {}
         weights.setdefault(feature, 1.0)
 
-    if flag == 'a' or flag == 'f' or flag == 'v':
+    if flag == 'a':
         oracle = _create_oracle(flag, threshold = threshold, dfunc = dfunc, dfunc_handle = dfunc_handle)
+        oracle = _build_oracle(flag, oracle, input_data, suffix_method)
+    elif flag == 'f' or flag == 'v':
+        oracle = _create_oracle(flag, threshold = threshold, dfunc = dfunc, dfunc_handle = dfunc_handle)
+        oracle = _build_oracle(flag, oracle, input_data)         
     else:
         oracle = _create_oracle('a', threshold = threshold, dfunc = dfunc, dfunc_handle = dfunc_handle)
-             
-    oracle = _build_oracle(oracle, input_data, suffix_method)
+        oracle = _build_oracle(flag, oracle, input_data, suffix_method)
+                 
     return oracle 
     
 
