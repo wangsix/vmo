@@ -296,16 +296,18 @@ def tracking(oracle, obs, selftrn = True, reverse_init = False):
     T = np.zeros((N,), dtype = 'int')
     map_k_outer = partial(_query_k, oracle = oracle, query = obs)
     map_query = partial(_query_init, oracle = oracle, query = obs[0])
+
+    argmin = np.argmin
  
     P[0], C = zip(*map(map_query, init_ind))
     C = np.array(C)
+    T[0] = P[0][argmin(C)]
     
     if selftrn:
         trn = _create_trn_self
     else:
         trn = _create_trn
     
-    argmin = np.argmin
     distance_cache = np.zeros(oracle.n_states)
     
     for i in xrange(1,N): # iterate over the rest of query
@@ -403,7 +405,8 @@ def query_complete(oracle, query, method = 'trn', selftrn = True, smooth = False
 def find_repeated_patterns(oracle, lower = 1):
     pattern_list = [] 
     prev_sfx = -1
-    for i in range(oracle.n_states-1,2,-1):
+    for i in range(oracle.n_states-1,lower+1,-1): 
+        # Searching back from the end to the last possible position for repeated patterns
         sfx = oracle.sfx[i]
         rsfx = oracle.rsfx[i]        
         pattern_found = False
