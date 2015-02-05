@@ -321,6 +321,45 @@ def tracking(oracle, obs, selftrn = True, reverse_init = False):
     
     return T
 
+def tracking_pttr(oracle, obs, pattern, selfTrn = True):
+    pattern_idx = []
+    for p in pattern:
+        pattern_idx.append([])
+        start_ind = 0
+        for sfx in p[0]:
+            offset = sfx-p[1]+1-start_ind
+            pattern_idx[-1].append(range(sfx-p[1]+1,sfx+1))
+            
+    N = len(obs)
+    K = len(pattern)
+    
+    P = np.zeros((N,K), dtype = 'int')
+    T = np.zeros((N,), dtype = 'int')
+    C = np.zeros((K,))
+        
+    for k in range(K):
+        
+        _s = [p[0] for p in pattern_idx[k]]
+        c = np.subtract(obs[0], oracle.f_array[_s])
+        c = (c*c).sum(axis=1) # Could skip the sqrt
+        _d = c.argmin()
+        P[0][k] = _s[_d]
+        C[k] = c[_d]            
+    
+    T[0] = P[0][C.argmin()]
+    
+    for i in range(N):
+        
+        for k in range(K):
+            ind = P[i][k]
+            
+            
+            P[0][k] = _s[_d]
+            C[k] = c[_d]            
+    
+        T[0] = P[0][C.argmin()]
+                
+
 def tracking2(oracle_vec, obs, selftrn = True):
     N = len(obs) # Number of gesture candidates
     K = len(oracle_vec)
@@ -432,7 +471,8 @@ def find_repeated_patterns(oracle, lower = 1):
                 _rsfx = np.array(rsfx).tolist()             
                 if _rsfx != []:
                     _rsfx.extend([i, sfx])
-                    _len =np.array(oracle.lrs)[_rsfx[:-1]].min()
+                    _len = np.array(oracle.lrs)[_rsfx].min()
+#                     _len =np.array(oracle.lrs)[_rsfx[:-1]].min()
                     if _len > lower:
                         pattern_list.append([_rsfx, _len])                    
                 else:
@@ -442,8 +482,26 @@ def find_repeated_patterns(oracle, lower = 1):
             prev_sfx = -1
     return pattern_list
 
-def infer(oracle, obs):
-    pass
+def create_pttr_vmo(oracle, pattern):
+    thresh = oracle.params['threshold']
+    
+    _vmo_vec = []
+    gesture_vmo_vec = []
+    for p in pattern:
+        _vmo_vec.append([])
+        for sfx in p[0]:
+            local_obs = oracle.f_array[sfx-p[1]+1:sfx+1]
+            local_vmo = vmo.build_oracle(local_obs, flag = 'a', threshold = thresh)
+            _vmo_vec[-1].append(local_vmo)
+            
+        pttr_vmo = _vmo_vec[-1][0]
+        for i in range(pttr_vmo.n_states-1):
+            for mo in _vmo_vec[-1][1:]:
+                pttr_vmo.trn[i].extend(set(mo.trn[i]).difference(pttr_vmo.trn[i]))
+        gesture_vmo_vec.append(pttr_vmo)
+        
+    return gesture_vmo_vec
+    
 
 def query(oracle, query):    
     if oracle.kind == 'a':
