@@ -18,6 +18,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with vmo.  If not, see <http://www.gnu.org/licenses/>.
 """
+
 import vmo
 import numpy as np
 import scipy.spatial.distance as dist
@@ -29,6 +30,15 @@ from vmo import VMO
 
 def create_selfsim(oracle, method = 'compror'): 
     """ Create self similarity matrix from compror codes or suffix links
+    
+    Args:
+        oracle: a encoded vmo object
+        method: 
+            "compror" - use the compression codes 
+            "suffix" - use suffix links
+            "rsfx" - use reverse suffix links
+            "lrs" - use LRS values
+        
     """
     len_oracle = oracle.n_states - 1
     mat = np.zeros((len_oracle, len_oracle))
@@ -69,6 +79,7 @@ def create_selfsim(oracle, method = 'compror'):
 
 
 def create_transition(oracle, method = 'trn'):
+    """Create a transition matrix based on oracle links"""
     mat, hist, n = _create_trn_mat_symbolic(oracle, method)
     return mat, hist, n
 
@@ -197,17 +208,6 @@ def logEval(oracle, testSequence, ab = [], m_order = None, VERBOSE = 0):
             sys.stdout.flush()
     return logP/len(testSequence), avgContext
             
-            
-def cluster(oracle):
-    prev_sfx = -1
-    
-    for i in range(oracle.n_states-1,0,-1): 
-        if oracle.sfx[i] != prev_sfx:
-            _l = oracle.lrs[i]
-            _s = oracle.sfx[i]
-            _suffix = oracle.data[i-_l+1:i+1]
-            _factor = oracle.data[_s-_l+1:_s+1]
-    
 def segment(oracle):
     raise NotImplementedError("segment() is under construction, coming soon!")
 
@@ -227,16 +227,40 @@ def _get_rsfx(oracle, rs_set, k):
         return rs_set
             
 def _query_init(k, oracle, query): 
+    """A helper function for query-matching function initialization."""
+    
     a = np.subtract(query, [oracle.f_array[t] for t in oracle.latent[oracle.data[k]]])       
     dvec = (a*a).sum(axis=1) # Could skip the sqrt
     _d = dvec.argmin()
     return oracle.latent[oracle.data[k]][_d], dvec[_d] 
 
-def _query_decode(oracle, query, trn_list): 
+def _dist_obs_oracle(oracle, query, trn_list): 
+    """A helper function calculating distances between a feature and frames in oracle."""
     a = np.subtract(query, [oracle.f_array[t] for t in trn_list])  
     return (a*a).sum(axis=1)
 
 def _query_k(k, i, P, oracle, query, trn, state_cache, dist_cache, smooth = False, D = None, weight = 0.5):
+    """A helper function for query-matching function`s iteration over observations.
+    
+    Args:
+        k - index of the candidate path
+        i - index of the frames of the observations
+        P - the path matrix of size K x N, K the number for paths initiated, 
+            N the frame number of observations
+        oracle - an encoded oracle
+        query - observations matrix (numpy array) of dimension N x D. 
+                D the dimension of the observation.
+        trn - function handle of forward links vector gathering
+        state_cache - a list storing the states visited during the for loop for k
+        dist_cache - a list of the same lenth as oracle storing the 
+                    distance calculated between the current observation and states 
+                    in the oracle
+        smooth - whether to enforce a preference on continuation or not
+        D - Self-similarity matrix, required if smooth is set to True
+        weight - the weight between continuation or jumps (1.0 for certain continuation)
+    
+    """
+
     _trn = trn(oracle, P[i-1][k])      
     t = list(itertools.chain.from_iterable([oracle.latent[oracle.data[j]] for j in _trn]))
     _trn_unseen = [_t for _t in _trn if _t not in state_cache]
@@ -244,7 +268,7 @@ def _query_k(k, i, P, oracle, query, trn, state_cache, dist_cache, smooth = Fals
                         
     if _trn_unseen != []:
         t_unseen = list(itertools.chain.from_iterable([oracle.latent[oracle.data[j]] for j in _trn_unseen]))
-        dist_cache[t_unseen] = _query_decode(oracle, query[i], t_unseen)
+        dist_cache[t_unseen] = _dist_obs_oracle(oracle, query[i], t_unseen)
     dvec = dist_cache[t]
     if smooth and P[i-1][k] < oracle.n_states-1:
         dvec = dvec * (1.0-weight) + weight*np.array([D[P[i-1][k]][_t-1] for _t in t])            
@@ -382,7 +406,7 @@ def tracking2(oracle_vec, obs, selftrn = True):
             else:
                 s = P[i-1][k]
                 _trn = trn(vo, s)
-                dvec = _query_decode(vo, _obs, _trn)
+                dvec = _dist_obs_oracle(vo, _obs, _trn)
                 C[k] += np.min(dvec) 
                 P[i][k] = _trn[np.argmin(dvec)]
         g = np.argmin(C)
@@ -531,19 +555,3 @@ def query(oracle, query):
             
     return A, L
 
-"""    
-def _tracking(oracle, obs, t = 1.0, trn_weight = 1.0, decay_rate=1.0):
-    The off-line tracking function (A proof of concept)
-    
-    a,pi,K = create_transition(oracle, method='seq')
-    N = len(obs)
-#     q_vec = np.zeros((K,)) # recursive factor
-#     s_vec = np.zeros((K,), dtype = int) # previous state record
-    path = [0]*N # path sequence
-    
-    s_vec = [oracle.latent[oracle.data[k]][0] for k in range(K)]
-    d_vec = np.subtract(obs[0], oracle.f_array[s_vec])
-    b = _dist2prob(d_vec,t)
-    q_vec = np.multiply(b, pi)
-    path[0] = s_vec[np.argmax(q_vec)]
-"""
