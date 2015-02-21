@@ -45,7 +45,7 @@ def main():
             "weight": choose sfx/rsfx in a way that favors longer ones than 
             shorter ones.        
     """
-    filename = os.path.abspath('') + '/Suite_No_1_for_Cello_M1_Prelude.mxl'
+    filename = os.path.abspath('') + '../files/Suite_No_1_for_Cello_M1_Prelude.mxl'
     s = music21.converter.parse(filename)
     c = s.getElementById('Violoncello')
     m = c.flat.notes

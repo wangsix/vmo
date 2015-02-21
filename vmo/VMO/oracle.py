@@ -609,9 +609,6 @@ class MO(FactorOracle):
             
         self.rsfx[self.sfx[i]].append(i)
         
-#         if self.lrs[i] > self.max_lrs:
-#             self.max_lrs = self.lrs[i]
-
         if self.lrs[i] > self.max_lrs[i-1]:
             self.max_lrs.append(self.lrs[i])
         else:
@@ -717,8 +714,6 @@ class VMO(FactorOracle):
             map(set.add, [self.con[self.data[c]] for c in trn_list], [self.data[i]]*len(trn_list))
         self.rsfx[self.sfx[i]].append(i)
         
-#         if self.lrs[i] > self.max_lrs:
-#             self.max_lrs = self.lrs[i]        
         if self.lrs[i] > self.max_lrs[i-1]:
             self.max_lrs.append(self.lrs[i])
         else:
