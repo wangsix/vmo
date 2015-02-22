@@ -2,7 +2,7 @@
 oracle.py
 Variable Markov Oracle in python
 
-Copyright (C) 9.2014 Cheng-i Wang, Greg Surges
+Copyright (C) 9.2014 Cheng-i Wang
 
 This file is part of vmo.
 
@@ -21,9 +21,7 @@ along with vmo.  If not, see <http://www.gnu.org/licenses/>.
 '''
 
 import numpy as np
-from itertools import izip
 from matplotlib.mlab import find
-
 
 class data(object):
     """A helper class for construct data object for symbolic comparison
@@ -119,7 +117,6 @@ class FactorOracle(object):
         # Oracle parameters
         self.params = {
                        'threshold':0,
-#                        'weights': {},
                        'dfunc': 'euclidean',
                        'dfunc_handle':None
                        }
@@ -194,7 +191,7 @@ class FactorOracle(object):
             j = i
         return _code, _compror
         
-    def encode(self): #Referenced from IR module
+    def encode(self):
         _c, _cmpr = self._encode()
         self.code.extend(_c)
         self.compror.extend(_cmpr)
@@ -234,8 +231,6 @@ class FactorOracle(object):
         return self.seg
     
     def _ir(self, alpha = 1.0):
-        """Referenced from IR.py
-        """
         code, _ = self.encode()
         cw = np.zeros(len(code)) # Number of code words
         for i, c in enumerate(code):
@@ -243,16 +238,12 @@ class FactorOracle(object):
     
         c0 = [1 if x[0] == 0 else 0 for x in self.code]
         h0 = np.log2(np.cumsum(c0))
-    
-        #dti = [1 if x[0] == 0 else x[0] for x in self.code]
-        #ti = np.cumsum(dti)
-    
+        
         h1 = np.zeros(len(cw))
     
         for i in range(1, len(cw)):
             h1[i] = _entropy(cw[0:i+1])
     
-        #ir = ti, alpha*h0-h
         ir = alpha*h0-h1
 
         return ir, h0, h1
@@ -374,13 +365,7 @@ class FactorOracle(object):
             return int(self.params.get('threshold'))
         else:
             raise ValueError("Threshold is not set!")
-        
-    def weights(self):
-        if self.params.get('weights'):
-            return self.params.get('weights')
-        else:
-            raise ValueError("Weights are not set!")
-        
+                
     def dfunc(self):
         if self.params.get('dfunc'):
             return self.params.get('dfunc')
@@ -495,10 +480,7 @@ class MO(FactorOracle):
         self.f_array = [0]
         self.data[0] = None
         self.latent = []
-        
-        # including connectivity
-#         self.con = []
-    
+            
     def reset(self, **kwargs):
         super(MO, self).reset(**kwargs)
 
@@ -507,9 +489,6 @@ class MO(FactorOracle):
         self.data[0] = None
         self.latent = []
         
-        # including connectivity
-#         self.con = []
-
     def add_state(self, new_data, method = 'inc'):
         """Create new state and update related links and compressed state"""
         self.sfx.append(0)
@@ -530,7 +509,6 @@ class MO(FactorOracle):
     
         # iteratively backtrack suffixes from state i-1
         dvec = []
-        trn_list = []
         if method == 'inc':
             suffix_candidate = 0   
         elif method == 'complete':
@@ -555,7 +533,6 @@ class MO(FactorOracle):
             I = find(dvec < self.params['threshold'])
             if len(I) == 0:
                 self.trn[k].append(i) # Create a new forward link to unvisited state
-#                 trn_list.append(k)
                 pi_1 = k
                 if method != 'complete':
                     k = self.sfx[k]
@@ -566,7 +543,6 @@ class MO(FactorOracle):
                 elif method == 'complete':
                     suffix_candidate.append((self.trn[k][I[np.argmin(dvec[I])]], 
                                              np.min(dvec)))
-#                 trn_list.append(i-1)
             if method == 'complete':
                 k = self.sfx[k]
                         
@@ -576,36 +552,22 @@ class MO(FactorOracle):
                 self.lrs[i] = 0
                 self.latent.append([i])
                 self.data.append(len(self.latent)-1)
-#                 if i > 1:
-#                     self.con[self.data[i-1]].add(self.data[i]) 
-#                     self.con.append(set([self.data[i]]))
-#                 else:
-#                     self.con.append(set([]))
             else:
                 self.sfx[i] = sorted(suffix_candidate, key = lambda suffix:suffix[1])[0][0]
                 self.lrs[i] = self._len_common_suffix(pi_1, self.sfx[i]-1) + 1
                 self.latent[self.data[self.sfx[i]]].append(i)
                 self.data.append(self.data[self.sfx[i]])
-#                 self.con[self.data[i-1]].add(self.data[i])
-#                 map(set.add, [self.con[self.data[c]] for c in trn_list], [self.data[i]]*len(trn_list))
         else:
             if k == None:
                 self.sfx[i] = 0
                 self.lrs[i] = 0
                 self.latent.append([i])
                 self.data.append(len(self.latent)-1)
-#                 if i > 1:
-#                     self.con[self.data[i-1]].add(self.data[i]) 
-#                     self.con.append(set([self.data[i]]))
-#                 else:
-#                     self.con.append(set([]))
             else:
                 self.sfx[i] = suffix_candidate                    
                 self.lrs[i] = self._len_common_suffix(pi_1, self.sfx[i]-1) + 1
                 self.latent[self.data[self.sfx[i]]].append(i)
                 self.data.append(self.data[self.sfx[i]])
-#                 self.con[self.data[i-1]].add(self.data[i])
-#                 map(set.add, [self.con[self.data[c]] for c in trn_list], [self.data[i]]*len(trn_list))
             
         self.rsfx[self.sfx[i]].append(i)
         
