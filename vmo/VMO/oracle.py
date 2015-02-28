@@ -24,7 +24,6 @@ import numpy as np
 import vmo.analysis.find_repeated_patterns as find_patterns
 from matplotlib.mlab import find
 
-
 class data(object):
     """A helper class for construct data object for symbolic comparison
     
