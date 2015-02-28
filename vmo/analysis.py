@@ -18,6 +18,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with vmo.  If not, see <http://www.gnu.org/licenses/>.
 """
+
 import vmo
 import numpy as np
 import scipy.spatial.distance as dist
@@ -27,8 +28,20 @@ from functools import partial
 from scipy.stats import multivariate_normal
 from vmo import VMO
 
+'''Self-similarity matrix and transition matrix from an oracle
+'''
+
 def create_selfsim(oracle, method = 'compror'): 
     """ Create self similarity matrix from compror codes or suffix links
+    
+    Args:
+        oracle: a encoded vmo object
+        method: 
+            "compror" - use the compression codes 
+            "suffix" - use suffix links
+            "rsfx" - use reverse suffix links
+            "lrs" - use LRS values
+        
     """
     len_oracle = oracle.n_states - 1
     mat = np.zeros((len_oracle, len_oracle))
@@ -69,6 +82,7 @@ def create_selfsim(oracle, method = 'compror'):
 
 
 def create_transition(oracle, method = 'trn'):
+    """Create a transition matrix based on oracle links"""
     mat, hist, n = _create_trn_mat_symbolic(oracle, method)
     return mat, hist, n
 
@@ -95,12 +109,8 @@ def _create_trn_mat_symbolic(oracle, method):
     mat = mat.transpose()
     return mat, hist, n
 
-def _test_context(oracle, context):
-    _b, _s = oracle.accept(context)
-    while not _b:
-        context = context[1:]
-        _b, _s = oracle.accept(context)
-    return _b, _s, context
+'''Symbolic sequence prediction by an oracle
+'''
 
 def predict(oracle, context, ab=[], VERBOSE = 0):
     if VERBOSE:
@@ -136,26 +146,7 @@ def predict(oracle, context, ab=[], VERBOSE = 0):
         d_count, hist = _rsfx_count(oracle, i, d_count, hist, ab)
     
     return [hist[idx]/d_count for idx in range(len(hist))], context   
-     
-def _rsfx_count(oracle, s, count, hist, ab, VERBOSE = 0):
-    """ Accumulate counts for context 
-    """
-    trn_data = [oracle.data[n] for n in oracle.trn[s]]
-    for k in trn_data:
-        hist[ab[k]] += 1.0
-        count += 1.0
 
-    rsfx_candidate = oracle.rsfx[s][:]
-    while rsfx_candidate != []:
-        s = rsfx_candidate.pop(0)
-        trn_data = [oracle.data[n] for n in oracle.trn[s]]
-        for k in trn_data:
-            hist[ab[k]] += 1.0
-            count += 1.0
-        rsfx_candidate.extend(oracle.rsfx[s])
-        
-    return count, hist
-                                 
 def logEval(oracle, testSequence, ab = [], m_order = None, VERBOSE = 0):
     ''' Evaluate the average log-loss of a sequence given an oracle 
     '''
@@ -197,84 +188,90 @@ def logEval(oracle, testSequence, ab = [], m_order = None, VERBOSE = 0):
             sys.stdout.flush()
     return logP/len(testSequence), avgContext
             
-            
-def cluster(oracle):
-    prev_sfx = -1
-    
-    for i in range(oracle.n_states-1,0,-1): 
-        if oracle.sfx[i] != prev_sfx:
-            _l = oracle.lrs[i]
-            _s = oracle.sfx[i]
-            _suffix = oracle.data[i-_l+1:i+1]
-            _factor = oracle.data[_s-_l+1:_s+1]
-    
+def _test_context(oracle, context):
+    _b, _s = oracle.accept(context)
+    while not _b:
+        context = context[1:]
+        _b, _s = oracle.accept(context)
+    return _b, _s, context
+          
+def _rsfx_count(oracle, s, count, hist, ab, VERBOSE = 0):
+    """ Accumulate counts for context 
+    """
+    trn_data = [oracle.data[n] for n in oracle.trn[s]]
+    for k in trn_data:
+        hist[ab[k]] += 1.0
+        count += 1.0
+
+    rsfx_candidate = oracle.rsfx[s][:]
+    while rsfx_candidate != []:
+        s = rsfx_candidate.pop(0)
+        trn_data = [oracle.data[n] for n in oracle.trn[s]]
+        for k in trn_data:
+            hist[ab[k]] += 1.0
+            count += 1.0
+        rsfx_candidate.extend(oracle.rsfx[s])
+        
+    return count, hist
+                                 
 def segment(oracle):
     raise NotImplementedError("segment() is under construction, coming soon!")
 
-def _get_sfx(oracle, s_set, k):
-    while oracle.sfx[k] != 0:
-        s_set.add(oracle.sfx[k])
-        k = oracle.sfx[k]
-    return s_set
 
-def _get_rsfx(oracle, rs_set, k):
-    if oracle.rsfx[k] == []:
-        return rs_set
+'''Query-matching and gesture tracking algorithms
+'''
+
+def query_complete(oracle, query, method = 'trn', selftrn = True, smooth = False, weight = 0.5):
+    """ Return the closest path in target oracle given a query sequence
+    
+    Args:
+        oracle: an oracle object already learned, the target. 
+        query: the query sequence in a matrix form such that 
+             the ith row is the feature at the ith time point
+        method: 
+        selftrn:
+        smooth:(off-line only)
+        weight:
+    
+    """
+    N = len(query)
+    K = oracle.num_clusters()
+    P = [[0]* K for _i in range(N)]
+    if smooth:
+        D = dist.pdist(oracle.f_array[1:], 'sqeuclidean')
+        D = dist.squareform(D, checks = False)
+        map_k_outer = partial(_query_k, oracle = oracle, query = query, smooth = smooth, D = D, weight = weight)  
     else:
-        rs_set = rs_set.union(oracle.rsfx[k])
-        for _k in oracle.rsfx[k]:
-            rs_set = rs_set.union(_get_rsfx(oracle, rs_set, _k))
-        return rs_set
+        map_k_outer = partial(_query_k, oracle = oracle, query = query)
+        
+    map_query = partial(_query_init, oracle = oracle, query = query[0])
+    P[0], C = zip(*map(map_query, oracle.rsfx[0][:]))
+    P[0] = list(P[0])
+    C = np.array(C)    
+    
+    if method == 'complete':
+        trn = _create_trn_complete
+    else:
+        if selftrn:
+            trn = _create_trn_self
+        else:
+            trn = _create_trn
             
-def _query_init(k, oracle, query): 
-    a = np.subtract(query, [oracle.f_array[t] for t in oracle.latent[oracle.data[k]]])       
-    dvec = (a*a).sum(axis=1) # Could skip the sqrt
-    _d = dvec.argmin()
-    return oracle.latent[oracle.data[k]][_d], dvec[_d] 
-
-def _query_decode(oracle, query, trn_list): 
-    a = np.subtract(query, [oracle.f_array[t] for t in trn_list])  
-    return (a*a).sum(axis=1)
-
-def _query_k(k, i, P, oracle, query, trn, state_cache, dist_cache, smooth = False, D = None, weight = 0.5):
-    _trn = trn(oracle, P[i-1][k])      
-    t = list(itertools.chain.from_iterable([oracle.latent[oracle.data[j]] for j in _trn]))
-    _trn_unseen = [_t for _t in _trn if _t not in state_cache]
-    state_cache.extend(_trn_unseen)
-                        
-    if _trn_unseen != []:
-        t_unseen = list(itertools.chain.from_iterable([oracle.latent[oracle.data[j]] for j in _trn_unseen]))
-        dist_cache[t_unseen] = _query_decode(oracle, query[i], t_unseen)
-    dvec = dist_cache[t]
-    if smooth and P[i-1][k] < oracle.n_states-1:
-        dvec = dvec * (1.0-weight) + weight*np.array([D[P[i-1][k]][_t-1] for _t in t])            
-    _m = np.argmin(dvec)
-    return t[_m], dvec[_m]
-    
-def _create_trn_complete(oracle, prev):
-    return list(itertools.chain.from_iterable([oracle.latent[_c] for _c in list(oracle.con[oracle.data[prev]])]))
-    
-def _create_trn_self(oracle, prev):
-    _trn = oracle.trn[prev][:] # Sub-optimal
-    if _trn == []:
-        _trn = oracle.trn[oracle.sfx[prev]][:]
-    _trn.append(prev)    
-    return _trn
-
-def _create_trn(oracle, prev):
-    _trn = oracle.trn[prev][:] # Sub-optimal
-    if _trn == []:
-        _trn = oracle.trn[oracle.sfx[prev]][:]
-    return _trn
+    argmin = np.argmin
+    distance_cache = np.zeros(oracle.n_states)
+    for i in xrange(1,N): # iterate over the rest of query
+        state_cache = []
+        dist_cache = distance_cache
         
-def _dist2prob(f, a):
-    return np.exp(-f/a)
-        
-def create_reverse_oracle(oracle):
-    reverse_data = oracle.f_array[-1:0:-1]
-    r_oracle = vmo.build_oracle(reverse_data, 'v', threshold=oracle.params['threshold'])
-    return r_oracle
-        
+        map_k_inner = partial(map_k_outer, i=i, P=P, trn = trn, state_cache = state_cache, dist_cache = dist_cache)
+        P[i], _c = zip(*map(map_k_inner, range(K)))
+        P[i] = list(P[i])
+        C += np.array(_c)
+                              
+    i_hat = argmin(C)
+    P = map(list, zip(*P))
+    return P, C, i_hat    
+
 def tracking(oracle, obs, selftrn = True, reverse_init = False):
     """ Off-line tracking function using sub-optimal query-matching algorithm"""
     N = len(obs)
@@ -321,14 +318,14 @@ def tracking(oracle, obs, selftrn = True, reverse_init = False):
     
     return T
 
-def tracking2(oracle_vec, obs, selftrn = True):
-    N = len(obs) # Number of gesture candidates
-    K = len(oracle_vec)
+def tracking_multiple_seq(oracle_vec, obs, selftrn = True):
+    N = len(obs)        # Length of observation
+    K = len(oracle_vec) # Number of gesture candidates
     
-    P = np.ones((N,K), dtype = 'int')
-    C = np.zeros((K,))
-    T = np.zeros((N,), dtype = 'int')
-    G = np.zeros((N,), dtype = 'int')
+    P = np.ones((N,K), dtype = 'int')   # Path matrix 
+    C = np.zeros((K,))                  # Cost vector
+    T = np.zeros((N,), dtype = 'int')   # Tracking index vector
+    G = np.zeros((N,), dtype = 'int')   # Tracking gesture vector
 
     if selftrn:
         trn = _create_trn_self
@@ -343,65 +340,138 @@ def tracking2(oracle_vec, obs, selftrn = True):
             else:
                 s = P[i-1][k]
                 _trn = trn(vo, s)
-                dvec = _query_decode(vo, _obs, _trn)
+                dvec = _dist_obs_oracle(vo, _obs, _trn)
                 C[k] += np.min(dvec) 
                 P[i][k] = _trn[np.argmin(dvec)]
         g = np.argmin(C)
         T[i] = P[i][g]
         G[i] = g
     return T, G
+
+def create_pttr_vmo(oracle, pattern):
+    thresh = oracle.params['threshold']
     
-def query_complete(oracle, query, method = 'trn', selftrn = True, smooth = False, weight = 0.5):
-    """ Return the closest path in target oracle given a query sequence
+    _vmo_vec = []
+    gesture_vmo_vec = []
+    for p in pattern:
+        _vmo_vec.append([])
+        for sfx in p[0]:
+            local_obs = oracle.f_array[sfx-p[1]+1:sfx+1]
+            local_vmo = vmo.build_oracle(local_obs, flag = 'a', threshold = thresh)
+            _vmo_vec[-1].append(local_vmo)
+            
+        pttr_vmo = _vmo_vec[-1][0]
+        for i in range(pttr_vmo.n_states-1):
+            for mo in _vmo_vec[-1][1:]:
+                pttr_vmo.trn[i].extend(set(mo.trn[i]).difference(pttr_vmo.trn[i]))
+        gesture_vmo_vec.append(pttr_vmo)
+        
+    return gesture_vmo_vec
     
-    Args:
-        oracle: an oracle object already learned, the target. 
-        query: the query sequence in a matrix form such that 
-             the ith row is the feature at the ith time point
-        method: 
-        selftrn:
-        smooth:(off-line only)
-        weight:
+def query(oracle, query):    
+    if oracle.kind == 'a':
+        mean = [np.mean([oracle.f_array[i] for i in la], axis = 0) for la in oracle.latent]
+    elif oracle.kind == 'v':
+        mean = oracle.centroid[:]
     
-    """
+    tran_mat, hist = create_transition(oracle)
+    hist = hist/hist.sum()
+
     N = len(query)
     K = oracle.num_clusters()
-    P = [[0]* K for _i in range(N)]
-    if smooth:
-        D = dist.pdist(oracle.f_array[1:], 'sqeuclidean')
-        D = dist.squareform(D, checks = False)
-        map_k_outer = partial(_query_k, oracle = oracle, query = query, smooth = smooth, D = D, weight = weight)  
-    else:
-        map_k_outer = partial(_query_k, oracle = oracle, query = query)
-        
-    map_query = partial(_query_init, oracle = oracle, query = query[0])
-    P[0], C = zip(*map(map_query, oracle.rsfx[0][:]))
-    P[0] = list(P[0])
-    C = np.array(C)	
-    
-    if method == 'complete':
-        trn = _create_trn_complete
-    else:
-        if selftrn:
-            trn = _create_trn_self
-        else:
-            trn = _create_trn
+    covariance = [np.cov([oracle.f_array[i] for i in la], rowvar = 0) for la in oracle.latent]
+    rv  = [multivariate_normal(mean[i], covariance[i]) for i in range(K)]
+    C = np.zeros(K)
+    A = np.zeros((N,K))
+    L = np.zeros(N)
+    #Initialization
+    for k in range(K):
+        A[0][k] = hist[k]*rv[k].pdf(query[0])
+    L[0] = A[0].sum()
+    #Induction
+    for i in range(1,N):
+        for k in range(K):
+            A[i][k] = (A[i-1]*tran_mat[k]).sum()*rv[k].pdf(query[i])
+        L[i] = A[i].sum()
             
-    argmin = np.argmin
-    distance_cache = np.zeros(oracle.n_states)
-    for i in xrange(1,N): # iterate over the rest of query
-        state_cache = []
-        dist_cache = distance_cache
-        
-        map_k_inner = partial(map_k_outer, i=i, P=P, trn = trn, state_cache = state_cache, dist_cache = dist_cache)
-        P[i], _c = zip(*map(map_k_inner, range(K)))
-        P[i] = list(P[i])
-        C += np.array(_c)
-                              
-    i_hat = argmin(C)
-    P = map(list, zip(*P))
-    return P, C, i_hat    
+    return A, L
+    
+def create_reverse_oracle(oracle):
+    reverse_data = oracle.f_array[-1:0:-1]
+    r_oracle = vmo.build_oracle(reverse_data, 'v', threshold=oracle.params['threshold'])
+    return r_oracle
+    
+def _query_init(k, oracle, query): 
+    """A helper function for query-matching function initialization."""
+    
+    a = np.subtract(query, [oracle.f_array[t] for t in oracle.latent[oracle.data[k]]])       
+    dvec = (a*a).sum(axis=1) # Could skip the sqrt
+    _d = dvec.argmin()
+    return oracle.latent[oracle.data[k]][_d], dvec[_d] 
 
+def _dist_obs_oracle(oracle, query, trn_list): 
+    """A helper function calculating distances between a feature and frames in oracle."""
+    a = np.subtract(query, [oracle.f_array[t] for t in trn_list])  
+    return (a*a).sum(axis=1)
+
+def _query_k(k, i, P, oracle, query, trn, state_cache, dist_cache, smooth = False, D = None, weight = 0.5):
+    """A helper function for query-matching function`s iteration over observations.
+    
+    Args:
+        k - index of the candidate path
+        i - index of the frames of the observations
+        P - the path matrix of size K x N, K the number for paths initiated, 
+            N the frame number of observations
+        oracle - an encoded oracle
+        query - observations matrix (numpy array) of dimension N x D. 
+                D the dimension of the observation.
+        trn - function handle of forward links vector gathering
+        state_cache - a list storing the states visited during the for loop for k
+        dist_cache - a list of the same lenth as oracle storing the 
+                    distance calculated between the current observation and states 
+                    in the oracle
+        smooth - whether to enforce a preference on continuation or not
+        D - Self-similarity matrix, required if smooth is set to True
+        weight - the weight between continuation or jumps (1.0 for certain continuation)
+    
+    """
+
+    _trn = trn(oracle, P[i-1][k])      
+    t = list(itertools.chain.from_iterable([oracle.latent[oracle.data[j]] for j in _trn]))
+    _trn_unseen = [_t for _t in _trn if _t not in state_cache]
+    state_cache.extend(_trn_unseen)
+                        
+    if _trn_unseen != []:
+        t_unseen = list(itertools.chain.from_iterable([oracle.latent[oracle.data[j]] for j in _trn_unseen]))
+        dist_cache[t_unseen] = _dist_obs_oracle(oracle, query[i], t_unseen)
+    dvec = dist_cache[t]
+    if smooth and P[i-1][k] < oracle.n_states-1:
+        dvec = dvec * (1.0-weight) + weight*np.array([D[P[i-1][k]][_t-1] for _t in t])            
+    _m = np.argmin(dvec)
+    return t[_m], dvec[_m]
+    
+def _create_trn_complete(oracle, prev):
+    return list(itertools.chain.from_iterable([oracle.latent[_c] for _c in list(oracle.con[oracle.data[prev]])]))
+    
+def _create_trn_self(oracle, prev):
+    _trn = oracle.trn[prev][:] # Sub-optimal
+    if _trn == []:
+        _trn = oracle.trn[oracle.sfx[prev]][:]
+    _trn.append(prev)    
+    return _trn
+
+def _create_trn(oracle, prev):
+    _trn = oracle.trn[prev][:] # Sub-optimal
+    if _trn == []:
+        _trn = oracle.trn[oracle.sfx[prev]][:]
+    return _trn
+        
+def _dist2prob(f, a):
+    return np.exp(-f/a)
+
+'''Pattern/motif/gesture extraction algorithms
+'''
+        
 def find_repeated_patterns(oracle, lower = 1):
     pattern_list = [] 
     prev_sfx = -1
@@ -432,7 +502,8 @@ def find_repeated_patterns(oracle, lower = 1):
                 _rsfx = np.array(rsfx).tolist()             
                 if _rsfx != []:
                     _rsfx.extend([i, sfx])
-                    _len =np.array(oracle.lrs)[_rsfx[:-1]].min()
+                    _len = np.array(oracle.lrs)[_rsfx].min()
+#                     _len =np.array(oracle.lrs)[_rsfx[:-1]].min()
                     if _len > lower:
                         pattern_list.append([_rsfx, _len])                    
                 else:
@@ -442,50 +513,21 @@ def find_repeated_patterns(oracle, lower = 1):
             prev_sfx = -1
     return pattern_list
 
-def infer(oracle, obs):
-    pass
+'''
+Helper functions
+'''
 
-def query(oracle, query):    
-    if oracle.kind == 'a':
-        mean = [np.mean([oracle.f_array[i] for i in la], axis = 0) for la in oracle.latent]
-    elif oracle.kind == 'v':
-        mean = oracle.centroid[:]
-    
-    tran_mat, hist = create_transition(oracle)
-    hist = hist/hist.sum()
+def _get_sfx(oracle, s_set, k):
+    while oracle.sfx[k] != 0:
+        s_set.add(oracle.sfx[k])
+        k = oracle.sfx[k]
+    return s_set
 
-    N = len(query)
-    K = oracle.num_clusters()
-    covariance = [np.cov([oracle.f_array[i] for i in la], rowvar = 0) for la in oracle.latent]
-    rv  = [multivariate_normal(mean[i], covariance[i]) for i in range(K)]
-    C = np.zeros(K)
-    A = np.zeros((N,K))
-    L = np.zeros(N)
-    #Initialization
-    for k in range(K):
-        A[0][k] = hist[k]*rv[k].pdf(query[0])
-    L[0] = A[0].sum()
-    #Induction
-    for i in range(1,N):
-        for k in range(K):
-            A[i][k] = (A[i-1]*tran_mat[k]).sum()*rv[k].pdf(query[i])
-        L[i] = A[i].sum()
-            
-    return A, L
-
-"""    
-def _tracking(oracle, obs, t = 1.0, trn_weight = 1.0, decay_rate=1.0):
-    The off-line tracking function (A proof of concept)
-    
-    a,pi,K = create_transition(oracle, method='seq')
-    N = len(obs)
-#     q_vec = np.zeros((K,)) # recursive factor
-#     s_vec = np.zeros((K,), dtype = int) # previous state record
-    path = [0]*N # path sequence
-    
-    s_vec = [oracle.latent[oracle.data[k]][0] for k in range(K)]
-    d_vec = np.subtract(obs[0], oracle.f_array[s_vec])
-    b = _dist2prob(d_vec,t)
-    q_vec = np.multiply(b, pi)
-    path[0] = s_vec[np.argmax(q_vec)]
-"""
+def _get_rsfx(oracle, rs_set, k):
+    if oracle.rsfx[k] == []:
+        return rs_set
+    else:
+        rs_set = rs_set.union(oracle.rsfx[k])
+        for _k in oracle.rsfx[k]:
+            rs_set = rs_set.union(_get_rsfx(oracle, rs_set, _k))
+        return rs_set

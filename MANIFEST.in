@@ -2,7 +2,5 @@ include LICENSE
 include README.md
 include setup.py
 recursive-include vmo *.py 
-recursive-include notebook *.ipynb 
 recursive-include bin 
-recursive-include audioTestFiles *.wav
-
+recursive-include docs

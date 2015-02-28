@@ -2,7 +2,7 @@
 oracle.py
 Variable Markov Oracle in python
 
-Copyright (C) 9.2014 Cheng-i Wang, Greg Surges
+Copyright (C) 9.2014 Cheng-i Wang
 
 This file is part of vmo.
 
@@ -21,9 +21,8 @@ along with vmo.  If not, see <http://www.gnu.org/licenses/>.
 '''
 
 import numpy as np
-from itertools import izip
+import vmo.analysis.find_repeated_patterns as find_patterns
 from matplotlib.mlab import find
-
 
 class data(object):
     """A helper class for construct data object for symbolic comparison
@@ -119,7 +118,6 @@ class FactorOracle(object):
         # Oracle parameters
         self.params = {
                        'threshold':0,
-#                        'weights': {},
                        'dfunc': 'euclidean',
                        'dfunc_handle':None
                        }
@@ -194,29 +192,11 @@ class FactorOracle(object):
             j = i
         return _code, _compror
         
-    def encode(self): #Referenced from IR module
+    def encode(self):
         _c, _cmpr = self._encode()
         self.code.extend(_c)
         self.compror.extend(_cmpr)
-        """
-        if self.compror == []:
-            j = 0
-        else:
-            j = self.compror[-1][0]
-              
-        i = j
-        while j < self.n_states-1:
-            while i < self.n_states - 1 and self.lrs[i + 1] >= i - j + 1:
-                i = i + 1
-            if i == j:
-                i = i + 1
-                self.code.append((0,i))
-                self.compror.append((i,0))
-            else:
-                self.code.append((i - j, self.sfx[i] - i + j + 1))
-                self.compror.append((i,i-j)) 
-            j = i
-        """
+
         return self.code, self.compror
         
     def segment(self):
@@ -252,8 +232,6 @@ class FactorOracle(object):
         return self.seg
     
     def _ir(self, alpha = 1.0):
-        """Referenced from IR.py
-        """
         code, _ = self.encode()
         cw = np.zeros(len(code)) # Number of code words
         for i, c in enumerate(code):
@@ -261,29 +239,19 @@ class FactorOracle(object):
     
         c0 = [1 if x[0] == 0 else 0 for x in self.code]
         h0 = np.log2(np.cumsum(c0))
-    
-        dti = [1 if x[0] == 0 else x[0] for x in self.code]
-        ti = np.cumsum(dti)
-    
-        h = np.zeros(len(cw))
+        
+        h1 = np.zeros(len(cw))
     
         for i in range(1, len(cw)):
-            h[i] = _entropy(cw[0:i+1])
+            h1[i] = _entropy(cw[0:i+1])
     
-        ir = ti, alpha*h0-h
+        ir = alpha*h0-h1
+
+        return ir, h0, h1
     
-        return ir, self.code, self.compror
-    
-    def _ir_fixed(self):
+    def _ir_fixed(self, alpha = 1.0):
         code, _ = self.encode()
          
-#         if self.kind == 'v':
-#             p = np.array([len(sym) for sym in self.latent])
-#             p = p/(self.n_states-1.0)
-#             h0 = np.log2(p).dot(-p)
-#         else:
-#             h0 = np.log2(self.num_clusters())
-
         h0 = np.log2(self.num_clusters())
         
         if self.max_lrs[-1] == 0:
@@ -303,9 +271,9 @@ class FactorOracle(object):
                 j = j+L
         ir = h0 - h1/BL
         ir[ir<0] = 0
-        return ir, self.code, self.compror
+        return ir, h0, h1
         
-    def _ir_cum(self, alpha=1.0):
+    def _ir_cum(self, alpha=1.0, ):
         code, _ = self.encode()
         
         N = self.n_states
@@ -327,15 +295,15 @@ class FactorOracle(object):
                 BL[j:j+L] = L #range(1,L+1)
                 j = j+L
     
-        H0 = np.log2(np.cumsum(cw0))
-        H1 = np.log2(np.cumsum(cw1))
-        H1 = H1/BL
-        ir = alpha*H0 - H1
+        h0 = np.log2(np.cumsum(cw0))
+        h1 = np.log2(np.cumsum(cw1))
+        h1 = h1/BL
+        ir = alpha*h0 - h1
         ir[ir<0] = 0
         
-        return ir, self.code, self.compror 
+        return ir, h0, h1
         
-    def _ir_cum2(self):
+    def _ir_cum2(self, alpha = 1.0):
         code, _ = self.encode()
         
         N = self.n_states        
@@ -352,7 +320,7 @@ class FactorOracle(object):
         """
         h1 = np.array([np.log2(i+1) if m == 0 else np.log2(i+1)+np.log2(m) 
                        for i,m in enumerate(self.max_lrs[1:])])
-        
+    
         j = 0
         for i in range(len(code)):
             if self.code[i][0] == 0:
@@ -366,9 +334,9 @@ class FactorOracle(object):
         h1 = h1/BL
         ir = h0 - h1
         ir[ir<0] = 0 #Really a HACK here!!!!!
-        return ir, self.code, self.compror
+        return ir, h0, h1
     
-    def _ir_cum3(self):
+    def _ir_cum3(self, alpha = 1.0):
         
         h0 = np.log2(np.cumsum([1.0 if sfx == 0 else 0.0 for sfx in self.sfx[1:]]))
         h1 = np.array([h if m == 0 else (h+np.log2(m))/m 
@@ -376,24 +344,19 @@ class FactorOracle(object):
 
         ir = h0 - h1
         ir[ir<0] = 0 #Really a HACK here!!!!!
-        return ir, self.code, self.compror        
+        return ir, h0, h1      
     
     def IR(self, alpha = 1.0, ir_type = 'cum'):
         if ir_type == 'cum':
-            ir, _code, _compror = self._ir_cum(alpha)
-            return ir
+            return self._ir_cum(alpha)
         elif ir_type == 'all':
-            ir, _code, _compror = self._ir(alpha)
-            return ir[1]
+            return self._ir(alpha)
         elif ir_type == 'fixed':
-            ir, _code, _compror = self._ir_fixed()
-            return ir
+            return self._ir_fixed(alpha)
         elif ir_type == 'cum2':
-            ir, _code, _compror = self._ir_cum2()
-            return ir
+            return self._ir_cum2(alpha)
         elif ir_type == 'cum3':
-            ir, _code, _compror = self._ir_cum3()
-            return ir
+            return self._ir_cum3(alpha)
     
     def num_clusters(self):
         return len(self.rsfx[0])
@@ -403,13 +366,7 @@ class FactorOracle(object):
             return int(self.params.get('threshold'))
         else:
             raise ValueError("Threshold is not set!")
-        
-    def weights(self):
-        if self.params.get('weights'):
-            return self.params.get('weights')
-        else:
-            raise ValueError("Weights are not set!")
-        
+                
     def dfunc(self):
         if self.params.get('dfunc'):
             return self.params.get('dfunc')
@@ -425,7 +382,6 @@ class FactorOracle(object):
             return self.lrs[p1]
         else:
             while self.sfx[p2] != self.sfx[p1] and p2 != 0:
-#             while self.sfx[p1] != self.sfx[p2]:
                 p2 = self.sfx[p2]
         return min(self.lrs[p1], self.lrs[p2])
     
@@ -525,10 +481,7 @@ class MO(FactorOracle):
         self.f_array = [0]
         self.data[0] = None
         self.latent = []
-        
-        # including connectivity
-#         self.con = []
-    
+            
     def reset(self, **kwargs):
         super(MO, self).reset(**kwargs)
 
@@ -537,9 +490,6 @@ class MO(FactorOracle):
         self.data[0] = None
         self.latent = []
         
-        # including connectivity
-#         self.con = []
-
     def add_state(self, new_data, method = 'inc'):
         """Create new state and update related links and compressed state"""
         self.sfx.append(0)
@@ -560,7 +510,6 @@ class MO(FactorOracle):
     
         # iteratively backtrack suffixes from state i-1
         dvec = []
-        trn_list = []
         if method == 'inc':
             suffix_candidate = 0   
         elif method == 'complete':
@@ -585,7 +534,6 @@ class MO(FactorOracle):
             I = find(dvec < self.params['threshold'])
             if len(I) == 0:
                 self.trn[k].append(i) # Create a new forward link to unvisited state
-#                 trn_list.append(k)
                 pi_1 = k
                 if method != 'complete':
                     k = self.sfx[k]
@@ -596,7 +544,6 @@ class MO(FactorOracle):
                 elif method == 'complete':
                     suffix_candidate.append((self.trn[k][I[np.argmin(dvec[I])]], 
                                              np.min(dvec)))
-#                 trn_list.append(i-1)
             if method == 'complete':
                 k = self.sfx[k]
                         
@@ -606,42 +553,25 @@ class MO(FactorOracle):
                 self.lrs[i] = 0
                 self.latent.append([i])
                 self.data.append(len(self.latent)-1)
-#                 if i > 1:
-#                     self.con[self.data[i-1]].add(self.data[i]) 
-#                     self.con.append(set([self.data[i]]))
-#                 else:
-#                     self.con.append(set([]))
             else:
                 self.sfx[i] = sorted(suffix_candidate, key = lambda suffix:suffix[1])[0][0]
                 self.lrs[i] = self._len_common_suffix(pi_1, self.sfx[i]-1) + 1
                 self.latent[self.data[self.sfx[i]]].append(i)
                 self.data.append(self.data[self.sfx[i]])
-#                 self.con[self.data[i-1]].add(self.data[i])
-#                 map(set.add, [self.con[self.data[c]] for c in trn_list], [self.data[i]]*len(trn_list))
         else:
             if k == None:
                 self.sfx[i] = 0
                 self.lrs[i] = 0
                 self.latent.append([i])
                 self.data.append(len(self.latent)-1)
-#                 if i > 1:
-#                     self.con[self.data[i-1]].add(self.data[i]) 
-#                     self.con.append(set([self.data[i]]))
-#                 else:
-#                     self.con.append(set([]))
             else:
                 self.sfx[i] = suffix_candidate                    
                 self.lrs[i] = self._len_common_suffix(pi_1, self.sfx[i]-1) + 1
                 self.latent[self.data[self.sfx[i]]].append(i)
                 self.data.append(self.data[self.sfx[i]])
-#                 self.con[self.data[i-1]].add(self.data[i])
-#                 map(set.add, [self.con[self.data[c]] for c in trn_list], [self.data[i]]*len(trn_list))
             
         self.rsfx[self.sfx[i]].append(i)
         
-#         if self.lrs[i] > self.max_lrs:
-#             self.max_lrs = self.lrs[i]
-
         if self.lrs[i] > self.max_lrs[i-1]:
             self.max_lrs.append(self.lrs[i])
         else:
@@ -747,8 +677,6 @@ class VMO(FactorOracle):
             map(set.add, [self.con[self.data[c]] for c in trn_list], [self.data[i]]*len(trn_list))
         self.rsfx[self.sfx[i]].append(i)
         
-#         if self.lrs[i] > self.max_lrs:
-#             self.max_lrs = self.lrs[i]        
         if self.lrs[i] > self.max_lrs[i-1]:
             self.max_lrs.append(self.lrs[i])
         else:
@@ -806,24 +734,70 @@ def build_oracle(input_data, flag,
                  
     return oracle 
     
+def find_threshold(input_data, r = (0,1,0.1), method = 'ir',flag = 'a', suffix_method = 'inc', alpha = 1.0, 
+                   feature = None, ir_type='cum', dfunc ='euclidean', dfunc_handle = None, 
+                   VERBOSE = False, ENT = False):
+    
+    if method == 'ir':
+        return find_threshold_ir(input_data, r, flag, suffix_method, alpha, feature, 
+                                 ir_type, dfunc, dfunc_handle, VERBOSE, ENT)
+    elif method == 'motif':
+        return find_threshold_motif(input_data, r, flag, suffix_method, alpha, feature, 
+                                    ir_type, dfunc, dfunc_handle, VERBOSE)
 
-def find_threshold(input_data, r = (0,1,0.1), flag = 'a', suffix_method = 'inc', 
-                   feature = None, ir_type='cum', dfunc ='euclidean', dfunc_handle = None, VERBOSE = False):
+def find_threshold_ir(input_data, r = (0,1,0.1), flag = 'a', suffix_method = 'inc', alpha = 1.0, 
+                      feature = None, ir_type='cum', dfunc ='euclidean', dfunc_handle = None, 
+                      VERBOSE = False, ENT = False):
     thresholds = np.arange(r[0], r[1], r[2])
     irs = []
+    if ENT:
+        h0_vec = []
+        h1_vec = []
     for t in thresholds:
         if VERBOSE:
             print 'Testing threshold:', t
         tmp_oracle = build_oracle(input_data, flag = flag, 
                                   threshold = t, suffix_method = suffix_method, 
                                   feature = feature, dfunc = dfunc, dfunc_handle = dfunc_handle)
-        tmp_ir = tmp_oracle.IR(ir_type = ir_type)
-        # is it a sum?
+        tmp_ir, h0, h1 = tmp_oracle.IR(ir_type = ir_type, alpha = alpha)
         irs.append(tmp_ir.sum())
+        if ENT:
+            h0_vec.append(h0.sum())
+            h1_vec.append(h1.sum())
     # now pair irs and thresholds in a vector, and sort by ir
     ir_thresh_pairs = [(a,b) for a, b in zip(irs, thresholds)]
     pairs_return = ir_thresh_pairs
     ir_thresh_pairs = sorted(ir_thresh_pairs, key= lambda x: x[0], reverse = True)
-    return ir_thresh_pairs[0], pairs_return     
+    if ENT:
+        return ir_thresh_pairs[0], pairs_return, h0_vec, h1_vec
+    else:
+        return ir_thresh_pairs[0], pairs_return
+    
+   
+def find_threshold_motif(input_data, r = (0,1,0.1), flag = 'a', suffix_method = 'inc', alpha = 1.0, 
+                         feature = None, ir_type='cum', dfunc ='euclidean', dfunc_handle = None, 
+                         VERBOSE = False):
+    thresholds = np.arange(r[0], r[1], r[2]) 
+    avg_len = []
+    avg_num = []
+    
+    for t in thresholds:
+        if VERBOSE:
+            print 'Testing threshold:',t
+        tmp_oracle = build_oracle(input_data, flag = flag, 
+                                  threshold = t, suffix_method = suffix_method, 
+                                  feature = feature, dfunc = dfunc, dfunc_handle = dfunc_handle)
+        pttr = find_patterns(tmp_oracle, alpha)
+        avg_len.append(np.mean([p[1] for p in pttr]))
+        avg_num.append(np.mean([len(p[0]) for p in pttr]))
+        
+#         motif_thresh_pairs = [(l,n,t) for l,n,t in zip(avg_len, avg_num, thresholds)]
+
+    return avg_len, avg_num, thresholds
+    
+    
+    
+    
+    
     
     
