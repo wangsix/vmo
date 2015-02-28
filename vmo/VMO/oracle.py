@@ -21,7 +21,7 @@ along with vmo.  If not, see <http://www.gnu.org/licenses/>.
 '''
 
 import numpy as np
-import vmo.analysis.find_repeated_patterns as find_patterns
+import vmo.analysis as van
 from matplotlib.mlab import find
 
 class data(object):
@@ -743,7 +743,7 @@ def find_threshold(input_data, r = (0,1,0.1), method = 'ir',flag = 'a', suffix_m
                                  ir_type, dfunc, dfunc_handle, VERBOSE, ENT)
     elif method == 'motif':
         return find_threshold_motif(input_data, r, flag, suffix_method, alpha, feature, 
-                                    ir_type, dfunc, dfunc_handle, VERBOSE)
+                                    dfunc, dfunc_handle, VERBOSE)
 
 def find_threshold_ir(input_data, r = (0,1,0.1), flag = 'a', suffix_method = 'inc', alpha = 1.0, 
                       feature = None, ir_type='cum', dfunc ='euclidean', dfunc_handle = None, 
@@ -775,25 +775,35 @@ def find_threshold_ir(input_data, r = (0,1,0.1), flag = 'a', suffix_method = 'in
     
    
 def find_threshold_motif(input_data, r = (0,1,0.1), flag = 'a', suffix_method = 'inc', alpha = 1.0, 
-                         feature = None, ir_type='cum', dfunc ='euclidean', dfunc_handle = None, 
+                         feature = None, dfunc ='euclidean', dfunc_handle = None, 
                          VERBOSE = False):
     thresholds = np.arange(r[0], r[1], r[2]) 
     avg_len = []
+    avg_occ = []
     avg_num = []
     
     for t in thresholds:
-        if VERBOSE:
-            print 'Testing threshold:',t
         tmp_oracle = build_oracle(input_data, flag = flag, 
                                   threshold = t, suffix_method = suffix_method, 
                                   feature = feature, dfunc = dfunc, dfunc_handle = dfunc_handle)
-        pttr = find_patterns(tmp_oracle, alpha)
-        avg_len.append(np.mean([p[1] for p in pttr]))
-        avg_num.append(np.mean([len(p[0]) for p in pttr]))
-        
+        pttr = van.find_repeated_patterns(tmp_oracle, alpha)
+        if pttr != []:
+            avg_len.append(np.mean([float(p[1]) for p in pttr]))
+            avg_occ.append(np.mean([float(len(p[0])) for p in pttr]))
+            avg_num.append(len(pttr))
+        else:
+            avg_len.append(0.0)
+            avg_occ.append(0.0)
+            avg_num.append(0.0)
+        if VERBOSE:
+            print 'Testing threshold:',t
+            print '          avg_len:',avg_len[-1]
+            print '          avg_occ:',avg_occ[-1]
+            print '          avg_num:',avg_num[-1]
+
 #         motif_thresh_pairs = [(l,n,t) for l,n,t in zip(avg_len, avg_num, thresholds)]
 
-    return avg_len, avg_num, thresholds
+    return avg_len, avg_occ, avg_num, thresholds
     
     
     
