@@ -292,7 +292,7 @@ def tracking(oracle, obs, selftrn = True, reverse_init = False):
     P = np.zeros((N,K), dtype = 'int')
     T = np.zeros((N,), dtype = 'int')
     map_k_outer = partial(_query_k, oracle = oracle, query = obs)
-    map_query = partial(_query_init, oracle = oracle, query = obs[0])
+    map_query = partial(_query_init, oracle = oracle, query = obs[0], method = 'else')
 
     argmin = np.argmin
  
@@ -401,13 +401,18 @@ def create_reverse_oracle(oracle):
     r_oracle = vmo.build_oracle(reverse_data, 'v', threshold=oracle.params['threshold'])
     return r_oracle
     
-def _query_init(k, oracle, query): 
+def _query_init(k, oracle, query, method = 'all'): 
     """A helper function for query-matching function initialization."""
-    
-    a = np.subtract(query, [oracle.f_array[t] for t in oracle.latent[oracle.data[k]]])       
-    dvec = (a*a).sum(axis=1) # Could skip the sqrt
-    _d = dvec.argmin()
-    return oracle.latent[oracle.data[k]][_d], dvec[_d] 
+    if method == 'all':
+        a = np.subtract(query, [oracle.f_array[t] for t in oracle.latent[oracle.data[k]]])       
+        dvec = (a*a).sum(axis=1) # Could skip the sqrt
+        _d = dvec.argmin()
+        return oracle.latent[oracle.data[k]][_d], dvec[_d] 
+
+    else:
+        a = np.subtract(query, oracle.f_array[k])
+        dvec = (a*a).sum() # Could skip the sqrt
+        return k, dvec
 
 def _dist_obs_oracle(oracle, query, trn_list): 
     """A helper function calculating distances between a feature and frames in oracle."""
