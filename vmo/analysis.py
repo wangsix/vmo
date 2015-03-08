@@ -291,7 +291,7 @@ def tracking(oracle, obs, trn_type = 1, reverse_init = False, method = 'else', d
     P = np.zeros((N,K), dtype = 'int')
     T = np.zeros((N,), dtype = 'int')
     map_k_outer = partial(_query_k, oracle = oracle, query = obs)
-    map_query = partial(_query_init, oracle = oracle, query = obs[0], method = 'else')
+    map_query = partial(_query_init, oracle = oracle, query = obs[0], method = method)
 #     map_query = partial(_query_init, oracle = oracle, query = obs[0], method)
 
     argmin = np.argmin
@@ -475,7 +475,7 @@ def _create_trn_sfx_rsfx(oracle, prev):
     else: 
         if oracle.rsfx[prev] != []:
             _trn.extend(oracle.trn[np.min(oracle.rsfx[prev])][:])
-    _trn.extend(oracle.trn[oracle.sfx[prev]][:])
+        _trn.extend(oracle.trn[oracle.sfx[prev]][:])
 
     return _trn
 
