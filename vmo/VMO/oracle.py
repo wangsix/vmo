@@ -685,11 +685,6 @@ class VMO(FactorOracle):
         self.avg_lrs.append(self.avg_lrs[i-1]*((i-1.0)/(self.n_states-1.0)) + 
                             self.lrs[i]*(1.0/(self.n_states-1.0)))
                  
-                       
-def _entropy(x):
-    x = np.divide(x, sum(x), dtype = float)
-    return sum(np.multiply(-np.log2(x),x))
-
 def _create_oracle(oracle_type,**kwargs):
     """A routine for creating a factor oracle."""
     if oracle_type == 'f':
