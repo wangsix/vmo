@@ -2,10 +2,12 @@
 oracle.py
 Variable Markov Oracle in python
 
+@copyright: 
 Copyright (C) 9.2014 Cheng-i Wang
 
 This file is part of vmo.
 
+@license: 
 vmo is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation, either version 3 of the License, or
@@ -18,6 +20,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with vmo.  If not, see <http://www.gnu.org/licenses/>.
+@author: Cheng-i Wang
+@contact: wangsix@gmail.com, chw160@ucsd.edu
 '''
 
 import numpy as np
@@ -526,7 +530,11 @@ class MO(FactorOracle):
         while k != None:
             if self.params['dfunc'] == 'euclidean':
                 a = np.array(new_data) - np.array([self.f_array[t] for t in self.trn[k]])
-                dvec = np.sqrt((a*a).sum(axis=1))
+                if a.ndim >1:
+                    dvec = np.sqrt((a*a).sum(axis=1))
+                else:
+                    dvec = np.sqrt((a*a))
+#                 dvec = np.sqrt((a*a).sum(axis=1))
             elif self.params['dfunc'] == 'other':
                 dvec = self.dfunc_handle(new_data, [self.f_array[t] for t in self.trn[k]])
                 
