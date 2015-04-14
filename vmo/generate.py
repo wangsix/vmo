@@ -279,7 +279,7 @@ def audio_synthesis(ifilename, ofilename, s, buffer_size, hop):
     x_new[hop:-hop] = np.divide(x_new[hop:-hop],wsum[hop:-hop])
     x_new = x_new.astype(np.int16)
     wavfile.write(ofilename, fs, x_new)        
-    return x, wsum
+    return x_new, wsum
     
 def generate_audio(ifilename, ofilename, buffer_size, hop, oracle, seq_len, p = 0.5, k = 0, lrs = 0):
     """make audio output using audio oracle for generation.
@@ -338,6 +338,6 @@ def generate_audio(ifilename, ofilename, buffer_size, hop, oracle, seq_len, p = 
     x_new[hop:-hop] = np.divide(x_new[hop:-hop],wsum[hop:-hop])
     x_new = x_new.astype(np.int16)
     wavfile.write(ofilename, fs, x_new)
-    return x, wsum
+    return x_new, wsum
 
     
