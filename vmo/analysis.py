@@ -491,6 +491,50 @@ def _dist2prob(f, a):
 
 '''Pattern/motif/gesture extraction algorithms
 '''
+
+# def find_repeated_patterns(oracle, lower = 1):
+#     pattern_list = [] 
+#     prev_sfx = -1
+#     for i in range(oracle.n_states-1,lower+1,-1): 
+#         # Searching back from the end to the last possible position for repeated patterns
+#         sfx = oracle.sfx[i]
+#         rsfx = oracle.rsfx[i]        
+#         pattern_found = False
+#         if (
+#             sfx != 0 # not pointing to zeroth state
+# #             and i-oracle.lrs[i]+1 > sfx 
+#             and oracle.lrs[i] > lower # constraint on length of patterns
+#             ): 
+#             for p in pattern_list: # for existing pattern
+#                 
+#                 if [_p for _p in p[0] if _p - p[1] < i and _p > i] == []:           
+#                     if sfx in p[0]:
+#                         p[0].append(i)
+#                         if i-oracle.lrs[i]+1 > sfx:
+#                             p[1] = np.min([p[1], oracle.lrs[i]])
+#                         else:
+#                             p[1] = np.min([p[1], i-sfx])
+#                         pattern_found = True
+#                         break
+#                     else:
+#                         pattern_found = False
+#             if (
+#                 prev_sfx - sfx != 1
+#                 and not pattern_found 
+#                 ):
+#                 _rsfx = np.array(rsfx).tolist()             
+#                 if _rsfx != []:
+#                     _rsfx.extend([i, sfx])
+#                     _len = np.array(oracle.lrs)[_rsfx].min()
+# #                     _len =np.array(oracle.lrs)[_rsfx[:-1]].min()
+#                     if _len > lower:
+#                         pattern_list.append([_rsfx, _len])                    
+#                 else:
+#                     pattern_list.append([[i, sfx], oracle.lrs[i]])
+#             prev_sfx = sfx
+#         else:
+#             prev_sfx = -1
+#     return pattern_list
         
 def find_repeated_patterns(oracle, lower = 1):
     pattern_list = [] 

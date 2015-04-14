@@ -23,6 +23,7 @@ along with vmo.  If not, see <http://www.gnu.org/licenses/>.
 @author: Cheng-i Wang
 @contact: wangsix@gmail.com, chw160@ucsd.edu
 '''
+import numpy as np
 
 def entropy(x):
     x = np.divide(x, sum(x), dtype = float)
