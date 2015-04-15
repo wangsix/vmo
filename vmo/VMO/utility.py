@@ -29,16 +29,25 @@ def entropy(x):
     x = np.divide(x, sum(x), dtype = float)
     return sum(np.multiply(-np.log2(x),x))
 
-def array_rotate(a):
+def array_rotate(a, shift = 1, step = 1):
     _a = a
-    for _i in range(1,a.size):
-        _a = np.vstack((_a, np.roll(a,_i)))
+    if step is not None and step <= 1:
+        for _i in range(1, a.size):
+            _a = np.vstack((_a, np.roll(a,_i)))
+    else:
+        up_array = [x*shift for x in range(1,step+1)]
+        print up_array
+        down_array = [-x*shift for x in range(1,step+1)]
+        print down_array
+        up_array.extend(down_array)
+        for _i in up_array:
+            _a = np.vstack((_a, np.roll(a,_i)))
     return _a
         
-def trnspose_inv(a, b_vec):
+def trnspose_inv(a, b_vec, shift = 1, step = None):
     d_vec = []
     a = np.array(a)
-    a_mat = array_rotate(a)
+    a_mat = array_rotate(a, shift, step)
     for b in b_vec:
         d = a_mat - np.array(b)
         d = np.sqrt((d*d).sum(axis=1))
