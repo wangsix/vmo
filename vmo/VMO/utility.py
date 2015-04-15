@@ -36,9 +36,7 @@ def array_rotate(a, shift = 1, step = 1):
             _a = np.vstack((_a, np.roll(a,_i)))
     else:
         up_array = [x*shift for x in range(1,step+1)]
-        print up_array
         down_array = [-x*shift for x in range(1,step+1)]
-        print down_array
         up_array.extend(down_array)
         for _i in up_array:
             _a = np.vstack((_a, np.roll(a,_i)))
