@@ -29,9 +29,9 @@ def entropy(x):
     x = np.divide(x, sum(x), dtype = float)
     return sum(np.multiply(-np.log2(x),x))
 
-def array_rotate(a, shift = 1, step = 1):
+def array_rotate(a, shift = 1, step = None):
     _a = a
-    if step is not None and step <= 1:
+    if step is None and step <= 1:
         for _i in range(1, a.size):
             _a = np.vstack((_a, np.roll(a,_i)))
     else:
