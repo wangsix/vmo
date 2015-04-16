@@ -188,11 +188,11 @@ class FactorOracle(object):
                 i = i + 1
             if i == j:
                 i = i + 1
-                _code.append((0,i))
-                _compror.append((i,0))
+                _code.append([0,i])
+                _compror.append([i,0])
             else:
-                _code.append((i - j, self.sfx[i] - i + j + 1))
-                _compror.append((i,i-j)) 
+                _code.append([i - j, self.sfx[i] - i + j + 1])
+                _compror.append([i,i-j]) 
             j = i
         return _code, _compror
         
