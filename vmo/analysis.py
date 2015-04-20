@@ -350,6 +350,39 @@ def tracking_multiple_seq(oracle_vec, obs, selftrn = True):
         G[i] = g
     return T, G
 
+def align(oracle, obs, trn_type = 1, method = 'else'):
+    N = len(obs)
+    init_ind = [1]
+    K = 1
+    
+    P = np.zeros((N,1), dtype = 'int')
+    map_k_outer = partial(_query_k, oracle = oracle, query = obs)
+    map_query = partial(_query_init, oracle = oracle, query = obs[0], method = method)
+#     map_query = partial(_query_init, oracle = oracle, query = obs[0], method)
+
+    argmin = np.argmin
+    P[0], _C = zip(*map(map_query, init_ind))
+
+    if trn_type == 1:
+        trn = _create_trn_self
+    elif trn_type == 2:
+        trn = _create_trn_sfx_rsfx
+    else:
+        trn = _create_trn
+    
+    distance_cache = np.zeros(oracle.n_states)
+    
+    for i in xrange(1,N): # iterate over the rest of query
+        state_cache = []
+        dist_cache = distance_cache
+        
+        map_k_inner = partial(map_k_outer, i=i, P=P, trn = trn, 
+                              state_cache = state_cache, dist_cache = dist_cache)
+        P[i], _c = zip(*map(map_k_inner, range(K)))
+    
+    return P
+ 
+
 def create_pttr_vmo(oracle, pattern):
     thresh = oracle.params['threshold']
     
