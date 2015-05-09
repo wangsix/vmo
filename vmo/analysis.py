@@ -525,7 +525,11 @@ def _dist2prob(f, a):
 '''Pattern/motif/gesture extraction algorithms
 '''
 
-def find_repeated_patterns(oracle, lower = 1):        
+def find_repeated_patterns(oracle, lower = 1):
+    
+    if lower < 1:
+        lower = 1
+            
     pattern_list = [] 
     prev_sfx = -1
     for i in range(oracle.n_states-1,lower+1,-1): 
