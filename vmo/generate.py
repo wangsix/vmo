@@ -24,30 +24,46 @@ import numpy as np
 from scipy.io import wavfile
 
 def improvise_step(oracle, i, LRS = 0, weight = None):
-#     print i, oracle.n_states
-#     print oracle.data[i]
-#     print oracle.latent[oracle.data[i]]
+    """Incremental improvisation function given an oracle and a state"""
+    
 
     trn_link = [s+1 for s in oracle.latent[oracle.data[i]] if (oracle.lrs[s] > LRS and (s+1) < oracle.n_states)]
     if trn_link == []:
         if i == oracle.n_states-1:
-            next = 1
+            n = 1
         else:
-            next = i+1
+            n = i+1
     else:
         if weight == 'lrs':
             lrs_link = [oracle.lrs[s] for s in oracle.latent[oracle.data[i]] if (oracle.lrs[s] > LRS and (s+1) < oracle.n_states)]
             lrs_pop = list(itertools.chain.from_iterable([[[i]*_x for (i,_x) in zip(trn_link,lrs_link)]]))
-            next = random.choice(lrs_pop)[0]
+            n = random.choice(lrs_pop)[0]
         else:
-            next = trn_link[int(np.floor(random.random()*len(trn_link)))]
-    return next
+            n = trn_link[int(np.floor(random.random()*len(trn_link)))]
+    return n
 
-def improvise(oracle, seq_len, k = 1, LRS = 0, weight = None):
+def improvise(oracle, seq_len, k = 1, LRS = 0, weight = None, continuity = None):
+    """Improvisation wrapper"""
+    
     s = []
-    for _i in range(seq_len):
+    if k + continuity < oracle.n_states - 1:
+        s.extend(range(k,k+continuity))
+        k = s[-1]
+        seq_len -= continuity
+    
+    while seq_len > 0:
         s.append(improvise_step(oracle, k, LRS, weight))
         k = s[-1]
+        if k+1 < oracle.n_states-1:
+            k += 1
+        else:
+            k = 1
+        if k + continuity < oracle.n_states - 1:
+            s.extend(range(k,k+continuity))
+            seq_len -= continuity
+        k = s[-1]
+        seq_len -= 1
+        
     return s
 
 def generate(oracle, seq_len, p = 0.5, k = 1, LRS = 0, weight = None):
@@ -166,8 +182,6 @@ def _find_links(k_vec ,sfx, rsfx, k):
             if 0 in k_vec:
                 break
         return k_vec
-
-    return s, kend, ktrace
 
 def _make_win(n, mono=False):
     """ Generate a window for a given length.

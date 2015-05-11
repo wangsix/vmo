@@ -26,7 +26,9 @@ along with vmo.  If not, see <http://www.gnu.org/licenses/>.
 
 import numpy as np
 import vmo.analysis as van
+import vmo.VMO.utility as utl
 from matplotlib.mlab import find
+
 
 class data(object):
     """A helper class for construct data object for symbolic comparison
@@ -247,7 +249,7 @@ class FactorOracle(object):
         h1 = np.zeros(len(cw))
     
         for i in range(1, len(cw)):
-            h1[i] = _entropy(cw[0:i+1])
+            h1[i] = utl.entropy(cw[0:i+1])
     
         ir = alpha*h0-h1
 
@@ -703,6 +705,9 @@ def _create_oracle(oracle_type,**kwargs):
         return VMO(**kwargs)
     else:
         return MO(**kwargs)
+    
+def create_oracle(flag, threshold = 0, dfunc = 'euclidean', dfunc_handle = None):
+    return _create_oracle(flag, threshold = threshold, dfunc = dfunc, dfunc_handle = dfunc_handle)
 
 def _build_oracle(flag, oracle, input_data, suffix_method = 'inc'):
     if type(input_data) != np.ndarray or type(input_data[0]) != np.ndarray:
