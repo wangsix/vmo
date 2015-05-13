@@ -74,7 +74,7 @@ class FactorOracle(object):
         rsfx: a list containing the reverse suffix links of each state 
             as a list.
         lrs: the value of longest repeated suffix of each state.
-        data: the object/value associated with the direct link 
+        data: the symobols associated with the direct link 
             connected to each state.
         compror: a list of tuples (i, i-j), i is the current coded position,
             i-j is the length of the corresponding coded words.
@@ -82,12 +82,16 @@ class FactorOracle(object):
             corresponding coded words, pos is the position where the coded
             words starts.
         seg: same as code but non-overlapping.
+        f_array: (For kind 'a' and 'v'): a list containing the feature array
+        latent: (For kind 'a' and 'v'): a list of lists with each sub-list containing the indexes for each symbol.
         kind: 
-            'a': audio oracle
+            'a': Variable Markov oracle
             'f': repeat oracle
+            'v': Centroid-based oracle (under test)
         n_states: number of total states, also is length of the input 
             sequence plus 1.
         max_lrs: the longest lrs so far.
+        avg_lrs: the average lrs so far.
         name: the name of the oracle.
         params: a python dictionary for different feature and distance settings.
             keys:
