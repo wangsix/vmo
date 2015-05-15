@@ -56,3 +56,7 @@ target/
 .project
 
 .pydevproject
+
+# Emacs temp files
+*~
+*#
