@@ -350,6 +350,39 @@ def tracking_multiple_seq(oracle_vec, obs, selftrn = True):
         G[i] = g
     return T, G
 
+def align(oracle, obs, trn_type = 1, method = 'else'):
+    N = len(obs)
+    init_ind = [1]
+    K = 1
+    
+    P = np.zeros((N,1), dtype = 'int')
+    map_k_outer = partial(_query_k, oracle = oracle, query = obs)
+    map_query = partial(_query_init, oracle = oracle, query = obs[0], method = method)
+#     map_query = partial(_query_init, oracle = oracle, query = obs[0], method)
+
+    argmin = np.argmin
+    P[0], _C = zip(*map(map_query, init_ind))
+
+    if trn_type == 1:
+        trn = _create_trn_self
+    elif trn_type == 2:
+        trn = _create_trn_sfx_rsfx
+    else:
+        trn = _create_trn
+    
+    distance_cache = np.zeros(oracle.n_states)
+    
+    for i in xrange(1,N): # iterate over the rest of query
+        state_cache = []
+        dist_cache = distance_cache
+        
+        map_k_inner = partial(map_k_outer, i=i, P=P, trn = trn, 
+                              state_cache = state_cache, dist_cache = dist_cache)
+        P[i], _c = zip(*map(map_k_inner, range(K)))
+    
+    return P
+ 
+
 def create_pttr_vmo(oracle, pattern):
     thresh = oracle.params['threshold']
     
@@ -492,51 +525,11 @@ def _dist2prob(f, a):
 '''Pattern/motif/gesture extraction algorithms
 '''
 
-# def find_repeated_patterns(oracle, lower = 1):
-#     pattern_list = [] 
-#     prev_sfx = -1
-#     for i in range(oracle.n_states-1,lower+1,-1): 
-#         # Searching back from the end to the last possible position for repeated patterns
-#         sfx = oracle.sfx[i]
-#         rsfx = oracle.rsfx[i]        
-#         pattern_found = False
-#         if (
-#             sfx != 0 # not pointing to zeroth state
-# #             and i-oracle.lrs[i]+1 > sfx 
-#             and oracle.lrs[i] > lower # constraint on length of patterns
-#             ): 
-#             for p in pattern_list: # for existing pattern
-#                 
-#                 if [_p for _p in p[0] if _p - p[1] < i and _p > i] == []:           
-#                     if sfx in p[0]:
-#                         p[0].append(i)
-#                         if i-oracle.lrs[i]+1 > sfx:
-#                             p[1] = np.min([p[1], oracle.lrs[i]])
-#                         else:
-#                             p[1] = np.min([p[1], i-sfx])
-#                         pattern_found = True
-#                         break
-#                     else:
-#                         pattern_found = False
-#             if (
-#                 prev_sfx - sfx != 1
-#                 and not pattern_found 
-#                 ):
-#                 _rsfx = np.array(rsfx).tolist()             
-#                 if _rsfx != []:
-#                     _rsfx.extend([i, sfx])
-#                     _len = np.array(oracle.lrs)[_rsfx].min()
-# #                     _len =np.array(oracle.lrs)[_rsfx[:-1]].min()
-#                     if _len > lower:
-#                         pattern_list.append([_rsfx, _len])                    
-#                 else:
-#                     pattern_list.append([[i, sfx], oracle.lrs[i]])
-#             prev_sfx = sfx
-#         else:
-#             prev_sfx = -1
-#     return pattern_list
-        
-def find_repeated_patterns(oracle, lower = 1):        
+def find_repeated_patterns(oracle, lower = 1):
+    
+    if lower < 1:
+        lower = 1
+            
     pattern_list = [] 
     prev_sfx = -1
     for i in range(oracle.n_states-1,lower+1,-1): 
@@ -566,8 +559,7 @@ def find_repeated_patterns(oracle, lower = 1):
                 _rsfx = np.array(rsfx).tolist()             
                 if _rsfx != []:
                     _rsfx.extend([i, sfx])
-                    _len = np.array(oracle.lrs)[_rsfx].min()
-#                     _len =np.array(oracle.lrs)[_rsfx[:-1]].min()
+                    _len =np.array(oracle.lrs)[_rsfx[:-1]].min()
                     if _len > lower:
                         pattern_list.append([_rsfx, _len])                    
                 else:
