@@ -19,11 +19,53 @@ You should have received a copy of the GNU General Public License
 along with vmo.  If not, see <http://www.gnu.org/licenses/>.
 """
 
-import random
+import random, itertools
 import numpy as np
 from scipy.io import wavfile
 
-def generate(oracle, seq_len, p = 0.5, k = 0, LRS = 0, weight = None):
+def improvise_step(oracle, i, LRS = 0, weight = None):
+    """Incremental improvisation function given an oracle and a state"""
+    
+    trn_link = [s+1 for s in oracle.latent[oracle.data[i]] if (oracle.lrs[s] >= LRS and (s+1) < oracle.n_states)]
+    if trn_link == []:
+        if i == oracle.n_states-1:
+            n = 1
+        else:
+            n = i+1
+    else:
+        if weight == 'lrs':
+            lrs_link = [oracle.lrs[s] for s in oracle.latent[oracle.data[i]] if (oracle.lrs[s] >= LRS and (s+1) < oracle.n_states)]
+            lrs_pop = list(itertools.chain.from_iterable([[[i]*_x for (i,_x) in zip(trn_link,lrs_link)]]))
+            n = random.choice(lrs_pop)[0]
+        else:
+            n = trn_link[int(np.floor(random.random()*len(trn_link)))]
+    return n
+
+def improvise(oracle, seq_len, k = 1, LRS = 0, weight = None, continuity = None):
+    """Improvisation wrapper"""
+    
+    s = []
+    if k + continuity < oracle.n_states - 1:
+        s.extend(range(k,k+continuity))
+        k = s[-1]
+        seq_len -= continuity
+    
+    while seq_len > 0:
+        s.append(improvise_step(oracle, k, LRS, weight))
+        k = s[-1]
+        if k+1 < oracle.n_states-1:
+            k += 1
+        else:
+            k = 1
+        if k + continuity < oracle.n_states - 1:
+            s.extend(range(k,k+continuity))
+            seq_len -= continuity
+        k = s[-1]
+        seq_len -= 1
+        
+    return s
+
+def generate(oracle, seq_len, p = 0.5, k = 1, LRS = 0, weight = None):
     """ Generate a sequence based on traversing an oracle.
     
     Args:
@@ -46,16 +88,10 @@ def generate(oracle, seq_len, p = 0.5, k = 0, LRS = 0, weight = None):
         kend: the ending state.
         ktrace: 
     """
-    if type(oracle) == dict:
-        trn = oracle['trn'][:]
-        sfx = oracle['sfx'][:]
-        lrs = oracle['lrs'][:]
-        rsfx = oracle['rsfx'][:]
-    else:
-        trn = oracle.trn[:]
-        sfx = oracle.sfx[:]
-        lrs = oracle.lrs[:]
-        rsfx = oracle.rsfx[:]
+    trn = oracle.trn[:]
+    sfx = oracle.sfx[:]
+    lrs = oracle.lrs[:]
+    rsfx = oracle.rsfx[:]
 
     s = []
     ktrace = [1]
@@ -146,83 +182,6 @@ def _find_links(k_vec ,sfx, rsfx, k):
                 break
         return k_vec
 
-def _generate(oracle, seq_len, p, k, LRS = 0):
-    """generate output state vector from audio oracle.
-    
-    Args:
-        oracle: an oracle object instance or dictionary already learned.
-        seq_len: an integer for the length of the ouput sequence. 
-        p: a float the probability of using the forward links.
-        k: an integer for the starting state.
-        LRS: an integer for the lower limit of the LRS of sfx/rsfx allowed to 
-            jump to.
-            
-    Returns:
-        s: a list containing the sequence generated, each element represents a 
-            state.
-        kend: the ending state.
-        ktrace: 
-    """
-
-    if type(oracle) == dict:
-        trn = oracle['trn']
-        sfx = oracle['sfx']
-        lrs = oracle['lrs']
-    else:
-        trn = oracle.trn
-        sfx = oracle.sfx
-        lrs = oracle.lrs
-
-    s = []
-    ktrace = [1]
-
-    for _i in range(seq_len):
-        # generate each state
-        if sfx[k] != 0 and sfx[k] is not None:
-            if (random.random() < p):
-                #copy forward according to transitions
-                I = trn[k]
-                if len(I) == 0:
-                    # if last state, choose a suffix
-                    k = sfx[k]
-                    ktrace.append(k)
-                    I = trn[k]
-                sym = I[int(np.floor(random.random()*len(I)))]
-                s.append(sym-1)
-                k = sym
-                ktrace.append(k)
-            else:
-                # copy any of the next symbols
-                k = sfx[k]
-                ktrace.append(k)
-                I = trn[k]
-                I = [_i for _i in I if lrs[_i] >= LRS]
-                if len(I) > 0: # if a possibility found
-                    sym = I[int(np.floor(random.random()*len(I)))]
-                    s.append(sym-1)
-                    k = sym
-                    ktrace.append(k)
-                else: # otherwise continue
-                    sym = k+1
-                    s.append(sym-1)
-                    k = sym
-                    ktrace.append(k)
-        else:
-            if k < len(sfx) - 1:
-                next_k = k+1
-                # next_k = find([o.transition.pointer.number for o in oracle] == k+1)
-                s.append(next_k)
-                k = k+1
-                ktrace.append(k)
-            else:
-                nextk = int(random.random()*(len(sfx) - 1))
-                # s.append(find(oracle['trn'][0] == nextk))
-                s.append(nextk)
-                k = nextk
-                ktrace.append(k)
-    kend = k
-    return s, kend, ktrace
-
 def _make_win(n, mono=False):
     """ Generate a window for a given length.
     
@@ -255,7 +214,8 @@ def audio_synthesis(ifilename, ofilename, s, buffer_size, hop):
         new_mat = np.array(x[i:i+buffer_size]) # try changing array type?
         xmat.append(new_mat)
     xmat = np.array(xmat)
-    
+
+    s = np.array(s) - 1
     xnewmat = xmat[s]
     
     framelen = len(xnewmat[0])
@@ -279,7 +239,7 @@ def audio_synthesis(ifilename, ofilename, s, buffer_size, hop):
     x_new[hop:-hop] = np.divide(x_new[hop:-hop],wsum[hop:-hop])
     x_new = x_new.astype(np.int16)
     wavfile.write(ofilename, fs, x_new)        
-    return x, wsum
+    return x_new, wsum
     
 def generate_audio(ifilename, ofilename, buffer_size, hop, oracle, seq_len, p = 0.5, k = 0, lrs = 0):
     """make audio output using audio oracle for generation.
@@ -316,6 +276,7 @@ def generate_audio(ifilename, ofilename, buffer_size, hop, oracle, seq_len, p = 
     xmat = np.array(xmat)
 
     s, _kend, _ktrace = generate(oracle, seq_len, p, k, lrs)
+    s = np.array(s) - 1
     xnewmat = xmat[s]
 
     framelen = len(xnewmat[0])
@@ -338,6 +299,6 @@ def generate_audio(ifilename, ofilename, buffer_size, hop, oracle, seq_len, p = 
     x_new[hop:-hop] = np.divide(x_new[hop:-hop],wsum[hop:-hop])
     x_new = x_new.astype(np.int16)
     wavfile.write(ofilename, fs, x_new)
-    return x, wsum
+    return x_new, wsum
 
     

@@ -2,10 +2,12 @@
 oracle.py
 Variable Markov Oracle in python
 
+@copyright: 
 Copyright (C) 9.2014 Cheng-i Wang
 
 This file is part of vmo.
 
+@license: 
 vmo is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation, either version 3 of the License, or
@@ -18,11 +20,15 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with vmo.  If not, see <http://www.gnu.org/licenses/>.
+@author: Cheng-i Wang
+@contact: wangsix@gmail.com, chw160@ucsd.edu
 '''
 
 import numpy as np
 import vmo.analysis as van
+import vmo.VMO.utility as utl
 from matplotlib.mlab import find
+
 
 class data(object):
     """A helper class for construct data object for symbolic comparison
@@ -68,7 +74,7 @@ class FactorOracle(object):
         rsfx: a list containing the reverse suffix links of each state 
             as a list.
         lrs: the value of longest repeated suffix of each state.
-        data: the object/value associated with the direct link 
+        data: the symobols associated with the direct link 
             connected to each state.
         compror: a list of tuples (i, i-j), i is the current coded position,
             i-j is the length of the corresponding coded words.
@@ -76,12 +82,16 @@ class FactorOracle(object):
             corresponding coded words, pos is the position where the coded
             words starts.
         seg: same as code but non-overlapping.
+        f_array: (For kind 'a' and 'v'): a list containing the feature array
+        latent: (For kind 'a' and 'v'): a list of lists with each sub-list containing the indexes for each symbol.
         kind: 
-            'a': audio oracle
+            'a': Variable Markov oracle
             'f': repeat oracle
+            'v': Centroid-based oracle (under test)
         n_states: number of total states, also is length of the input 
             sequence plus 1.
         max_lrs: the longest lrs so far.
+        avg_lrs: the average lrs so far.
         name: the name of the oracle.
         params: a python dictionary for different feature and distance settings.
             keys:
@@ -184,11 +194,11 @@ class FactorOracle(object):
                 i = i + 1
             if i == j:
                 i = i + 1
-                _code.append((0,i))
-                _compror.append((i,0))
+                _code.append([0,i])
+                _compror.append([i,0])
             else:
-                _code.append((i - j, self.sfx[i] - i + j + 1))
-                _compror.append((i,i-j)) 
+                _code.append([i - j, self.sfx[i] - i + j + 1])
+                _compror.append([i,i-j]) 
             j = i
         return _code, _compror
         
@@ -243,7 +253,7 @@ class FactorOracle(object):
         h1 = np.zeros(len(cw))
     
         for i in range(1, len(cw)):
-            h1[i] = _entropy(cw[0:i+1])
+            h1[i] = utl.entropy(cw[0:i+1])
     
         ir = alpha*h0-h1
 
@@ -526,7 +536,11 @@ class MO(FactorOracle):
         while k != None:
             if self.params['dfunc'] == 'euclidean':
                 a = np.array(new_data) - np.array([self.f_array[t] for t in self.trn[k]])
-                dvec = np.sqrt((a*a).sum(axis=1))
+                if a.ndim >1:
+                    dvec = np.sqrt((a*a).sum(axis=1))
+                else:
+                    dvec = np.sqrt((a*a))
+#                 dvec = np.sqrt((a*a).sum(axis=1))
             elif self.params['dfunc'] == 'other':
                 dvec = self.dfunc_handle(new_data, [self.f_array[t] for t in self.trn[k]])
                 
@@ -685,11 +699,6 @@ class VMO(FactorOracle):
         self.avg_lrs.append(self.avg_lrs[i-1]*((i-1.0)/(self.n_states-1.0)) + 
                             self.lrs[i]*(1.0/(self.n_states-1.0)))
                  
-                       
-def _entropy(x):
-    x = np.divide(x, sum(x), dtype = float)
-    return sum(np.multiply(-np.log2(x),x))
-
 def _create_oracle(oracle_type,**kwargs):
     """A routine for creating a factor oracle."""
     if oracle_type == 'f':
@@ -700,6 +709,9 @@ def _create_oracle(oracle_type,**kwargs):
         return VMO(**kwargs)
     else:
         return MO(**kwargs)
+    
+def create_oracle(flag, threshold = 0, dfunc = 'euclidean', dfunc_handle = None):
+    return _create_oracle(flag, threshold = threshold, dfunc = dfunc, dfunc_handle = dfunc_handle)
 
 def _build_oracle(flag, oracle, input_data, suffix_method = 'inc'):
     if type(input_data) != np.ndarray or type(input_data[0]) != np.ndarray:

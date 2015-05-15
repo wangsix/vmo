@@ -221,7 +221,7 @@ def segment(oracle):
 '''Query-matching and gesture tracking algorithms
 '''
 
-def query_complete(oracle, query, method = 'trn', selftrn = True, smooth = False, weight = 0.5):
+def query_complete(oracle, query, trn_type = 1, smooth = False, weight = 0.5):
     """ Return the closest path in target oracle given a query sequence
     
     Args:
@@ -249,13 +249,12 @@ def query_complete(oracle, query, method = 'trn', selftrn = True, smooth = False
     P[0] = list(P[0])
     C = np.array(C)    
     
-    if method == 'complete':
-        trn = _create_trn_complete
+    if trn_type == 1:
+        trn = _create_trn_self
+    elif trn_type == 2:
+        trn = _create_trn_sfx_rsfx
     else:
-        if selftrn:
-            trn = _create_trn_self
-        else:
-            trn = _create_trn
+        trn = _create_trn
             
     argmin = np.argmin
     distance_cache = np.zeros(oracle.n_states)
@@ -272,7 +271,7 @@ def query_complete(oracle, query, method = 'trn', selftrn = True, smooth = False
     P = map(list, zip(*P))
     return P, C, i_hat    
 
-def tracking(oracle, obs, selftrn = True, reverse_init = False):
+def tracking(oracle, obs, trn_type = 1, reverse_init = False, method = 'else', decay = 1.0):
     """ Off-line tracking function using sub-optimal query-matching algorithm"""
     N = len(obs)
     if reverse_init:
@@ -292,7 +291,8 @@ def tracking(oracle, obs, selftrn = True, reverse_init = False):
     P = np.zeros((N,K), dtype = 'int')
     T = np.zeros((N,), dtype = 'int')
     map_k_outer = partial(_query_k, oracle = oracle, query = obs)
-    map_query = partial(_query_init, oracle = oracle, query = obs[0])
+    map_query = partial(_query_init, oracle = oracle, query = obs[0], method = method)
+#     map_query = partial(_query_init, oracle = oracle, query = obs[0], method)
 
     argmin = np.argmin
  
@@ -300,8 +300,10 @@ def tracking(oracle, obs, selftrn = True, reverse_init = False):
     C = np.array(C)
     T[0] = P[0][argmin(C)]
     
-    if selftrn:
+    if trn_type == 1:
         trn = _create_trn_self
+    elif trn_type == 2:
+        trn = _create_trn_sfx_rsfx
     else:
         trn = _create_trn
     
@@ -313,7 +315,7 @@ def tracking(oracle, obs, selftrn = True, reverse_init = False):
         
         map_k_inner = partial(map_k_outer, i=i, P=P, trn = trn, state_cache = state_cache, dist_cache = dist_cache)
         P[i], _c = zip(*map(map_k_inner, range(K)))
-        C += np.array(_c)
+        C = decay*C + np.array(_c)
         T[i] = P[i][argmin(C)]
     
     return T
@@ -347,6 +349,39 @@ def tracking_multiple_seq(oracle_vec, obs, selftrn = True):
         T[i] = P[i][g]
         G[i] = g
     return T, G
+
+def align(oracle, obs, trn_type = 1, method = 'else'):
+    N = len(obs)
+    init_ind = [1]
+    K = 1
+    
+    P = np.zeros((N,1), dtype = 'int')
+    map_k_outer = partial(_query_k, oracle = oracle, query = obs)
+    map_query = partial(_query_init, oracle = oracle, query = obs[0], method = method)
+#     map_query = partial(_query_init, oracle = oracle, query = obs[0], method)
+
+    argmin = np.argmin
+    P[0], _C = zip(*map(map_query, init_ind))
+
+    if trn_type == 1:
+        trn = _create_trn_self
+    elif trn_type == 2:
+        trn = _create_trn_sfx_rsfx
+    else:
+        trn = _create_trn
+    
+    distance_cache = np.zeros(oracle.n_states)
+    
+    for i in xrange(1,N): # iterate over the rest of query
+        state_cache = []
+        dist_cache = distance_cache
+        
+        map_k_inner = partial(map_k_outer, i=i, P=P, trn = trn, 
+                              state_cache = state_cache, dist_cache = dist_cache)
+        P[i], _c = zip(*map(map_k_inner, range(K)))
+    
+    return P
+ 
 
 def create_pttr_vmo(oracle, pattern):
     thresh = oracle.params['threshold']
@@ -401,13 +436,18 @@ def create_reverse_oracle(oracle):
     r_oracle = vmo.build_oracle(reverse_data, 'v', threshold=oracle.params['threshold'])
     return r_oracle
     
-def _query_init(k, oracle, query): 
+def _query_init(k, oracle, query, method = 'all'): 
     """A helper function for query-matching function initialization."""
-    
-    a = np.subtract(query, [oracle.f_array[t] for t in oracle.latent[oracle.data[k]]])       
-    dvec = (a*a).sum(axis=1) # Could skip the sqrt
-    _d = dvec.argmin()
-    return oracle.latent[oracle.data[k]][_d], dvec[_d] 
+    if method == 'all':
+        a = np.subtract(query, [oracle.f_array[t] for t in oracle.latent[oracle.data[k]]])       
+        dvec = (a*a).sum(axis=1) # Could skip the sqrt
+        _d = dvec.argmin()
+        return oracle.latent[oracle.data[k]][_d], dvec[_d] 
+
+    else:
+        a = np.subtract(query, oracle.f_array[k])
+        dvec = (a*a).sum() # Could skip the sqrt
+        return k, dvec
 
 def _dist_obs_oracle(oracle, query, trn_list): 
     """A helper function calculating distances between a feature and frames in oracle."""
@@ -460,19 +500,36 @@ def _create_trn_self(oracle, prev):
     _trn.append(prev)    
     return _trn
 
+def _create_trn_sfx_rsfx(oracle, prev):
+    _trn = oracle.trn[prev][:]
+    if _trn == []:
+        _trn = oracle.trn[oracle.sfx[prev]][:]
+        prev = oracle.sfx[prev]       
+    else: 
+        if oracle.rsfx[prev] != []:
+            _trn.extend(oracle.trn[np.min(oracle.rsfx[prev])][:])
+        _trn.extend(oracle.trn[oracle.sfx[prev]][:])
+
+    return _trn
+
 def _create_trn(oracle, prev):
     _trn = oracle.trn[prev][:] # Sub-optimal
     if _trn == []:
         _trn = oracle.trn[oracle.sfx[prev]][:]
     return _trn
-        
+
+
 def _dist2prob(f, a):
     return np.exp(-f/a)
 
 '''Pattern/motif/gesture extraction algorithms
 '''
-        
+
 def find_repeated_patterns(oracle, lower = 1):
+    
+    if lower < 1:
+        lower = 1
+            
     pattern_list = [] 
     prev_sfx = -1
     for i in range(oracle.n_states-1,lower+1,-1): 
@@ -502,8 +559,7 @@ def find_repeated_patterns(oracle, lower = 1):
                 _rsfx = np.array(rsfx).tolist()             
                 if _rsfx != []:
                     _rsfx.extend([i, sfx])
-                    _len = np.array(oracle.lrs)[_rsfx].min()
-#                     _len =np.array(oracle.lrs)[_rsfx[:-1]].min()
+                    _len =np.array(oracle.lrs)[_rsfx[:-1]].min()
                     if _len > lower:
                         pattern_list.append([_rsfx, _len])                    
                 else:
