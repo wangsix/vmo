@@ -578,7 +578,7 @@ class MO(FactorOracle):
                 self.data.append(len(self.latent)-1)
             else:
                 sorted_suffix_candidates = sorted(suffix_candidate,
-                                           key = lambda suffix:suffix[1])
+                                           key=lambda suffix:suffix[1])
                 self.sfx[i] = sorted_suffix_candidates[0][0]
                 self.lrs[i] = self._len_common_suffix(pi_1, self.sfx[i]-1) + 1
                 self.latent[self.data[self.sfx[i]]].append(i)
