@@ -99,13 +99,13 @@ class FactorOracle(object):
     """
 
     def __init__(self, **kwargs):
-        # Basic attributes
-        self.sfx = []
-        self.trn = []
-        self.rsfx = []
-        self.lrs = []
-        self.data = []
-
+        # Basic attributes, initialized with state zero
+        self.sfx = [None]
+        self.trn = [[]]
+        self.rsfx = [[]]
+        self.lrs = [0]
+        self.data = [0] 
+        
         # Compression attributes
         self.compror = []
         self.code = []
@@ -117,11 +117,9 @@ class FactorOracle(object):
 
         # Oracle statistics
         self.n_states = 1
-        self.max_lrs = []
-        self.max_lrs.append(0)
-        self.avg_lrs = []
-        self.avg_lrs.append(0.0)
-
+        self.max_lrs = [0]
+        self.avg_lrs = [0.]
+        
         # Oracle parameters
         self.params = {
             'threshold': 0,
@@ -130,23 +128,16 @@ class FactorOracle(object):
             'dim': 1
         }
         self.update_params(**kwargs)
-
-        # Adding zero state
-        self.sfx.append(None)
-        self.rsfx.append([])
-        self.trn.append([])
-        self.lrs.append(0)
-        self.data.append(0)
-
+        
     def reset(self, **kwargs):
         self.update_params(**kwargs)
-        # Basic attributes
-        self.sfx = []
-        self.trn = []
-        self.rsfx = []
-        self.lrs = []
-        self.data = []
-
+        # Basic attributes, initialized with state zero
+        self.sfx = [None]
+        self.trn = [[]]
+        self.rsfx = [[]]
+        self.lrs = [0]
+        self.data = [0] 
+                
         # Compression attributes
         self.compror = []
         self.code = []
@@ -158,17 +149,8 @@ class FactorOracle(object):
 
         # Oracle statistics
         self.n_states = 1
-        self.max_lrs = []
-        self.max_lrs.append(0)
-        self.avg_lrs = []
-        self.avg_lrs.append(0.0)
-
-        # Adding zero state
-        self.sfx.append(None)
-        self.rsfx.append([])
-        self.trn.append([])
-        self.lrs.append(0)
-        self.data.append(0)
+        self.max_lrs = [0]
+        self.avg_lrs = [0.]
 
     def update_params(self, **kwargs):
         """Subclass this"""
@@ -209,9 +191,8 @@ class FactorOracle(object):
 
     @property
     def segment(self):
-        """An non-overlap version Compror"""
-
-        if not self.seg:
+        """Non-overlapp Compror"""
+        if (self.seg == []):
             j = 0
         else:
             j = self.seg[-1][1]
@@ -220,9 +201,10 @@ class FactorOracle(object):
                 return
 
         i = j
-        while j < self.n_states - 1:
-            while not (not (i < self.n_states - 1) or not (self.lrs[i + 1] >= i - j + 1)):
-                i += 1
+        while (j < self.n_states-1):
+            while (i < self.n_states - 1 and
+                   self.lrs[i + 1] >= i - j + 1):
+                i = i + 1
             if i == j:
                 i += 1
                 self.seg.append((0, i))
@@ -379,19 +361,21 @@ class FactorOracle(object):
         return len(self.rsfx[0])
 
     def threshold(self):
-        if self.params.get('threshold'):
-            return int(self.params.get('threshold'))
+        threshold = self.params.get('threshold')
+        if (threshold is not None):
+            return int(threshold)
         else:
             raise ValueError("Threshold is not set!")
 
     def dfunc(self):
-        if self.params.get('dfunc'):
-            return self.params.get('dfunc')
+        dfunc = self.params.get('dfunc')
+        if (dfunc is not None):
+            return dfunc
         else:
             raise ValueError("dfunc is not set!")
-
-    def dfunc_handle(self, a, b_vec):
-        fun = self.params['dfunc_handle']
+    
+    def dfunc_handle(self, a, b_vec):     
+        fun = self.params['dfunc_handle']  
         return fun(a, b_vec)
 
     def _len_common_suffix(self, p1, p2):
