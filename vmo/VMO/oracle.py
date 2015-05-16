@@ -40,7 +40,7 @@ class data(object):
         content: a list or tuple
         idx: the index of the list or tuple to be tested for equality 
     """
-    def __init__(self, data_item, index = 0):
+    def __init__(self, data_item, index=0):
         self.content = data_item
         self.idx = index
         
@@ -240,7 +240,7 @@ class FactorOracle(object):
             j = i
         return self.seg
     
-    def _ir(self, alpha = 1.0):
+    def _ir(self, alpha=1.0):
         code, _ = self.encode()
         cw = np.zeros(len(code)) # Number of code words
         for i, c in enumerate(code):
@@ -258,7 +258,7 @@ class FactorOracle(object):
 
         return ir, h0, h1
     
-    def _ir_fixed(self, alpha = 1.0):
+    def _ir_fixed(self, alpha=1.0):
         code, _ = self.encode()
          
         h0 = np.log2(self.num_clusters())
@@ -312,7 +312,7 @@ class FactorOracle(object):
         
         return ir, h0, h1
         
-    def _ir_cum2(self, alpha = 1.0):
+    def _ir_cum2(self, alpha=1.0):
         code, _ = self.encode()
         
         N = self.n_states        
@@ -347,7 +347,7 @@ class FactorOracle(object):
         ir[ir<0] = 0 #Really a HACK here!!!!!
         return ir, h0, h1
     
-    def _ir_cum3(self, alpha = 1.0):
+    def _ir_cum3(self, alpha=1.0):
         
         h0 = np.log2(np.cumsum(
             [1.0 if sfx == 0 else 0.0 for sfx in self.sfx[1:]])
@@ -359,7 +359,7 @@ class FactorOracle(object):
         ir[ir<0] = 0 #Really a HACK here!!!!!
         return ir, h0, h1      
     
-    def IR(self, alpha = 1.0, ir_type = 'cum'):
+    def IR(self, alpha=1.0, ir_type='cum'):
         if ir_type == 'cum':
             return self._ir_cum(alpha)
         elif ir_type == 'all':
@@ -505,7 +505,7 @@ class MO(FactorOracle):
         self.data[0] = None
         self.latent = []
         
-    def add_state(self, new_data, method = 'inc'):
+    def add_state(self, new_data, method='inc'):
         """Create new state and update related links and compressed state"""
         self.sfx.append(0)
         self.rsfx.append([])
@@ -729,12 +729,12 @@ def _create_oracle(oracle_type,**kwargs):
     else:
         return MO(**kwargs)
     
-def create_oracle(flag, threshold = 0, dfunc = 'euclidean',
-                  dfunc_handle = None):
-    return _create_oracle(flag, threshold = threshold, dfunc = dfunc,
-                          dfunc_handle = dfunc_handle)
+def create_oracle(flag, threshold=0, dfunc='euclidean',
+                  dfunc_handle=None):
+    return _create_oracle(flag, threshold=threshold, dfunc=dfunc,
+                          dfunc_handle=dfunc_handle)
 
-def _build_oracle(flag, oracle, input_data, suffix_method = 'inc'):
+def _build_oracle(flag, oracle, input_data, suffix_method='inc'):
     if type(input_data) != np.ndarray or type(input_data[0]) != np.ndarray:
         input_data = np.array(input_data)
     
@@ -747,9 +747,9 @@ def _build_oracle(flag, oracle, input_data, suffix_method = 'inc'):
     return oracle
  
 def build_oracle(input_data, flag, 
-                 threshold = 0, suffix_method = 'inc', 
-                 feature = None, weights = None, dfunc = 'euclidean',
-                 dfunc_handle = None):
+                 threshold=0, suffix_method='inc', 
+                 feature=None, weights=None, dfunc='euclidean',
+                 dfunc_handle=None):
     
     # initialize weights if needed 
     if weights == None:
@@ -757,24 +757,24 @@ def build_oracle(input_data, flag,
         weights.setdefault(feature, 1.0)
 
     if flag == 'a':
-        oracle = _create_oracle(flag, threshold = threshold, dfunc = dfunc,
-                                dfunc_handle = dfunc_handle)
+        oracle = _create_oracle(flag, threshold=threshold, dfunc=dfunc,
+                                dfunc_handle=dfunc_handle)
         oracle = _build_oracle(flag, oracle, input_data, suffix_method)
     elif flag == 'f' or flag == 'v':
-        oracle = _create_oracle(flag, threshold = threshold, dfunc = dfunc,
-                                dfunc_handle = dfunc_handle)
+        oracle = _create_oracle(flag, threshold=threshold, dfunc=dfunc,
+                                dfunc_handle=dfunc_handle)
         oracle = _build_oracle(flag, oracle, input_data)         
     else:
-        oracle = _create_oracle('a', threshold = threshold, dfunc = dfunc,
-                                dfunc_handle = dfunc_handle)
+        oracle = _create_oracle('a', threshold=threshold, dfunc=dfunc,
+                                dfunc_handle=dfunc_handle)
         oracle = _build_oracle(flag, oracle, input_data, suffix_method)
                  
     return oracle 
     
-def find_threshold(input_data, r = (0,1,0.1), method = 'ir',flag = 'a',
-                   suffix_method = 'inc', alpha = 1.0, feature = None,
-                   ir_type='cum', dfunc ='euclidean', dfunc_handle = None, 
-                   VERBOSE = False, ENT = False):
+def find_threshold(input_data, r=(0,1,0.1), method='ir',flag='a',
+                   suffix_method='inc', alpha=1.0, feature=None,
+                   ir_type='cum', dfunc ='euclidean', dfunc_handle=None, 
+                   VERBOSE=False, ENT=False):
     
     if method == 'ir':
         return find_threshold_ir(input_data, r, flag, suffix_method, alpha,
@@ -784,10 +784,10 @@ def find_threshold(input_data, r = (0,1,0.1), method = 'ir',flag = 'a',
         return find_threshold_motif(input_data, r, flag, suffix_method, alpha,
                                     feature, dfunc, dfunc_handle, VERBOSE)
 
-def find_threshold_ir(input_data, r = (0,1,0.1), flag = 'a',
-                      suffix_method = 'inc', alpha = 1.0, 
-                      feature = None, ir_type='cum', dfunc ='euclidean',
-                      dfunc_handle = None, VERBOSE = False, ENT = False):
+def find_threshold_ir(input_data, r=(0,1,0.1), flag='a', suffix_method='inc',
+                      alpha=1.0, feature=None, ir_type='cum',
+                      dfunc ='euclidean', dfunc_handle=None, VERBOSE=False,
+                      ENT=False):
     thresholds = np.arange(r[0], r[1], r[2])
     irs = []
     if ENT:
@@ -796,11 +796,10 @@ def find_threshold_ir(input_data, r = (0,1,0.1), flag = 'a',
     for t in thresholds:
         if VERBOSE:
             print 'Testing threshold:', t
-        tmp_oracle = build_oracle(input_data, flag = flag, threshold = t,
-                                  suffix_method = suffix_method, 
-                                  feature = feature, dfunc = dfunc,
-                                  dfunc_handle = dfunc_handle)
-        tmp_ir, h0, h1 = tmp_oracle.IR(ir_type = ir_type, alpha = alpha)
+        tmp_oracle = build_oracle(input_data, flag=flag, threshold=t,
+                                  suffix_method=suffix_method, feature=feature,
+                                  dfunc=dfunc, dfunc_handle=dfunc_handle)
+        tmp_ir, h0, h1 = tmp_oracle.IR(ir_type=ir_type, alpha=alpha)
         irs.append(tmp_ir.sum())
         if ENT:
             h0_vec.append(h0.sum())
@@ -809,28 +808,26 @@ def find_threshold_ir(input_data, r = (0,1,0.1), flag = 'a',
     ir_thresh_pairs = [(a,b) for a, b in zip(irs, thresholds)]
     pairs_return = ir_thresh_pairs
     ir_thresh_pairs = sorted(ir_thresh_pairs, key= lambda x: x[0],
-                             reverse = True)
+                             reverse=True)
     if ENT:
         return ir_thresh_pairs[0], pairs_return, h0_vec, h1_vec
     else:
         return ir_thresh_pairs[0], pairs_return
     
    
-def find_threshold_motif(input_data, r = (0,1,0.1), flag = 'a',
-                         suffix_method = 'inc', alpha = 1.0, feature = None,
-                         dfunc ='euclidean', dfunc_handle = None, 
-                         VERBOSE = False):
+def find_threshold_motif(input_data, r=(0,1,0.1), flag='a',
+                         suffix_method='inc', alpha=1.0, feature=None,
+                         dfunc='euclidean', dfunc_handle=None, VERBOSE=False):
     thresholds = np.arange(r[0], r[1], r[2]) 
     avg_len = []
     avg_occ = []
     avg_num = []
     
     for t in thresholds:
-        tmp_oracle = build_oracle(input_data, flag = flag, 
-                                  threshold = t, suffix_method = suffix_method,
-                                  feature = feature, dfunc = dfunc,
-                                  dfunc_handle = dfunc_handle)
-        pttr = van.find_repeated_patterns(tmp_oracle, alpha)
+        tmp_oracle=build_oracle(input_data, flag=flag, threshold=t,
+                                suffix_method=suffix_method, feature=feature,
+                                dfunc=dfunc, dfunc_handle=dfunc_handle)
+        pttr=van.find_repeated_patterns(tmp_oracle, alpha)
         if pttr != []:
             avg_len.append(np.mean([float(p[1]) for p in pttr]))
             avg_occ.append(np.mean([float(len(p[0])) for p in pttr]))

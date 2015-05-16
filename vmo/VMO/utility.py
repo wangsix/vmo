@@ -26,10 +26,10 @@ along with vmo.  If not, see <http://www.gnu.org/licenses/>.
 import numpy as np
 
 def entropy(x):
-    x = np.divide(x, sum(x), dtype = float)
+    x = np.divide(x, sum(x), dtype=float)
     return sum(np.multiply(-np.log2(x),x))
 
-def array_rotate(a, shift = 1, step = None):
+def array_rotate(a, shift=1, step=None):
     _a = a
     if step is None and step <= 1:
         for _i in range(1, a.size):
@@ -42,7 +42,7 @@ def array_rotate(a, shift = 1, step = None):
             _a = np.vstack((_a, np.roll(a,_i)))
     return _a
         
-def trnspose_inv(a, b_vec, shift = 1, step = None):
+def trnspose_inv(a, b_vec, shift=1, step=None):
     d_vec = []
     a = np.array(a)
     a_mat = array_rotate(a, shift, step)
