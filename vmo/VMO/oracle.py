@@ -27,39 +27,8 @@ along with vmo.  If not, see <http://www.gnu.org/licenses/>.
 import numpy as np
 import scipy.spatial.distance as dist
 import vmo.VMO.utility as utl
-
-
-class data(object):
-    """A helper class to encapsulate objects for symbolic comparison
-
-    By default, the first entry of the list or tuple is used as the feature to
-    test for equality between different data object.
-
-    Attributes:
-        content: a list or tuple
-        idx: the index of the list or tuple to be tested for equality
-    """
-
-    def __init__(self, data_item, index=0):
-        self.content = data_item
-        self.idx = index
-
-    def __repr__(self):
-        return str(self.content)
-
-    def __eq__(self, other):
-        if type(other) == data:
-            if self.content[self.idx] == other.content[self.idx]:
-                return True
-            else:
-                return False
-        else:
-            return False
-
-    def __ne__(self, other):
-        return not (self == other)
-
-
+from matplotlib.mlab import find
+        
 class FactorOracle(object):
     """ The base class for the FO(factor oracle) and MO(variable markov oracle)
     
