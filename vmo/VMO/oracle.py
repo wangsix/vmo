@@ -437,14 +437,9 @@ class FO(FactorOracle):
 
 class MO(FactorOracle):
     def __init__(self, **kwargs):
-        super(MO, self).__init__(**kwargs)
-        self.kind = 'a'
-        self.f_array = feature_array(self.params['dim'])
-        self.f_array.add(np.zeros(self.params['dim'], ))
-        self.data[0] = None
-        self.latent = []
-
-        def reset(self, **kwargs):
+        self.reset(**kwargs)
+            
+    def reset(self, **kwargs):
         super(MO, self).reset(**kwargs)
 
         self.kind = 'a'
@@ -684,6 +679,7 @@ class feature_array:
 
 def _create_oracle(oracle_type, **kwargs):
     """A routine for creating a factor oracle."""
+    """To-Do : Replace by case syntax"""
     if oracle_type == 'f':
         return FO(**kwargs)
     elif oracle_type == 'a':
