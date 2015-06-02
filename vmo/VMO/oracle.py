@@ -73,7 +73,7 @@ class FactorOracle(object):
         self.trn = [[]]
         self.rsfx = [[]]
         self.lrs = [0]
-        self.data = [0] 
+        self.data = [0]
         
         # Compression attributes
         self.compror = []
@@ -97,7 +97,7 @@ class FactorOracle(object):
             'dim': 1
         }
         self.update_params(**kwargs)
-        
+
     def reset(self, **kwargs):
         self.update_params(**kwargs)
         # Basic attributes, initialized with state zero
@@ -120,7 +120,7 @@ class FactorOracle(object):
         self.n_states = 1
         self.max_lrs = [0]
         self.avg_lrs = [0.]
-
+        
     def update_params(self, **kwargs):
         """Subclass this"""
         self.params.update(kwargs)
@@ -363,11 +363,34 @@ class FactorOracle(object):
                 return j
         return None
 
+    def graph_adjacency_lists(self):
+        """Return <self>'s underlying matrix, with adjacency lists
 
+        More compact in memory than the adjacency matrix"""
+        graph = list(self.trn) # copy self.trn
+        # TODO : Finish implementation
+        for i, js in enumerate(self.rsfx):
+            for j in js:
+                graph[i].append(j)
+        return graph
+        
+    def graph_adjacency_matrix(self):
+        """Return the adjacency matrix of <self>'s underlying graph
+
+        Warning: uses quadratic memory in the number of states of the oracle
+        """ 
+        length = self.n_states
+        graph = np.zeros((length, length), dtype=np.int)
+        for ls in [self.rsfx, self.trn]:
+            for i, js in enumerate(ls):
+                for j in js:
+                    graph[i,j] = 1
+        for i, j in enumerate(self.rsfx):
+            graph[i,j] = 1
+        return graph
+                
 class FO(FactorOracle):
-    """ An implementation of the factor oracle
-    """
-
+    """An implementation of the factor oracle"""
     def __init__(self, **kwargs):
         super(FO, self).__init__(**kwargs)
         self.kind = 'r'
@@ -427,7 +450,7 @@ class FO(FactorOracle):
                             self.lrs[i] * (1.0 / (self.n_states - 1.0)))
 
     def accept(self, context):
-        """ Check if the context could be accepted by the oracle
+        """Check if the context could be accepted by the oracle
         
         Args:
             context: s sequence same type as the oracle data
@@ -700,6 +723,7 @@ class feature_array:
 
 def _create_oracle(oracle_type, **kwargs):
     """A routine for creating a factor oracle."""
+    """To-Do : Replace by case syntax"""
     if oracle_type == 'f':
         return FO(**kwargs)
     elif oracle_type == 'a':
