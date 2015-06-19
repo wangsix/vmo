@@ -517,10 +517,16 @@ class MO(FactorOracle):
 
         self.n_states += 1 
         i = self.n_states - 1
-    
-        # assign new transition from state i-1 to i
-        self.trn[i - 1].append(i)
-        k = self.sfx[i - 1] 
+        
+        """ Experiment with enforcing continuity"""
+#        if i != 1:
+#            self.trn[i - 1].append(i-1)
+#            k = i - 1
+#        else:
+#            k = self.sfx[i - 1]
+
+        """"""
+        k = self.sfx[i - 1]
         pi_1 = i - 1
     
         # iteratively backtrack suffixes from state i-1
@@ -539,7 +545,6 @@ class MO(FactorOracle):
             dvec = np.sqrt((a*a).sum(axis=1)) 
         I = find(dvec < self.params['threshold'])
         '''
-        
         while k != None:
             if self.params['dfunc'] == 'euclidean':
                 a = np.array(new_data) - np.array([self.f_array[t] for t in
@@ -569,7 +574,10 @@ class MO(FactorOracle):
                                              np.min(dvec)))
             if method == 'complete':
                 k = self.sfx[k]
-                        
+
+        # assign new transition from state i-1 to i
+        self.trn[i - 1].append(i)
+
         if method == 'complete':
             if suffix_candidate == []:
                 self.sfx[i] = 0

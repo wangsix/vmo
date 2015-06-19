@@ -37,41 +37,37 @@ def create_selfsim(oracle, method='compror'):
     Args:
         oracle: a encoded vmo object
         method: 
-            "compror" - use the compression codes 
-            "suffix" - use suffix links
+            "comp" - use the compression codes
+            "sfx" - use suffix links
             "rsfx" - use reverse suffix links
             "lrs" - use LRS values
         
     """
     len_oracle = oracle.n_states - 1
     mat = np.zeros((len_oracle, len_oracle))
-    if method == 'compror':
+    if method == 'com':
         if oracle.code == []:
             print "Codes not generated. Generating codes with encode()."
             oracle.encode()
-        ind = 0
-        inc = 1
+        ind = 0 # index
         for l, p in oracle.code: # l for length, p for position
             if l == 0:
                 inc = 1
             else:
                 inc = l
-            if inc >= 1:
-                for i in range(l):
-                    mat[ind+i][p+i-1] = 1
-                    mat[p+i-1][ind+i] = 1
-            ind = ind + inc
-    elif method == 'suffix':
+            mat[range(ind,ind+inc), range(p-1,p-1+inc)] = 1
+            mat[range(p-1,p-1+inc), range(ind,ind+inc)] = 1
+            ind = ind + l
+    elif method == 'sfx':
         for i, s in enumerate(oracle.sfx[1:]):
-            while s != 0:
+            if s != 0:
                 mat[i][s-1] = 1
-                mat[s-1][i] = 1 
-                s = oracle.sfx[s] 
+                mat[s-1][i] = 1
     elif method == 'rsfx':
-        for _l in oracle.latent:
-            p = itertools.product(_l, repeat=2)
+        for cluster in oracle.latent:
+            p = itertools.product(cluster, repeat=2)
             for _p in p:
-                mat[_p[0]-1][_p[1]-1] += 1   
+                mat[_p[0]-1][_p[1]-1] = 1
     elif method == 'lrs':
         for i,l in enumerate(oracle.lrs[1:]):
             if l != 0:
