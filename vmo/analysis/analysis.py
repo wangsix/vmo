@@ -122,6 +122,34 @@ def _create_trn_mat_symbolic(oracle, method):
     mat = mat.transpose()
     return mat, hist, n
 
+def create_full_adjacency_lists(oracle):
+    """Return <oracle>'s underlying matrix, with adjacency lists.
+    
+    Edges are stored with multiplicity.
+    This representation is more compact in memory than the adjacency matrix"""
+    length = oracle.n_states
+    graph = [(oracle.trn[i]+oracle.rsfx[i]) for i in range(length)]
+    for i in range(length):
+        sfx_trans = oracle.sfx[i]
+        if sfx_trans is not None:
+            graph[i].append(sfx_trans)
+    return graph
+
+def create_full_adjacency_matrix(oracle):
+    """Return the adjacency matrix of <oracle>'s underlying graph.
+
+    Edges are counted with multiplicity.
+    Warning: quadratic memory in the number of states of the oracle
+    """ 
+    length = oracle.n_states
+    graph = [[0 for i in range(length)] for j in range(length)]
+    for ls in [oracle.rsfx, oracle.trn]:
+        for i, js in enumerate(ls):
+            for j in js:
+                graph[i][j] += 1
+    for i, j in enumerate(oracle.sfx):
+        if j is not None: graph[i][j] += 1
+    return graph
 
 '''
 Symbolic sequence prediction by an oracle
@@ -201,8 +229,8 @@ def log_loss(oracle, test_seq, ab=[], m_order=None, verbose=False):
             sys.stdout.write("\r[" + "=" * bar_count +
                              " " * (100 - bar_count) + "] " +
                              str(bar_count) + "% " +
-                             str(i) + "/" + str(len(test_seq) - 1) + " Current max length: " + str(
-                maxContextLength))
+                             str(i) + "/" + str(len(test_seq) - 1) +
+                             " Current max length: " + str(maxContextLength))
             sys.stdout.flush()
     return logP / len(test_seq), avgContext
 
@@ -256,7 +284,8 @@ def query_complete(oracle, query, trn_type=1, smooth=False, weight=0.5):
     if smooth:
         D = dist.pdist(oracle.f_array[1:], 'sqeuclidean')
         D = dist.squareform(D, checks=False)
-        map_k_outer = partial(_query_k, oracle=oracle, query=query, smooth=smooth, D=D, weight=weight)
+        map_k_outer = partial(_query_k, oracle=oracle, query=query,
+                              smooth=smooth, D=D, weight=weight)  
     else:
         map_k_outer = partial(_query_k, oracle=oracle, query=query)
 
@@ -277,8 +306,9 @@ def query_complete(oracle, query, trn_type=1, smooth=False, weight=0.5):
     for i in xrange(1, N):  # iterate over the rest of query
         state_cache = []
         dist_cache = distance_cache
-
-        map_k_inner = partial(map_k_outer, i=i, P=P, trn=trn, state_cache=state_cache, dist_cache=dist_cache)
+        
+        map_k_inner = partial(map_k_outer, i=i, P=P, trn=trn,
+                              state_cache=state_cache, dist_cache=dist_cache)
         P[i], _c = zip(*map(map_k_inner, range(K)))
         P[i] = list(P[i])
         C += np.array(_c)
