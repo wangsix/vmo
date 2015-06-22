@@ -160,7 +160,6 @@ def graph_adjacency_matrix(oracle):
 """Symbolic sequence prediction by an oracle"""
 
 
-
 def predict(oracle, context, ab=None, verbose=False):
     if verbose:
         print "original context: ", context
@@ -317,8 +316,7 @@ def query_complete(oracle, query, trn_type=1, smooth=False, weight=0.5):
         dist_cache = distance_cache
         
         map_k_inner = partial(map_k_outer, i=i, P=P, trn=trn,
-                              state_cache=state_cache,
-                              dist_cache=dist_cache)
+                              state_cache=state_cache, dist_cache=dist_cache)
         P[i], _c = zip(*map(map_k_inner, range(K)))
         P[i] = list(P[i])
         C += np.array(_c)
