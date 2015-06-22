@@ -679,7 +679,6 @@ class feature_array:
 
 def _create_oracle(oracle_type, **kwargs):
     """A routine for creating a factor oracle."""
-    """To-Do : Replace by case syntax"""
     if oracle_type == 'f':
         return FO(**kwargs)
     elif oracle_type == 'a':
