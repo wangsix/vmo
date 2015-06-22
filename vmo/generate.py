@@ -76,9 +76,9 @@ def generate(oracle, seq_len, p=0.5, k=1, LRS=0, weight=None):
     """ Generate a sequence based on traversing an oracle.
     
     Args:
-        oracle: an oracle object or dictionary already already learned.
+        oracle: an oracle object or dictionary already learned.
         seq_len: an integer for the length of the output sequence. 
-        p: a float of the probability using the forward links.
+        p: a float, the probability of using forward links.
         k: an integer for the starting state.
         LRS: an integer for the lower limit of the LRS of sfx/rsfx allowed to 
             jump to.
@@ -104,7 +104,7 @@ def generate(oracle, seq_len, p=0.5, k=1, LRS=0, weight=None):
     ktrace = [1]
 
     for _i in range(seq_len):
-        # generate each state
+        # iteratively generate each state, in seq_len steps
         if sfx[k] != 0 and sfx[k] is not None:
             if (random.random() < p):
                 # copy forward according to transitions
@@ -143,11 +143,20 @@ def generate(oracle, seq_len, p=0.5, k=1, LRS=0, weight=None):
                     elif weight == 'max':
                         sym = k_vec[np.argmax([lrs[_i] for _i in k_vec])]
                     else:
+<<<<<<< 0eee77f4e6b295928edcd668ce87757315f18e5b
                         sym = k_vec[int(np.floor(random.random() * len(k_vec)))]
 
                     if sym == len(sfx) - 1:
                         sym = sfx[sym] + 1
                     else:
+=======
+                        sym = k_vec[int(np.floor(
+                            random.random()*len(k_vec)))]
+                    
+                    if sym == len(sfx)-1:
+                        sym = sfx[sym] + 1                        
+                    else:                        
+>>>>>>> Minor cosmetic updates
                         s.append(sym + 1)
                     k = sym + 1
                     ktrace.append(k)
