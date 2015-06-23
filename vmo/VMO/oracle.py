@@ -38,7 +38,7 @@ class FactorOracle(object):
         rsfx: a list containing the reverse suffix links of each state 
             as a list.
         lrs: the value of longest repeated suffix of each state.
-        data: the symobols associated with the direct link 
+        data: the symbols associated with the direct link 
             connected to each state.
         compror: a list of tuples (i, i-j), i is the current coded position,
             i-j is the length of the corresponding coded words.
@@ -60,13 +60,19 @@ class FactorOracle(object):
         name: the name of the oracle.
         params: a python dictionary for different feature and distance settings.
             keys:
-                'thresholds': the minimum value for separating two values as 
+                'threshold': the minimum value for separating two values as 
                     different symbols.
                 'weights': a dictionary containing different weights for features
                     used.
-                'dfunc': the distance function.
-    """
-
+                'dfunc': the distance type
+                    Supports 'euclidean' as the default and
+                             'tonnetz' for a simple Tonnetz-model
+                    'other' for user defined
+                'dfunc_handle': user-defined distance function
+                    (in case of 'other' distance type)
+                    Operates on a vector a and a matrix m, returns the vector of
+                    distances between a and each column of m.
+"""
     def __init__(self, **kwargs):
         # Basic attributes, initialized with state zero
         self.sfx = [None]
