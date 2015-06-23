@@ -22,6 +22,7 @@ You should have received a copy of the GNU General Public License
 along with vmo.  If not, see <http://www.gnu.org/licenses/>.
 @author: Cheng-i Wang, Theis Bazin
 @contact: wangsix@gmail.com, chw160@ucsd.edu, tbazin@eng.ucsd.edu
+<<<<<<< HEAD
 """
 
 import numpy as np
@@ -48,6 +49,7 @@ See: Harte and Sandler and Gasser, Detecting harmonic
 Radiuses of different circles (defined such to reflect the
 tonal distance through the euclidian distance)
 """
+
 r_fifth = 1.
 r_minor_thirds = 1.
 r_major_thirds = 0.5
@@ -71,7 +73,6 @@ def _make_tonnetz_matrix():
                       major_third_x, major_third_y))
 
 # Define a global value to avoid recomputations
-# TODO: does it actually change anything at all?
 __tonnetz_matrix = _make_tonnetz_matrix()
 
 def _to_tonnetz(chromagram):
