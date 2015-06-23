@@ -66,8 +66,8 @@ def _make_tonnetz_matrix():
 
     # Return the tonnetz matrix
     return np.vstack((fifth_x, fifth_y,
-                           minor_third_x, minor_third_y,
-                           major_third_x, major_third_y))
+                      minor_third_x, minor_third_y,
+                      major_third_x, major_third_y))
 
 __tonnetz_matrix = _make_tonnetz_matrix()
 
