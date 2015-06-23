@@ -166,7 +166,7 @@ class FactorOracle(object):
 
     @property
     def segment(self):
-        """Non-overlapp Compror"""
+        """Non-overlapping Compror"""
         if (self.seg == []):
             j = 0
         else:
@@ -321,6 +321,7 @@ class FactorOracle(object):
         return ir, h0, h1
 
     def IR(self, alpha=1.0, ir_type='cum'):
+        """Dispatch between different types of information-rate computation"""
         if ir_type == 'cum':
             return self._ir_cum(alpha)
         elif ir_type == 'all':
