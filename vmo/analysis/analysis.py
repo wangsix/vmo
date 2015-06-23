@@ -34,7 +34,6 @@ import vmo.distances.tonnetz as tonnetz
 
 def create_selfsim(oracle, method='rsfx'):
     """ Create self similarity matrix from compror codes or suffix links
-    
     :type oracle: a vmo object
     Keyword arguments:
         oracle: vmo.oracle.VMO
@@ -49,7 +48,7 @@ def create_selfsim(oracle, method='rsfx'):
     """
     len_oracle = oracle.n_states - 1
     mat = np.zeros((len_oracle, len_oracle))
-    if method == 'com':
+    if method == 'compror':
         if not oracle.code:
             print "Codes not generated. Generating codes with encode()."
             oracle.encode()
@@ -268,8 +267,8 @@ def _rsfx_count(oracle, s, count, hist, ab):
 """Query-matching and gesture tracking algorithms"""
 
 
-def query_complete(oracle, query, trn_type=1, smooth=False, weight=0.5):
-                    dfunc='euclidean'):
+def query_complete(oracle, query, trn_type=1, smooth=False, weight=0.5,
+                   dfunc='euclidean'):
     """Return the closest path in target oracle given a query sequence.
     
     Args:
@@ -316,7 +315,8 @@ def query_complete(oracle, query, trn_type=1, smooth=False, weight=0.5):
         dist_cache = distance_cache
         
         map_k_inner = partial(map_k_outer, i=i, P=P, trn=trn,
-                              state_cache=state_cache, dist_cache=dist_cache)
+                              state_cache=state_cache,
+                              dist_cache=dist_cache)
         P[i], _c = zip(*map(map_k_inner, range(K)))
         P[i] = list(P[i])
         C += np.array(_c)
@@ -332,7 +332,7 @@ def tracking(oracle, obs, trn_type=1, reverse_init=False, method='else',
     N = len(obs)
     if reverse_init:
         r_oracle = create_reverse_oracle(oracle)
-        _ind =  [r_oracle.n_states - rsfx for rsfx
+        _ind = [r_oracle.n_states - rsfx for rsfx
                  in r_oracle.rsfx[0][:]]
         init_ind = []
         for i in _ind:
@@ -350,7 +350,7 @@ def tracking(oracle, obs, trn_type=1, reverse_init=False, method='else',
     map_k_outer = partial(_query_k, oracle=oracle, query=obs)
     map_query = partial(_query_init, oracle=oracle, query=obs[0],
                         method=method)
-    #     map_query = partial(_query_init, oracle=oracle, query=obs[0], method)
+    # map_query = partial(_query_init, oracle=oracle, query=obs[0], method)
 
     argmin = np.argmin
 
@@ -379,8 +379,7 @@ def tracking(oracle, obs, trn_type=1, reverse_init=False, method='else',
 
     return T
 
-def tracking_multiple_seq(oracle_vec, obs, selftrn=True,
-                          dfunc=''):
+def tracking_multiple_seq(oracle_vec, obs, selftrn=True, dfunc='euclidean'):
     N = len(obs)         # Length of observation
     K = len(oracle_vec)  # Number of gesture candidates
     
@@ -420,7 +419,7 @@ def align(oracle, obs, trn_type=1, method='else'):
     map_k_outer = partial(_query_k, oracle=oracle, query=obs)
     map_query = partial(_query_init, oracle=oracle, query=obs[0],
                         method=method)
-    #     map_query = partial(_query_init, oracle=oracle, query=obs[0], method)
+    # map_query = partial(_query_init, oracle=oracle, query=obs[0], method)
 
     argmin = np.argmin
     P[0], _C = zip(*map(map_query, init_ind))
@@ -438,7 +437,7 @@ def align(oracle, obs, trn_type=1, method='else'):
         state_cache = []
         dist_cache = distance_cache
         
-        map_k_inner = partial(map_k_outer, i=i, P=P, trn=trn,
+        map_k_inner = partial(map_k_outer, i=i, P=P, trn=trn, 
                               state_cache=state_cache, dist_cache=dist_cache)
         P[i], _c = zip(*map(map_k_inner, range(K)))
 
@@ -453,8 +452,8 @@ def create_pttr_vmo(oracle, pattern):
     for p in pattern:
         _vmo_vec.append([])
         for sfx in p[0]:
-            local_obs = oracle.f_array[sfx - p[1] + 1:sfx + 1]
-            local_vmo = build_oracle(local_obs, flag='a', threshold=thresh)
+            local_obs = oracle.f_array[sfx-p[1]+1:sfx+1]
+            local_vmo = vmo.build_oracle(local_obs, flag='a', threshold=thresh)
             _vmo_vec[-1].append(local_vmo)
 
         pttr_vmo = _vmo_vec[-1][0]
@@ -504,17 +503,15 @@ def create_reverse_oracle(oracle):
 def _query_init(k, oracle, query, method='all', dfunc='euclidean'): 
     """Initialize query-matching"""
     if method == 'all':
-        dvec = _dist_obs_oracle(oracle, query,
-                                oracle.latent[oracle.data[k]], dfunc)
+        dvec = _dist_obs_oracle(oracle, query, oracle.latent[oracle.data[k]],
+                                dfunc=dfunc)
         _d = dvec.argmin()
         return oracle.latent[oracle.data[k]][_d], dvec[_d]
-
     else:
         dvec = _dist_obs_oracle(oracle, query, [k], dfunc)
         return k, dvec
     
-def _dist_obs_oracle(oracle, query, trn_list,
-                        dfunc='euclidean'): 
+def _dist_obs_oracle(oracle, query, trn_list, dfunc='euclidean'): 
     """Compute distances between a single feature and frames in oracle."""
     if dfunc == 'euclidean':
         a = np.subtract(query, [oracle.f_array[t] for t in trn_list])  
@@ -548,9 +545,9 @@ def _query_k(k, i, P, oracle, query, trn, state_cache, dist_cache,
             (1.0 for certain continuation)
     
     """
-    _trn = trn(oracle, P[i-1][k])      
-    t = list(itertools.chain.from_iterable(
-        [oracle.latent[oracle.data[j]] for j in _trn]))
+    _trn = trn(oracle, P[i-1][k])
+    latent_data_trn = [oracle.latent[oracle.data[j]] for j in _trn]
+    t = list(itertools.chain.from_iterable(latent_data_trn))
     _trn_unseen = [_t for _t in _trn if _t not in state_cache]
     state_cache.extend(_trn_unseen)
 
@@ -561,15 +558,18 @@ def _query_k(k, i, P, oracle, query, trn, state_cache, dist_cache,
                                                 t_unseen, dfunc)
     dvec = dist_cache[t]
     if smooth and P[i-1][k] < oracle.n_states-1:
-        dvec = (dvec * (1.0-weight) +
-        weight*np.array([D[P[i-1][k]][_t-1] for _t in t]))            
+        weighted_distances = weight * np.array([D[P[i-1][k]][_t-1] for _t in t])
+        dvec = dvec * (1.0-weight) + weighted_distances
     _m = np.argmin(dvec)
     return t[_m], dvec[_m]
 
 
 def _create_trn_complete(oracle, prev):
-    return list(itertools.chain.from_iterable(
-        [oracle.latent[_c]for _c in list(oracle.con[oracle.data[prev]])]))
+    """TODO: please insert documentation."""
+    latent_prev_data = [oracle.latent[_c]for _c
+                        in list(oracle.con[oracle.data[prev]])]
+    return list(itertools.chain.from_iterable(latent_prev_data))
+
     
 def _create_trn_self(oracle, prev):
     _trn = oracle.trn[prev][:]  # Sub-optimal
@@ -610,9 +610,9 @@ def find_repeated_patterns(oracle, lower=1):
 
     pattern_list = []
     prev_sfx = -1
-    for i in range(oracle.n_states-1,lower+1,-1): 
-        # Search backwards from the end to
-        # the last possible position for repeated patterns
+    for i in range(oracle.n_states - 1, lower + 1, -1): 
+        # Search backwards for repeated patterns from the end
+        # to the last possible position
         sfx = oracle.sfx[i]
         rsfx = oracle.rsfx[i]
         pattern_found = False
