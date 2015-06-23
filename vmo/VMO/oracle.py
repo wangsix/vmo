@@ -106,7 +106,7 @@ class FactorOracle(object):
         self.n_states = 1
         self.max_lrs = [0]
         self.avg_lrs = [0.]
-
+        
     def update_params(self, **kwargs):
         """Subclass this"""
         self.params.update(kwargs)
