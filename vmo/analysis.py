@@ -52,6 +52,7 @@ def create_selfsim(oracle, method='compror'):
             oracle.encode()
         ind = 0  # index
         for l, p in oracle.code:  # l for length, p for position
+
             if l == 0:
                 inc = 1
             else:
