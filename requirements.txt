@@ -1,0 +1,3 @@
+vmo
+numpy
+scipy
