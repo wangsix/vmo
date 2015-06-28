@@ -1,5 +1,5 @@
 '''
-simple_tonnetz.py
+tonnetz.py
 Variable Markov Oracle in python
 
 @copyright: 
@@ -26,7 +26,7 @@ along with vmo.  If not, see <http://www.gnu.org/licenses/>.
 
 import numpy as np
 
-'''Tonnetz distance definition
+'''Tonnetz distance between chords.
 
 This module defines a distance on chromagram vectors
 (12 bin pitch-class arrays).
@@ -53,6 +53,7 @@ r_minor_thirds = 1.
 r_major_thirds = 0.5
 
 def _make_tonnetz_matrix():
+    '''Return the tonnetz projection matrix.'''
     pi = np.pi
     chroma = np.arange(12)
 
@@ -69,6 +70,8 @@ def _make_tonnetz_matrix():
                       minor_third_x, minor_third_y,
                       major_third_x, major_third_y))
 
+# Define a global value to avoid recomputations
+# TODO: does it actually change anything at all?
 __tonnetz_matrix = _make_tonnetz_matrix()
 
 def _to_tonnetz(a):
@@ -85,13 +88,48 @@ def _to_tonnetz(a):
     return a_tonnetz
 
 def distance(a, b):
+    '''Compute tonnetz-distance between two chromagrams.
+
+    ----
+    >>> C = np.zeros(12)
+    >>> C[0] = 1
+    >>> D = np.zeros(12)
+    >>> D[2] = 1
+    >>> G = np.zeros(12)
+    >>> G[7] = 1
+
+    The distance is zero on equivalent chords
+    >>> distance(C, C) == 0
+    True
+
+    The distance is symetric
+    >>> distance(C, D) == distance(D, C)
+    True
+
+    >>> distance(C, D) > 0
+    True
+    >>> distance(C, G) < distance(C, D)
+    True
+    '''
     [a_tonnetz, b_tonnetz] = [_to_tonnetz(x) for x in [a, b]]
     return np.linalg.norm(b_tonnetz - a_tonnetz)
 
 def distances_vector_matrix(a, m):
+    '''Compute distances between a chromagram and a sequence of chromagrams.
+
+    Output: an array of tonnetz-distances of size the number of rows in m  
+    Keyword arguments:
+    a -- the reference chromagram
+    m -- the sequence of chromagrams (a matrix whose columns are chromagrams)
+    '''
     a_tonnetz = _to_tonnetz(a)
     m = np.array(m).T
     _, y = m.shape
     m_tonnetz = [_to_tonnetz(m[:,j]) for j in range(y)]
     diff = np.subtract(a_tonnetz, m_tonnetz)
     return np.sqrt((diff*diff).sum(axis=1))
+
+if __name__ == "__main__":
+    import doctest
+    import music21
+    doctest.testmod()
