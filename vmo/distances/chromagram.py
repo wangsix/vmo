@@ -1,0 +1,149 @@
+'''
+chromagram.py
+Variable Markov Oracle in python
+
+@copyright: 
+Copyright (C) 3.2015 Cheng-i Wang
+
+This file is part of vmo.
+
+@license: 
+vmo is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+vmo is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with vmo.  If not, see <http://www.gnu.org/licenses/>.
+@author: Cheng-i Wang, Theis Bazin
+@contact: wangsix@gmail.com, chw160@ucsd.edu, tbazin@eng.ucsd.edu
+'''
+
+import numpy as np
+from math import floor, ceil
+from scipy.ndimage.filters import gaussian_filter1d as gaussian
+
+import music21 as mus
+
+'''Music21 chords and streams to chromagram conversion.
+
+This module exports a function to turn a music21 Chord/Note object
+into a chromagram (a 12 dimensional array of pitch classes) and
+extends to general Stream objects (returning a matrix of chromagrams).
+'''
+
+pitch_space_size = 12
+
+def _from_pitch(pitch):
+    """Return chromagram for a single, low-level Pitch object.
+
+    ----
+    >>> _from_pitch(music21.pitch.Pitch('D'))
+    array([0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+
+    >>> _from_pitch(music21.pitch.Pitch('E3'))
+    array([0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0])
+    """
+    p_class = pitch.pitchClass
+    chroma = np.zeros(pitch_space_size,dtype=np.int64)
+    chroma[p_class] = 1
+    return chroma
+
+def _from_note(note):
+    """Return chromagram for a single Note object.
+
+    ----
+    >>> _from_note(music21.note.Note('E4'))
+    array([0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0])
+    """
+    return _from_pitch(note.pitch)
+
+def from_chord(chord):
+    """Return chromagram for a Chord object.
+
+    Discard multiple occurences of a given note wrt enharmonic
+    and octave equivalence, keeping only one.
+    ----
+    >>> chord = music21.chord.Chord(['D3', 'F#3', 'A3', 'D4'])
+    >>> from_chord(chord)
+    array([0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 0, 0])
+    """
+    if isinstance(chord, mus.note.Note):
+        return _from_note(chord)
+    elif isinstance(chord, mus.chord.Chord):
+        p_classes = chord.orderedPitchClasses
+        chroma = np.zeros(pitch_space_size,dtype=np.int64)
+        for p_class in p_classes:
+            chroma[p_class] = 1
+        return chroma
+    else: raise ValueError("Not a chord of note")
+
+def from_stream(stream, overlap=0.0, smooth=False, sigma=None,
+                framesize=1.0):
+    """Slice stream at all quarter lengths and return the matrix of chromagrams
+
+    Keyword arguments:
+    stream -- the input stream
+    overlap -- the overlap to introduce, in quarter length (default 0.0)
+    smooth -- True to smooth the output
+        Applies a row-to-row gaussian-filter with the given value of sigma
+        with the effect of smoothing the content over time
+    sigma -- the value to use for the gaussian filter 
+    framesize -- the length of each frames in the sliced stream,
+        in quarter-length  (default 1.0)
+    
+    TODO: Check behaviour with variable tempo
+    ----
+    >>> n1 = mus.note.Note('C', quarterLength=4)
+    >>> n2 = mus.chord.Chord(['E', 'G', 'B'], quarterLength=4)
+    >>> s = mus.stream.Stream([n1])
+    >>> s.append(n2)
+    >>> chromagram = from_stream(s)
+    
+    s holds a 'C' on the 4th beat of the first measure:  
+    >>> chromagram[0, 3] == 1
+    True
+
+    s holds an 'E' and a 'G' on the first beat of the second measure
+        (offset of 4 quarters from the beginning):
+    >>> chromagram[4, 4] == chromagram[7, 4] == 1
+    True
+
+    s holds no 'C' on the first beat of the second measure:
+    >>> chromagram[0, 4] == 0
+    True
+    """
+    chords = stream.flat.chordify()
+    duration_quarters = int(floor(chords.duration.quarterLength))
+    frames_count = int(ceil(duration_quarters * (1. / framesize)))
+
+    # slice the chordified stream uniformly at each framesize
+    chords = chords.sliceAtOffsets(
+        np.arange(0, duration_quarters, framesize))
+
+    chroma_matrix = np.zeros(shape=(pitch_space_size, frames_count))
+    current_frame = 0 # stores the current position in the chroma_matrix
+    for offset in np.arange(0, duration_quarters, framesize):
+        chroma_vector = from_chord(chords.getElementsByOffset(offset)[0])
+        chroma_matrix[:,current_frame] = chroma_vector
+        current_frame+=1
+        
+    if smooth:
+        if sigma is None:
+            raise ValueError("Must supply a value for sigma")
+        else:
+            for i in range(pitch_space_size):
+                smoothed_row = gaussian(chroma_matrix[i,:], sigma=sigma)
+                chroma_matrix[i,:] = smoothed_row
+
+    return chroma_matrix
+
+if __name__ == "__main__":
+    import doctest
+    import music21
+    doctest.testmod()
