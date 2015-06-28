@@ -22,7 +22,6 @@ You should have received a copy of the GNU General Public License
 along with vmo.  If not, see <http://www.gnu.org/licenses/>.
 @author: Cheng-i Wang, Theis Bazin
 @contact: wangsix@gmail.com, chw160@ucsd.edu, tbazin@eng.ucsd.edu
-<<<<<<< HEAD
 """
 
 import numpy as np
