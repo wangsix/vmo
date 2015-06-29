@@ -1,5 +1,5 @@
-"""
-utils/chromagram.py
+'''
+chromagram.py
 Variable Markov Oracle in python
 
 @copyright: 
@@ -22,7 +22,7 @@ You should have received a copy of the GNU General Public License
 along with vmo.  If not, see <http://www.gnu.org/licenses/>.
 @author: Cheng-i Wang, Theis Bazin
 @contact: wangsix@gmail.com, chw160@ucsd.edu, tbazin@eng.ucsd.edu
-"""
+'''
 
 import numpy as np
 from math import floor, ceil
@@ -30,21 +30,18 @@ from scipy.ndimage.filters import gaussian_filter1d as gaussian
 
 import music21 as mus
 
-"""Music21 chords and streams to chromagram conversion.
+'''Music21 chords and streams to chromagram conversion.
 
 This module exports a function to turn a music21 Chord/Note object
 into a chromagram (a 12 dimensional array of pitch classes) and
 extends to general Stream objects (returning a matrix of chromagrams).
-"""    
+'''
 
 pitch_space_size = 12
 
 def _from_pitch(pitch):
     """Return chromagram for a single, low-level Pitch object.
 
-    Keyword aguments:
-        pitch: music21.pitch.Pitch
-            The pitch to convert
     ----
     >>> _from_pitch(music21.pitch.Pitch('D'))
     array([0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0])
@@ -60,9 +57,6 @@ def _from_pitch(pitch):
 def _from_note(note):
     """Return chromagram for a single Note object.
 
-    Keyword aguments:
-        note: music21.note.Note
-            The note to convert
     ----
     >>> _from_note(music21.note.Note('E4'))
     array([0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0])
@@ -74,10 +68,6 @@ def from_chord(chord):
 
     Discard multiple occurences of a given note wrt enharmonic
     and octave equivalence, keeping only one.
-
-    Keyword aguments:
-        chord: music21.chord.Chord
-            The chord to convert
     ----
     >>> chord = music21.chord.Chord(['D3', 'F#3', 'A3', 'D4'])
     >>> from_chord(chord)
@@ -93,26 +83,20 @@ def from_chord(chord):
         return chroma
     else: raise ValueError("Not a chord of note")
 
-def from_stream(stream, framesize=1.0, overlap=0.0,
-                smooth=False, sigma=None):
+def from_stream(stream, overlap=0.0, smooth=False, sigma=None,
+                framesize=1.0):
     """Slice stream at all quarter lengths and return the matrix of chromagrams
 
     Keyword arguments:
-        stream: music21.stream.Stream
-            the input stream
-        framesize: float
-            the quarter-length of each frames in the sliced stream
-            (default 1.0)
-        overlap: float, optional
-            the overlap to introduce, in quarter length (default 0.0)
-        smooth: bool
-            Whether the output should be smoothed.
-            If True, applies a row-to-row gaussian-filter with the given
-            value of sigma with the effect of smoothing the content over time
-        sigma: float, optional
-            the value to use for the gaussian filter
-            (default None, value is then set according to framesize)
-
+    stream -- the input stream
+    overlap -- the overlap to introduce, in quarter length (default 0.0)
+    smooth -- True to smooth the output
+        Applies a row-to-row gaussian-filter with the given value of sigma
+        with the effect of smoothing the content over time
+    sigma -- the value to use for the gaussian filter 
+    framesize -- the length of each frames in the sliced stream,
+        in quarter-length  (default 1.0)
+    
     TODO: Check behaviour with variable tempo
     ----
     >>> n1 = mus.note.Note('C', quarterLength=4)
@@ -151,10 +135,11 @@ def from_stream(stream, framesize=1.0, overlap=0.0,
         
     if smooth:
         if sigma is None:
-            sigma = 4*framesize
-        for i in range(pitch_space_size):
-            smoothed_row = gaussian(chroma_matrix[i,:], sigma=sigma)
-            chroma_matrix[i,:] = smoothed_row
+            raise ValueError("Must supply a value for sigma")
+        else:
+            for i in range(pitch_space_size):
+                smoothed_row = gaussian(chroma_matrix[i,:], sigma=sigma)
+                chroma_matrix[i,:] = smoothed_row
 
     return chroma_matrix
 
