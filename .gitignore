@@ -60,8 +60,9 @@ target/
 # Emacs temp files
 *~
 *#
+.#*
 
-# ipython notebooks aux files
+# iPython notebooks aux files
 .ipynb_checkpoints/
 
 # User-specific
