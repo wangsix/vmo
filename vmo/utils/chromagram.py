@@ -1,4 +1,4 @@
-'''
+"""
 utils/chromagram.py
 Variable Markov Oracle in python
 
@@ -22,7 +22,7 @@ You should have received a copy of the GNU General Public License
 along with vmo.  If not, see <http://www.gnu.org/licenses/>.
 @author: Cheng-i Wang, Theis Bazin
 @contact: wangsix@gmail.com, chw160@ucsd.edu, tbazin@eng.ucsd.edu
-'''
+"""
 
 import numpy as np
 from math import floor, ceil
@@ -30,12 +30,12 @@ from scipy.ndimage.filters import gaussian_filter1d as gaussian
 
 import music21 as mus
 
-'''Music21 chords and streams to chromagram conversion.
+"""Music21 chords and streams to chromagram conversion.
 
 This module exports a function to turn a music21 Chord/Note object
 into a chromagram (a 12 dimensional array of pitch classes) and
 extends to general Stream objects (returning a matrix of chromagrams).
-'''    
+"""    
 
 pitch_space_size = 12
 
