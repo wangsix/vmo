@@ -1,5 +1,5 @@
 '''
-logics/model_checking/format.py
+logics/model_checking/probabilities.py
 Variable Markov Oracle in python
 
 @copyright: 
@@ -26,13 +26,21 @@ along with vmo.  If not, see <http://www.gnu.org/licenses/>.
 
 import numpy as np
 
-'''Oracle to PRISM input conversion function'''
+def uniform(origin, adjacency_lists, prism_state_name):
+    neighbours = adjacency_lists[origin]
+    count = len(neighbours)
+    transitions = ""
+    if count == O:
+        stay = "({0}={1})".format(prism_state_name, origin)
+        transition.append(stay)
+        return transitions
 
-def print_transitions(adjacency_lists, s_index,
-                      pfunc='uniform', pfunc_handle=()):
-    neighboors = adjacency_lists[s_index]
-    probability = 
+    probability = ""
+    for neighbour in neighbours[:-1]:
+        new_link = "{1/{0} : ({1}'={2})} + ".format(
+            count, prism_state_name, neighbour)
+        transitions.append(new_link)
 
-def print_state(oracle, s_index):
-    guard = "[] s={0} -> ".format(s_index)
-    transitions = 
+    last_neighbour = neigbour[-1:]
+    last_link = "{}"
+    transitions
