@@ -1,4 +1,4 @@
-'''
+"""
 draw.py
 drawing routines for vmo
 
@@ -18,7 +18,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with vmo.  If not, see <http://www.gnu.org/licenses/>.
-'''
+"""
 
 from random import randint
 import numpy as np
