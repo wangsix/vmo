@@ -1,5 +1,5 @@
-'''
-tonnetz.py
+"""
+distances/tonnetz.py
 Variable Markov Oracle in python
 
 @copyright: 
@@ -22,11 +22,11 @@ You should have received a copy of the GNU General Public License
 along with vmo.  If not, see <http://www.gnu.org/licenses/>.
 @author: Cheng-i Wang, Theis Bazin
 @contact: wangsix@gmail.com, chw160@ucsd.edu, tbazin@eng.ucsd.edu
-'''
+"""
 
 import numpy as np
 
-'''Tonnetz distance between chords.
+"""Tonnetz distance between chords.
 
 This module defines a distance on chromagram vectors
 (12 bin pitch-class arrays).
@@ -40,20 +40,20 @@ See: Harte and Sandler and Gasser, Detecting harmonic
      change in musical audio,
      In Proceedings of Audio and Music Computing for Multimedia Workshop,
      2006
-'''
+"""
 
 # Constants
 
-'''
+"""
 Radiuses of different circles (defined such to reflect the
 tonal distance through the euclidian distance)
-'''
+"""
 r_fifth = 1.
 r_minor_thirds = 1.
 r_major_thirds = 0.5
 
 def _make_tonnetz_matrix():
-    '''Return the tonnetz projection matrix.'''
+    """Return the tonnetz projection matrix."""
     pi = np.pi
     chroma = np.arange(12)
 
@@ -74,22 +74,22 @@ def _make_tonnetz_matrix():
 # TODO: does it actually change anything at all?
 __tonnetz_matrix = _make_tonnetz_matrix()
 
-def _to_tonnetz(a):
-    '''Project a chromagram on the tonnetz
+def _to_tonnetz(chromagram):
+    """Project a chromagram on the tonnetz
 
-    Normalize the return value to prevent numerical instabilities  
-    '''
-    a_tonnetz = np.dot(__tonnetz_matrix, a)
-    one_norm = np.sum(np.abs(a))
+    Return value is normalized to prevent numerical instabilities  
+    """
+    _tonnetz = np.dot(__tonnetz_matrix, chromagram)
+    one_norm = np.sum(np.abs(chromagram))
     if (one_norm != 0.):
-        a_tonnetz = a_tonnetz / one_norm # Normalize tonnetz vector
+        _tonnetz = _tonnetz / one_norm # Normalize tonnetz vector
     else:
-        a_tonnetz = np.zeros(6) # Norm is zero, nullify vector
-    return a_tonnetz
+        _tonnetz = np.zeros(6) # Norm is zero, nullify vector
+    return _tonnetz
 
 def distance(a, b):
-    '''Compute tonnetz-distance between two chromagrams.
-
+    """Compute tonnetz-distance between two chromagrams.
+    
     ----
     >>> C = np.zeros(12)
     >>> C[0] = 1
@@ -110,18 +110,20 @@ def distance(a, b):
     True
     >>> distance(C, G) < distance(C, D)
     True
-    '''
+    """
     [a_tonnetz, b_tonnetz] = [_to_tonnetz(x) for x in [a, b]]
     return np.linalg.norm(b_tonnetz - a_tonnetz)
 
 def distances_vector_matrix(a, m):
-    '''Compute distances between a chromagram and a sequence of chromagrams.
+    """Compute distances between a chromagram and a sequence of chromagrams.
 
     Output: an array of tonnetz-distances of size the number of rows in m  
     Keyword arguments:
-    a -- the reference chromagram
-    m -- the sequence of chromagrams (a matrix whose columns are chromagrams)
-    '''
+        a: ndarray
+            A 1-D array, the reference chromagram
+        m: ndarray
+            the sequence of chromagrams (a matrix whose columns are chromagrams)
+    """
     a_tonnetz = _to_tonnetz(a)
     m = np.array(m).T
     _, y = m.shape
@@ -131,5 +133,4 @@ def distances_vector_matrix(a, m):
 
 if __name__ == "__main__":
     import doctest
-    import music21
     doctest.testmod()
