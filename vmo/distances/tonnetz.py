@@ -48,7 +48,6 @@ See: Harte and Sandler and Gasser, Detecting harmonic
 Radiuses of different circles (defined such to reflect the
 tonal distance through the euclidian distance)
 """
-
 r_fifth = 1.
 r_minor_thirds = 1.
 r_major_thirds = 0.5
