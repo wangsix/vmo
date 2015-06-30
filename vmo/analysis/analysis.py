@@ -1,4 +1,5 @@
-"""analysis.py
+"""
+analysis.py
 offline factor/variable markov oracle generation routines for vmo
 
 Copyright (C) 7.28.2014 Cheng-i Wang
@@ -30,7 +31,9 @@ import fuzzywuzzy.fuzz as fuzz
 import vmo.VMO
 import vmo.distances.tonnetz as tonnetz
 
+
 """Self-similarity matrix and transition matrix from an oracle"""
+
 
 def create_selfsim(oracle, method='rsfx'):
     """ Create self similarity matrix from compror codes or suffix links
@@ -195,10 +198,10 @@ def predict(oracle, context, ab=None, verbose=False):
     return [hist[idx] / d_count for idx in range(len(hist))], context
 
 
-def log_loss(oracle, test_seq, ab=[], m_order=None, verbose=False):
-    """ Evaluate the average log-loss of a sequence given an oracle """
-    if not ab:
-        ab = oracle.get_alphabet()
+def log_loss(oracle, test_seq, alphabet=[], m_order=None, verbose=False):
+    """Evaluate the average log-loss of a sequence given an oracle"""
+    if not alphabet:
+        alphabet = oracle.get_alphabet()
     if verbose:
         print ' '
 
@@ -210,10 +213,10 @@ def log_loss(oracle, test_seq, ab=[], m_order=None, verbose=False):
     avgContext = 0
     for i, t in enumerate(test_seq):
 
-        p, c = predict(oracle, context, ab, verbose=False)
+        p, c = predict(oracle, context, alphabet, verbose=False)
         if len(c) < len(context):
             context = context[-len(c):]
-        logP -= np.log2(p[ab[t]])
+        logP -= np.log2(p[alphabet[t]])
         context.append(t)
 
         if m_order is not None:
@@ -245,11 +248,11 @@ def _test_context(oracle, context):
     return _b, _s, context
 
 
-def _rsfx_count(oracle, s, count, hist, ab):
-    """ Accumulate counts for context """
+def _rsfx_count(oracle, s, count, hist, alphabet):
+    """Accumulate counts for context"""
     trn_data = [oracle.data[n] for n in oracle.trn[s]]
     for k in trn_data:
-        hist[ab[k]] += 1.0
+        hist[alphabet[k]] += 1.0
         count += 1.0
 
     rsfx_candidate = oracle.rsfx[s][:]
@@ -257,7 +260,7 @@ def _rsfx_count(oracle, s, count, hist, ab):
         s = rsfx_candidate.pop(0)
         trn_data = [oracle.data[n] for n in oracle.trn[s]]
         for k in trn_data:
-            hist[ab[k]] += 1.0
+            hist[alphabet[k]] += 1.0
             count += 1.0
         rsfx_candidate.extend(oracle.rsfx[s])
 

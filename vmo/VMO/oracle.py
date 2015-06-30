@@ -464,7 +464,15 @@ class MO(FactorOracle):
 
         # assign new transition from state i-1 to i
         self.trn[i - 1].append(i)
+        
+        """Experiment enforcing continuity"""
+#        if i != 1:
+#            self.trn[i - 1].append(i-1)
+#            k = i - 1
+#        else:
+#            k = self.sfx[i - 1]
 
+        """"""
         k = self.sfx[i - 1]
         pi_1 = i - 1
 
