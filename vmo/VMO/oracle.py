@@ -30,7 +30,7 @@ import vmo.VMO.utility as utl
 from matplotlib.mlab import find
         
 class FactorOracle(object):
-    """ The base class for the FO(factor oracle) and MO(variable markov oracle)
+    """The base class for the FO(factor oracle) and MO(variable markov oracle)
     
     Attributes:
         sfx: a list containing the suffix link of each state.
@@ -72,7 +72,7 @@ class FactorOracle(object):
                     (in case of 'other' distance type)
                     Operates on a vector a and a matrix m, returns the vector of
                     distances between a and each column of m.
-"""
+    """
     def __init__(self, **kwargs):
         # Basic attributes, initialized with state zero
         self.sfx = [None]
@@ -464,7 +464,7 @@ class MO(FactorOracle):
         self.data[0] = None
         self.latent = []
 
-    def reset(self, **kwargs):
+        def reset(self, **kwargs):
         super(MO, self).reset(**kwargs)
 
         self.kind = 'a'
@@ -489,6 +489,7 @@ class MO(FactorOracle):
 
         # assign new transition from state i-1 to i
         self.trn[i - 1].append(i)
+
         k = self.sfx[i - 1]
         pi_1 = i - 1
 
@@ -501,7 +502,6 @@ class MO(FactorOracle):
             suffix_candidate = 0
 
         while k is not None:
-
             if self.params['dfunc'] == 'other':
                 dvec = self.dfunc_handle(new_data,
                                          self.f_array[self.trn[k]])

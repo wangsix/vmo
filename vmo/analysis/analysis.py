@@ -30,9 +30,7 @@ import fuzzywuzzy.fuzz as fuzz
 import vmo.VMO
 import vmo.distances.tonnetz as tonnetz
 
-'''Self-similarity matrix and transition matrix from an oracle
-'''
-
+"""Self-similarity matrix and transition matrix from an oracle"""
 
 def create_selfsim(oracle, method='rsfx'):
     """ Create self similarity matrix from compror codes or suffix links
@@ -156,9 +154,9 @@ def create_full_adjacency_matrix(oracle):
         if j is not None: graph[i][j] += 1
     return graph
 
-'''
-Symbolic sequence prediction by an oracle
-'''
+
+"""Symbolic sequence prediction by an oracle"""
+
 
 
 def predict(oracle, context, ab=None, verbose=False):
@@ -199,7 +197,6 @@ def predict(oracle, context, ab=None, verbose=False):
 
 def log_loss(oracle, test_seq, ab=[], m_order=None, verbose=False):
     """ Evaluate the average log-loss of a sequence given an oracle """
-
     if not ab:
         ab = oracle.get_alphabet()
     if verbose:
@@ -265,6 +262,7 @@ def _rsfx_count(oracle, s, count, hist, ab):
         rsfx_candidate.extend(oracle.rsfx[s])
 
     return count, hist
+
 
 """Query-matching and gesture tracking algorithms"""
 
@@ -604,9 +602,7 @@ def _create_trn(oracle, prev):
 def _dist2prob(f, a):
     return np.exp(-f / a)
 
-
 """Pattern/motif/gesture extraction algorithms"""
-
 
 def find_repeated_patterns(oracle, lower=1):
     if lower < 0:
@@ -654,9 +650,7 @@ def find_repeated_patterns(oracle, lower=1):
     return pattern_list
 
 
-'''
-Helper functions
-'''
+"""Helper functions"""
 
 
 def find_fragments(oracle):
