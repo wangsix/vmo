@@ -1,5 +1,5 @@
 """
-utils/prism/format.py
+utils/prism/model.py
 Variable Markov Oracle in python
 
 @copyright: 
@@ -28,9 +28,9 @@ import numpy as np
 from fractions import Fraction
 import string
 
-import vmo.logics.model_checking.probabilities as probas
+import vmo.utils.probabilities as probas
 
-"""Oracle to PRISM input conversion function"""
+"""Graph to PRISM input conversion function"""
 
 def print_proba(proba):
     """Print a probability, with output depending on the input's style."""
@@ -104,12 +104,14 @@ def print_state(proba_adj_lists, s_index, prism_state_name='s'):
     transitions_str = bytearray(" + ").join(transitions) 
     return _bytes_concat([guard, transitions_str])
 
-def print_graph(proba_adj_lists, prism_state_name='s'):
+def print_graph(proba_adj_lists, init_state=0, prism_state_name='s'):
     """Return a list of PRISM-formatted bytearray defining all graph's states.
 
     Keyword arguments:
         proba_adj_lists: list of lists of pairs
             A probabilistic graph, given as it adjacency list
+        init_state: int
+            The index of the DTMC's initial state (default 0)
         prism_state_name: string
             The name of the state in the PRISM model which is
             represented by the graph (default 's') 
@@ -136,8 +138,10 @@ def print_graph(proba_adj_lists, prism_state_name='s'):
     # Esthetic comment-line
     header.append(bytearray("// local state"))
     # Declaration of the initial state and the number of states
-    header.append(bytearray("{0} : [0..{1}] init 0".format(prism_state_name,
-                                                           states_num-1)))
+    range_init = "{0} : [0..{1}] init {2}".format(prism_state_name,
+                                                  states_num-1,
+                                                  init_state)
+    header.append(bytearray(range_init))
     
     states = []
     for state in range(states_num):
