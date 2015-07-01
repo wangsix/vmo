@@ -1,5 +1,5 @@
 """
-logics/model_checking/probabilities.py
+utils/probabilities.py
 Variable Markov Oracle in python
 
 @copyright: 
