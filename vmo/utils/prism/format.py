@@ -26,6 +26,8 @@ along with vmo.  If not, see <http://www.gnu.org/licenses/>.
 
 import numpy as np
 from fractions import Fraction
+import string
+
 import vmo.logics.model_checking.probabilities as probas
 
 """Oracle to PRISM input conversion function"""
@@ -39,8 +41,9 @@ def print_proba(proba):
     else:
         raise ValueError("Unexpected probability type")
                 
-def print_transitions(proba_adj_lists, origin, prism_state_name='s'):
-    """Print a PRISM-formatted bytearray of all transitions from origin.
+def print_transitions(proba_adj_lists, origin, prism_state_name='s',
+                      make_update_string=(lambda **kwargs : "")):
+    """Return a list of PRISM-format bytearrays for all transitions from origin.
 
     Keyword arguments:
         proba_adj_lists: list of lists of pairs
@@ -49,34 +52,34 @@ def print_transitions(proba_adj_lists, origin, prism_state_name='s'):
             The starting state in the graph
         prism_state_name: string
             The name of the state in the PRISM model which is
-            represented by the graph (default 's') 
+            represented by the graph (default 's')
+        make_update_string: function
+            A generic function to print additional updates (such as a
+            constant value assignation) within the transition
+            (default <print an empty string>)
     ----
     Two-states a & b, a leads to b and b leads to a
     >>> graph = [[1], [0]]
     >>> proba_graph = probas.uniform(graph)
     >>> result = print_transitions(proba_graph, 0)
-    >>> expected = bytearray("1/1 : (s'=1)")
+    >>> expected = [bytearray("1/1 : (s'=1)")]
     >>> result == expected
     True
     """
     goals = proba_adj_lists[origin]
-    transitions = bytearray("")
+    transitions = []
         
-    for (goal, proba) in goals[:-1]:
-        new_transition = "{0} : ({1}'={2}) + ".format(
+    for (goal, proba) in goals:
+        new_transition = "{0} : ({1}'={2})".format(
             print_proba(proba), prism_state_name, goal)
-        transitions.extend(new_transition)
+        update_string = make_update_string(goal=goal, proba=proba)
+        bytearray(new_transition).extend(update_string)
+        transitions.append(new_transition)
 
-    # Operate on last transition, don't print " + " connector
-    last_goal, proba = goals[-1]
-    last_transition = "{0} : ({1}'={2})".format(
-        print_proba(proba), prism_state_name, last_goal)
-    transitions.extend(last_transition)
-    
     return transitions
 
 def print_state(proba_adj_lists, s_index, prism_state_name='s'):
-    """Print a PRISM-formatted bytearray defining state s_index.
+    """Return a PRISM-formatted bytearray defining state s_index.
 
     Keyword arguments:
         proba_adj_lists: list of lists of pairs
@@ -98,10 +101,11 @@ def print_state(proba_adj_lists, s_index, prism_state_name='s'):
     guard = bytearray("[] {0}={1} -> ".format(prism_state_name, s_index))
     transitions = print_transitions(proba_adj_lists, s_index,
                                     prism_state_name)
-    return guard + transitions
+    transitions_str = bytearray(" + ").join(transitions) 
+    return _bytes_concat([guard, transitions_str])
 
 def print_graph(proba_adj_lists, prism_state_name='s'):
-    """Print a PRISM-formatted bytearray defining the input graph.
+    """Return a list of PRISM-formatted bytearray defining all graph's states.
 
     Keyword arguments:
         proba_adj_lists: list of lists of pairs
@@ -114,33 +118,37 @@ def print_graph(proba_adj_lists, prism_state_name='s'):
     >>> graph = [[1, 2], [0], [0]]
     >>> proba_graph = probas.uniform(graph)
     >>> result = print_graph(proba_graph, prism_state_name='a')
-    >>> expected = bytearray(
-    ...     "// local state\\n" +
-    ...     "a : [0..2] init 0;\\n\\n" +
-    ...     "[] a=0 -> 1/2 : (a\'=1) + 1/2 : (a\'=2);\\n" +
-    ...     "[] a=1 -> 1/1 : (a\'=0);\\n" +
-    ...     "[] a=2 -> 1/1 : (a\'=0);\\n"
-    ...     )
+    >>> expected = (map(bytearray, [
+    ...      "// local state",
+    ...      "a : [0..2] init 0"]
+    ...      ),
+    ...      map(bytearray, [
+    ...      "[] a=0 -> 1/2 : (a\'=1) + 1/2 : (a\'=2)",
+    ...      "[] a=1 -> 1/1 : (a\'=0)",
+    ...      "[] a=2 -> 1/1 : (a\'=0)"]
+    ...     ))
     >>> result == expected
     True
     """
     states_num = len(proba_adj_lists)
-    header = bytearray(
-        "// local state\n" +
-        "{0} : [0..{1}] init 0;\n\n".format(prism_state_name, states_num-1)
-        )
+    header = []
 
-    states = bytearray("")
+    # Esthetic comment-line
+    header.append(bytearray("// local state"))
+    # Declaration of the initial state and the number of states
+    header.append(bytearray("{0} : [0..{1}] init 0".format(prism_state_name,
+                                                           states_num-1)))
+    
+    states = []
     for state in range(states_num):
         new_state_bytes = print_state(proba_adj_lists, state,
                                       prism_state_name=prism_state_name)
-        new_state_bytes.extend(";\n")
-        states.extend(new_state_bytes)
-
-    return header + states
+        states.append(new_state_bytes)
+    
+    return header, states
 
 def print_dtmc_module(proba_adj_lists, prism_state_name='s', module_name='m'):
-    """Print a PRISM-formatted bytearray defining a dtmc-module for the graph.
+    """Return a PRISM-formatted bytearray defining a dtmc-module for the graph.
 
     Keyword arguments:
         proba_adj_lists: list of list of pairs
@@ -159,7 +167,7 @@ def print_dtmc_module(proba_adj_lists, prism_state_name='s', module_name='m'):
     ...     "\\n" +
     ...     "module test\\n" +
     ...     "\\n" +
-    ...     "\\t// local state\\n" +
+    ...     "\\t// local state;\\n" +
     ...     "\\ta : [0..2] init 0;\\n" +
     ...     "\\t\\n" +
     ...     "\\t[] a=0 -> 1/2 : (a\'=1) + 1/2 : (a\'=2);\\n" +
@@ -174,13 +182,44 @@ def print_dtmc_module(proba_adj_lists, prism_state_name='s', module_name='m'):
     header = bytearray("dtmc\n\n" + "module {0}\n\n".format(module_name))
     footer = bytearray("\nendmodule")
 
-    graph_str = print_graph(proba_adj_lists, prism_state_name=prism_state_name)
+    graph_header, graph_states = print_graph(
+        proba_adj_lists, prism_state_name=prism_state_name)
+    graph_header_str = indent_join_lines(graph_header)
+    graph_states_str = indent_join_lines(graph_states)
 
-    newlines_count = graph_str.count('\n')
-    graph_str = graph_str.replace('\n', '\n\t', newlines_count-1)
-    graph_str = '\t' + graph_str
+    graph_str = _bytes_concat([graph_header_str,
+                               bytearray("\t\n"),
+                               graph_states_str])
     
-    return header + graph_str + footer
+    return _bytes_concat([header, graph_str, footer])
+
+"""Auxiliary functions"""
+
+def indent_join_lines(lines, tabulate_by=1, trailing=';\n'):
+    """Return the concatenation of lines with inserted tabs and newlines.
+    
+    Keyword arguments:
+        lines: list of strings
+            The lines to concatenate
+        tabulate_by: int
+            The number of tabulations to add at te beginning of every line
+        trailing: str
+            A string to append to all lines 
+    """
+    tabulation = "\t" * tabulate_by
+    tabulate_line = lambda line : tabulation + line + trailing
+    tabbed_lines = map(tabulate_line, lines)
+    return _bytes_concat(tabbed_lines)
+
+def _bytes_concat(bytearrays):
+    """Efficiently concatenate the input bytearrays.
+
+    ----
+    >>> bytes = bytearray("Hello !")
+    >>> _bytes_concat([bytes]*2) == bytearray("Hello !Hello !")
+    True
+    """ 
+    return bytearray("").join(bytearrays)    
     
 if __name__ == "__main__":
     import doctest
