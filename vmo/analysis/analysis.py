@@ -39,8 +39,8 @@ def create_selfsim(oracle, method='rsfx'):
     """ Create self similarity matrix from compror codes or suffix links
     :type oracle: a vmo object
     Keyword arguments:
-        oracle: vmo.oracle.VMO
-            an encoded vmo object
+        oracle: vmo.oracle.FactorOracle
+            The oracle to analyze
         method: string
             The type of transitions to use. Possible options are: 
                 'compror' - use the compression codes 
