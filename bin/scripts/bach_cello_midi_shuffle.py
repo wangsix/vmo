@@ -1,4 +1,4 @@
-'''
+"""
 bach_cello_midi_shuffle.py
 example of symbolic oracle generation with VMO
 
@@ -18,7 +18,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with vmo.  If not, see <http://www.gnu.org/licenses/>.
-'''
+"""
 
 import vmo
 import vmo.generate as gen
@@ -26,18 +26,22 @@ import music21
 import sys
 import os
 
-def main():
+path_to_bach = (os.path.abspath('') + '/' +
+                '../files/Suite_No_1_for_Cello_M1_Prelude.mxl')
+
+def main(filepath=path_to_bach):
     """
-    This example shows how to parse a music mxl file (music21 and musescore/finale required) 
-    and create a simple oracle representation. The output is a reshuffled midi stream shown
-    in either musescore or finale based on your installation of music21. 
+    This example shows how to parse a music mxl file (music21 and
+    musescore/finale required) and create a simple oracle representation.
+    The output is a reshuffled midi stream shown in either musescore
+    or finale based on your installation of music21. 
     
     OPTIONAL ARGS:
         seq_len: an integer for the length of the output sequence. 
         p: a float of the probability using the forward links.
         k: an integer for the starting state.
-        LRS: an integer for the lower limit of the LRS of sfx/rsfx allowed to 
-            jump to.
+        LRS: an integer for the lower limit of the LRS of sfx/rsfx allowed
+            to jump to.
         weight:
             None: choose uniformly among all the possible sfx/rsfx given 
                 current state.
@@ -45,16 +49,16 @@ def main():
             "weight": choose sfx/rsfx in a way that favors longer ones than 
             shorter ones.        
     """
-    filename = os.path.abspath('') + '../files/Suite_No_1_for_Cello_M1_Prelude.mxl'
-    s = music21.converter.parse(filename)
-    c = s.getElementById('Violoncello')
-    m = c.flat.notes
+    s = music21.converter.parse(filepath)
+    # c = s.getElementById('Keyboard')
+    m = s.flat.notes
     note_obj_seq = [x for x in m if type(x) is music21.note.Note]    
-    bo = vmo.build_oracle(note_obj_seq,'f')
-    bo.name = 'bach_cello_example'
+    oracle = vmo.build_oracle(note_obj_seq,'f')
+    oracle.name = filepath.split('/')[-1]
     
     if len(sys.argv) == 1:
-        b, kend, ktrace = gen.generate(bo, len(note_obj_seq), 0.0, 0, LRS=2, weight='weight')
+        b, kend, ktrace = gen.generate(oracle, len(note_obj_seq), 0.0, 0,
+                                       LRS=2, weight='weight')
     else:
         seq_len = int(sys.argv[1])
         if seq_len == 0:
@@ -63,10 +67,11 @@ def main():
         k = int(sys.argv[3])
         LRS = int(sys.argv[4])
         weight = sys.argv[5]
-        b, kend, ktrace = gen.generate(bo, seq_len, p, k, LRS=LRS, weight=weight)
+        b, kend, ktrace = gen.generate(oracle, seq_len, p, k,
+                                       LRS=LRS, weight=weight)
 
     stream1 = music21.stream.Stream()
-    x = [bo.data[i] for i in b]
+    x = [oracle.data[i] for i in b]
     for i in range(len(x)):
         _n = music21.note.Note(x[i].nameWithOctave)
         _n.duration.type = x[i].duration.type
