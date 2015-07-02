@@ -36,14 +36,16 @@ def create_selfsim(oracle, method='rsfx'):
     """ Create self similarity matrix from compror codes or suffix links
     
     :type oracle: a vmo object
-    Args:
-        oracle: an encoded vmo object
-        method:
-            'compror' - use the compression codes 
-            'suffix' - use suffix links
-            'rsfx' - use reverse suffix links
-            'lrs' - use LRS values
-            'pttr' - use patterns found
+    Keyword arguments:
+        oracle: vmo.oracle.VMO
+            an encoded vmo object
+        method: string
+            The type of transitions to use. Possible options are: 
+                'compror' - use the compression codes 
+                'suffix' - use suffix links
+                'rsfx' - use reverse suffix links
+                'lrs' - use LRS values
+                'pttr' - use patterns found
     """
     len_oracle = oracle.n_states - 1
     mat = np.zeros((len_oracle, len_oracle))
