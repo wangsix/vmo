@@ -74,38 +74,9 @@ class FactorOracle(object):
                     distances between a and each column of m.
     """
     def __init__(self, **kwargs):
-        # Basic attributes, initialized with state zero
-        self.sfx = [None]
-        self.trn = [[]]
-        self.rsfx = [[]]
-        self.lrs = [0]
-        self.data = [0]
+        self.reset(keep_parameters=False)
         
-        # Compression attributes
-        self.compror = []
-        self.code = []
-        self.seg = []
-
-        # Object attributes
-        self.kind = 'f'
-        self.name = ''
-
-        # Oracle statistics
-        self.n_states = 1
-        self.max_lrs = [0]
-        self.avg_lrs = [0.]
-        
-        # Oracle parameters
-        self.params = {
-            'threshold': 0,
-            'dfunc': 'euclidean',
-            'dfunc_handle': None,
-            'dim': 1
-        }
-        self.update_params(**kwargs)
-
-    def reset(self, **kwargs):
-        self.update_params(**kwargs)
+    def reset(self, keep_parameters=True, **kwargs):
         # Basic attributes, initialized with state zero
         self.sfx = [None]
         self.trn = [[]]
@@ -126,7 +97,17 @@ class FactorOracle(object):
         self.n_states = 1
         self.max_lrs = [0]
         self.avg_lrs = [0.]
-        
+
+        # Oracle parameters
+        if not keep_parameters:
+            self.params = {
+                'threshold':0,
+                'dfunc':'euclidean',
+                'dfunc_handle':None,
+                'dim': 1
+            }
+        self.update_params(**kwargs)
+                        
     def update_params(self, **kwargs):
         """Subclass this"""
         self.params.update(kwargs)
