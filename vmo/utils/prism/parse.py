@@ -1,5 +1,5 @@
 """
-utils/prism/properties.py
+utils/prism/parse.py
 Variable Markov Oracle in python
 
 @copyright: 
@@ -25,10 +25,23 @@ along with vmo.  If not, see <http://www.gnu.org/licenses/>.
 """
 
 import numpy as np
-from fractions import Fraction
-import string
 
-"""PRISM properties generation module."""
+"""Parse PRISM output."""
 
-'''Well, for now, we're gonna stick to writing them down manually
-in the PRISM-syntax.'''
+def simple_parser(prism_output):
+    """Return whether the input call to PRISM was accepting.
+
+    Look for the substring "Result: true" in the text output
+    Keyword arguments:
+        prism_output: string
+            The output of a call to PRISM
+    """
+    # TODO: check robustness wrt PRISM output
+    return "Result: true" in prism_output
+
+def parse_path(path_output):
+    """Parse a path as output by PRISM
+
+    Return a sequence of tuples and a tuple describing the name of each
+    component in the returned tuples"""
+    pass

@@ -26,6 +26,7 @@ along with vmo.  If not, see <http://www.gnu.org/licenses/>.
 
 import numpy as np
 from time import strftime
+import tempfile
 import subprocess32 as subp
 
 import vmo.utils.prism.model as model
@@ -33,9 +34,9 @@ import vmo.utils.prism.properties as props
 
 """Functions to call PRISM on a model and property and return the output.""" 
 
-def write_model(model_str):
-    """Return an opened file descriptor for the input model.
-
+def _write_model(model_str):
+    """Return a new, opened, uniquely-named file descriptor to the input model.
+    
     Warning: be careful to close the output file descriptor after using it
     Keyword arguments:
         model_str: string
@@ -43,12 +44,52 @@ def write_model(model_str):
     """
     # Generate a unique identifier
     time = strftime("%Y-%m-%d__%H_%M_%S")
-    filename = "model-{0}.pm".format(time)
-    fd = open("model-{0}.pm", 'w')
-    fd.write(model_str)
-    return fd
+    model_name = "model-{0}".format(time)
+
+    # Build the model into file <filename>
+    model_description = tempfile.NamedTemporaryFile('w+')
+    model_description.write(model_str)
+    model_description.flush()
+    
+    return model_description
+
+def _build_model(model_str):
+    """Build the model with PRISM and return the extension-free filename.
+    
+    Warning: be careful to close the output file descriptor after using it
+    Keyword arguments:
+        model_str: string
+            The PRISM model to write
+    """
+    model_description = _write_model(model_str)
+    
+    subp.call(['/home/theis/Documents/prism/prism-4.2.1-src/bin/prism',
+               model_description.name,
+               '-exportmodel', model_name+'.tra,sta'])
+    model_description.close()
+    return model_name
 
 def check_property(model_str, prop):
-    fd = write_model(model_str)
-    output = subp.check_output(['prism', fd.filename, prop])
+    """Check property prop on the model described by model_description
+    
+    ----
+    >>> o = oracle.create_oracle('f')
+    >>> o.add_state(0)
+    >>> o.add_state(1)
+    >>> o.add_state(2)
+    >>> adj = analysis.graph_adjacency_lists(o)
+    >>> prob_adj = probs.uniform(adj)
+    >>> model_str = model.print_dtmc_module(prob_adj)
+    >>> check_property(model_name, "P>0 [ F s=2]")
+    TODO : [expect something]
+    """
+    model = _write_model(model_str)
+    # fd.seek(0)
+    # print fd.readlines()
+    # URGENT TODO: make prism path platform independant!
+    output = subp.check_output(['/home/theis/Documents/prism/prism-4.2.1-src/bin/prism',
+                                model.name,
+                                '-dtmc',
+                                '-pf', prop])
+    model.close()
     return output

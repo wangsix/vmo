@@ -178,14 +178,14 @@ def print_dtmc_module(proba_adj_lists, prism_state_name='s', module_name='m'):
     ...     "\\t[] a=1 -> 1/1 : (a\'=0);\\n" +
     ...     "\\t[] a=2 -> 1/1 : (a\'=0);\\n" +
     ...     "\\n" +
-    ...     "endmodule"
+    ...     "endmodule\\n"
     ...     )
     >>> result == expected
     True
     """
     header = bytearray("dtmc\n\n" + "module {0}\n\n".format(module_name))
-    footer = bytearray("\nendmodule")
-
+    footer = bytearray("\nendmodule\n")
+    
     graph_header, graph_states = print_graph(
         proba_adj_lists, prism_state_name=prism_state_name)
     graph_header_str = indent_join_lines(graph_header)
