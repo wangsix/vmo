@@ -30,5 +30,5 @@ import string
 
 """PRISM properties generation module."""
 
-"Well, for now, we're gonna stick to writing them down manually
-in the PRISM-syntax."
+'''Well, for now, we're gonna stick to writing them down manually
+in the PRISM-syntax.'''

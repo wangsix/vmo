@@ -40,8 +40,8 @@ def simple_parser(prism_output):
     return "Result: true" in prism_output
 
 def parse_path(path_output):
-    """Parse a path as output by PRISM.
+    """Parse a path as output by PRISM
 
     Return a sequence of tuples and a tuple describing the name of each
     component in the returned tuples"""
-    raise NotImplementedError("Need to know if PRISM supports path generation")
+    pass
