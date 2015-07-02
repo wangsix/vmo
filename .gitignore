@@ -74,3 +74,8 @@ target/
 .idea/vcs.xml
 .idea/vmo.iml
 .idea/workspace.xml
+
+# PRISM models (might want some of those later, but for now they're poluting)
+*.pm
+*.sta
+*.tra
