@@ -123,7 +123,7 @@ def _create_trn_mat_symbolic(oracle, method):
     mat = mat.transpose()
     return mat, hist, n
 
-def create_full_adjacency_lists(oracle):
+def graph_adjacency_lists(oracle):
     """Return <oracle>'s underlying graph, using adjacency lists.
 
     Use all of the input material's states, not the oracle's clusters.
@@ -137,8 +137,8 @@ def create_full_adjacency_lists(oracle):
             graph[i].append(sfx_trans)
     return graph
 
-def create_full_adjacency_matrix(oracle):
-    """Return adjacency matrix of <oracle>'s underlying graph.
+def graph_adjacency_matrix(oracle):
+    """Return the adjacency matrix of <oracle>'s underlying graph.
 
     Use all of the input material's states, not the oracle's clusters.
     Edges are counted with multiplicity.
