@@ -28,7 +28,7 @@ import numpy as np
 
 """Parse PRISM output."""
 
-def simple_parser(prism_output):
+def is_accepting(prism_output):
     """Return whether the input call to PRISM was accepting.
 
     Look for the substring "Result: true" in the text output
