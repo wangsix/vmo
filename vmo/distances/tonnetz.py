@@ -25,6 +25,7 @@ along with vmo.  If not, see <http://www.gnu.org/licenses/>.
 """
 
 import numpy as np
+import scipy.spatial.distance as scidist
 
 """Tonnetz distance between chords.
 
@@ -44,10 +45,10 @@ See: Harte and Sandler and Gasser, Detecting harmonic
 
 # Constants
 
+"""Radiuses of different circles (defined such to reflect the
+tonal distance through the euclidian distance on tonnetz vectors)
 """
-Radiuses of different circles (defined such to reflect the
-tonal distance through the euclidian distance)
-"""
+
 r_fifth = 1.
 r_minor_thirds = 1.
 r_major_thirds = 0.5
@@ -70,15 +71,15 @@ def _make_tonnetz_matrix():
                       minor_third_x, minor_third_y,
                       major_third_x, major_third_y))
 
-# Define a global value to avoid recomputations
-__tonnetz_matrix = _make_tonnetz_matrix()
+# Define a global constant to avoid recomputations of the Tonnetz matrix
+__TONNETZ_MATRIX = _make_tonnetz_matrix()
 
 def _to_tonnetz(chromagram):
     """Project a chromagram on the tonnetz
 
     Return value is normalized to prevent numerical instabilities  
     """
-    _tonnetz = np.dot(__tonnetz_matrix, chromagram)
+    _tonnetz = np.dot(__TONNETZ_MATRIX, chromagram)
     one_norm = np.sum(np.abs(chromagram))
     if (one_norm != 0.):
         _tonnetz = _tonnetz / one_norm # Normalize tonnetz vector
@@ -112,23 +113,6 @@ def distance(a, b):
     """
     [a_tonnetz, b_tonnetz] = [_to_tonnetz(x) for x in [a, b]]
     return np.linalg.norm(b_tonnetz - a_tonnetz)
-
-def distances_vector_matrix(a, m):
-    """Compute distances between a chromagram and a sequence of chromagrams.
-
-    Output: an array of tonnetz-distances of size the number of rows in m  
-    Keyword arguments:
-        a: ndarray
-            A 1-D array, the reference chromagram
-        m: ndarray
-            the sequence of chromagrams (a matrix whose columns are chromagrams)
-    """
-    a_tonnetz = _to_tonnetz(a)
-    m = np.array(m).T
-    _, y = m.shape
-    m_tonnetz = [_to_tonnetz(m[:,j]) for j in range(y)]
-    diff = np.subtract(a_tonnetz, m_tonnetz)
-    return np.sqrt((diff*diff).sum(axis=1))
 
 if __name__ == "__main__":
     import doctest
