@@ -27,26 +27,29 @@ along with vmo.  If not, see <http://www.gnu.org/licenses/>.
 import numpy as np
 from time import strftime
 import tempfile
-import subprocess32 as subp
+import subprocess32
+import distutils.spawn
+import os.path
 
 import vmo.utils.prism.model as model
 import vmo.utils.prism.properties as props
 
 """Functions to call PRISM on a model and property and return the output.""" 
 
+# Assumes the user has installed prism as a shell command
+PATH_TO_PRISM = distutils.spawn.find_executable('prism')    
+
 def _write_model(model_str):
     """Return a new, opened, uniquely-named file descriptor to the input model.
-    
-    Warning: be careful to close the output file descriptor after using it
+
+    Warning: please close the returned file descriptor after using it.
+    The written file on disk is temporary and will be deleted as soon as the
+    associated file descriptor is closed.
+     
     Keyword arguments:
         model_str: string
-            The PRISM model to write
+            The model to write, in PRISM syntax
     """
-    # Generate a unique identifier
-    time = strftime("%Y-%m-%d__%H_%M_%S")
-    model_name = "model-{0}".format(time)
-
-    # Build the model into file <filename>
     model_description = tempfile.NamedTemporaryFile('w+')
     model_description.write(model_str)
     model_description.flush()
@@ -54,42 +57,65 @@ def _write_model(model_str):
     return model_description
 
 def _build_model(model_str):
-    """Build the model with PRISM and return the extension-free filename.
-    
-    Warning: be careful to close the output file descriptor after using it
+    """Build the model with PRISM and write the associated files to disk.
+
+    Return <model_built>, the prefix (extension-free filename) of the PRISM-built
+    model-description:
+        <model_built>.sta describes the states
+        <model_built>.tra describes the transitions
+
     Keyword arguments:
         model_str: string
-            The PRISM model to write
+            The model to build, in PRISM syntax 
     """
     model_description = _write_model(model_str)
-    
-    subp.call(['/home/theis/Documents/prism/prism-4.2.1-src/bin/prism',
-               model_description.name,
-               '-exportmodel', model_name+'.tra,sta'])
+    model_name = os.path.splitext(model_description.name)[0]
+
+    subprocess32.call([PATH_TO_PRISM,
+                       model_description.name,
+                       '-exportmodel', model_name+'.tra,sta'])
     model_description.close()
     return model_name
 
 def check_property(model_str, prop):
     """Check property prop on the model described by model_description
-    
+
+    Return PRISM's full output as a string.
+    Keyword arguments:
+        model_str: string
+            The model to use, in PRISM-syntax
+        prop: string
+            The property to check on the model, in PRISM syntax
     ----
+    >>> import vmo.VMO.oracle as oracle
+    >>> import vmo.analysis as analysis
+    >>> import vmo.utils.probabilities as probs
+    >>> import vmo.utils.prism.parse as parser
+    
     >>> o = oracle.create_oracle('f')
-    >>> o.add_state(0)
-    >>> o.add_state(1)
+    >>> o.add_state(1) # create_oracle generates state 0
     >>> o.add_state(2)
     >>> adj = analysis.graph_adjacency_lists(o)
     >>> prob_adj = probs.uniform(adj)
     >>> model_str = model.print_dtmc_module(prob_adj)
-    >>> check_property(model_name, "P>0 [ F s=2]")
-    TODO : [expect something]
+
+    Check reachability of state 2
+    >>> prism_output = check_property(model_str, "P>0 [ F s=2]")
+
+    Any oracle is strongly connected (because of the forward transitions) 
+    >>> parser.is_accepting(prism_output)
+    True
     """
     model = _write_model(model_str)
-    # fd.seek(0)
-    # print fd.readlines()
-    # URGENT TODO: make prism path platform independant!
-    output = subp.check_output(['/home/theis/Documents/prism/prism-4.2.1-src/bin/prism',
-                                model.name,
-                                '-dtmc',
-                                '-pf', prop])
+    
+    output = subprocess32.check_output(
+        [PATH_TO_PRISM, # call prism
+         model.name,    # Input the model
+         '-dtmc',       # Read the model as a DTMC
+         '-pf', prop])  # Input the property to check
     model.close()
     return output
+
+if __name__ == "__main__":
+    import doctest
+    doctest.testmod()
