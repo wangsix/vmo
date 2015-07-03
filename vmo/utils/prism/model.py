@@ -33,11 +33,17 @@ import vmo.utils.probabilities as probas
 """Graph to PRISM input conversion function"""
 
 def print_proba(proba):
-    """Print a probability, with output depending on the input's style."""
+    """Print a probability in fraction form.
+    ----
+    >>> print_proba(Fraction('1/2'))
+    '1/2'
+    >>> print_proba(1.1)
+    '1.1'
+    """
     if isinstance(proba, Fraction):
         return "{0}/{1}".format(proba.numerator, proba.denominator)
     elif isinstance(proba, float) or isinstance(proba, int):
-        print_proba(Fraction(proba))
+        return __repr__(proba)
     else:
         raise ValueError("Unexpected probability type")
                 
@@ -80,7 +86,7 @@ def print_transitions(proba_adj_lists, origin, prism_state_name='s',
 
 def print_state(proba_adj_lists, s_index, prism_state_name='s'):
     """Return a PRISM-formatted bytearray defining state s_index.
-
+    
     Keyword arguments:
         proba_adj_lists: list of lists of pairs
             A probabilistic graph, given as it adjacency list
@@ -197,7 +203,9 @@ def print_dtmc_module(proba_adj_lists, prism_state_name='s', module_name='m'):
     
     return _bytes_concat([header, graph_str, footer])
 
+
 """Auxiliary functions"""
+
 
 def indent_join_lines(lines, tabulate_by=1, trailing=';\n'):
     """Return the concatenation of lines with inserted tabs and newlines.
@@ -218,6 +226,9 @@ def indent_join_lines(lines, tabulate_by=1, trailing=';\n'):
 def _bytes_concat(bytearrays):
     """Efficiently concatenate the input bytearrays.
 
+    Keyword arguments:
+        bytearrays: list of byetarray
+            The bytearrays to concatenate
     ----
     >>> bytes = bytearray("Hello !")
     >>> _bytes_concat([bytes]*2) == bytearray("Hello !Hello !")
