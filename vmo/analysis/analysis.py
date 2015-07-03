@@ -28,8 +28,10 @@ from functools import partial
 
 from scipy.stats import multivariate_normal
 import fuzzywuzzy.fuzz as fuzz
+
+import vmo
 import vmo.VMO
-import vmo.distances.tonnetz as tonnetz
+import vmo.distances as vdists
 
 
 """Self-similarity matrix and transition matrix from an oracle"""
@@ -271,7 +273,7 @@ def _rsfx_count(oracle, s, count, hist, alphabet):
 
 
 def query_complete(oracle, query, trn_type=1, smooth=False, weight=0.5,
-                   dfunc='euclidean'):
+                   metric='euclidean'):
     """Return the closest path in target oracle given a query sequence.
     
     Args:
@@ -293,13 +295,13 @@ def query_complete(oracle, query, trn_type=1, smooth=False, weight=0.5,
         D = dist.squareform(D, checks=False)
         map_k_outer = partial(_query_k, oracle=oracle, query=query,
                               smooth=smooth, D=D, weight=weight,
-                              dfunc=dfunc)  
+                              metric=metric)  
     else:
         map_k_outer = partial(_query_k, oracle=oracle, query=query,
-                              dfunc=dfunc)
+                              metric=metric)
         
     map_query_init = partial(_query_init, oracle=oracle, query=query[0],
-                             dfunc=dfunc)
+                             metric=metric)
     P[0], C = zip(*map(map_query_init, oracle.rsfx[0][:]))
     P[0] = list(P[0])
     C = np.array(C)
@@ -382,10 +384,10 @@ def tracking(oracle, obs, trn_type=1, reverse_init=False, method='else',
 
     return T
 
-def tracking_multiple_seq(oracle_vec, obs, selftrn=True, dfunc='euclidean'):
-    N = len(obs)         # Length of observation
+def tracking_multiple_seq(oracle_vec, obs, selftrn=True, metric='euclidean'):
+    N = len(obs)  # Length of observation
     K = len(oracle_vec)  # Number of gesture candidates
-    
+
     P = np.ones((N,K), dtype='int')   # Path matrix 
     C = np.zeros((K,))                # Cost vector
     T = np.zeros((N,), dtype='int')   # Tracking index vector
@@ -399,12 +401,12 @@ def tracking_multiple_seq(oracle_vec, obs, selftrn=True, dfunc='euclidean'):
     for i, _obs in enumerate(obs):
         for k, vo in enumerate(oracle_vec):
             if i == 0:
-                dist_init = _dist_obs_oracle(vo, _obs, [1], dfunc)
+                dist_init = _dist_obs_oracle(vo, _obs, [1], metric)
                 C[k] += dist_init
             else:
                 s = P[i - 1][k]
                 _trn = trn(vo, s)
-                dvec = _dist_obs_oracle(vo, _obs, _trn, dfunc)
+                dvec = _dist_obs_oracle(vo, _obs, _trn, metric)
                 C[k] += np.min(dvec) 
                 P[i][k] = _trn[np.argmin(dvec)]
         g = np.argmin(C)
@@ -496,36 +498,37 @@ def create_pttr_vmo(oracle, pattern):
 #
 #     return A, L
 
-
 def create_reverse_oracle(oracle):
     reverse_data = oracle.f_array[-1:0:-1]
     r_oracle = vmo.build_oracle(reverse_data, 'v',
                                 threshold=oracle.params['threshold'])
     return r_oracle
 
-def _query_init(k, oracle, query, method='all', dfunc='euclidean'): 
+def _query_init(k, oracle, query, method='all', metric='euclidean'): 
     """Initialize query-matching"""
     if method == 'all':
         dvec = _dist_obs_oracle(oracle, query, oracle.latent[oracle.data[k]],
-                                dfunc=dfunc)
+                                metric=metric)
         _d = dvec.argmin()
         return oracle.latent[oracle.data[k]][_d], dvec[_d]
     else:
-        dvec = _dist_obs_oracle(oracle, query, [k], dfunc)
+        dvec = _dist_obs_oracle(oracle, query, [k], metric=metric)
         return k, dvec
-    
-def _dist_obs_oracle(oracle, query, trn_list, dfunc='euclidean'): 
+
+def _dist_obs_oracle(oracle, query, trn_list, metric='euclidean'): 
     """Compute distances between a single feature and frames in oracle."""
-    if dfunc == 'euclidean':
-        a = np.subtract(query, [oracle.f_array[t] for t in trn_list])  
-        return np.sqrt((a*a).sum(axis=1))
-    elif dfunc == 'tonnetz':
-        return tonnetz.distances_vector_matrix(
-            query, [oracle.f_array[t] for t in trn_list])
-    else: raise AttributeError("Unsupported distance type")
+    frames = [oracle.f_array[t] for t in trn_list]
+    return vdists.cdist([query], frames, metric=metric)
+
+    # if metric == 'euclidean':
+    #     a = np.subtract(query, frames)  
+    #     return np.sqrt((a*a).sum(axis=1))
+    # elif metric == 'tonnetz':
+    #     return tonnetz.distances_vector_matrix(query, frames)
+    # else: raise AttributeError("Unsupported distance type")
     
 def _query_k(k, i, P, oracle, query, trn, state_cache, dist_cache,
-             smooth=False, D=None, weight=0.5, dfunc='euclidean'):
+             smooth=False, D=None, weight=0.5, metric='euclidean'):
     """Compute query-matching function`s iteration over observations
     
     Args:
@@ -557,8 +560,8 @@ def _query_k(k, i, P, oracle, query, trn, state_cache, dist_cache,
     if _trn_unseen:
         t_unseen = list(itertools.chain.from_iterable(
             [oracle.latent[oracle.data[j]] for j in _trn_unseen]))
-        dist_cache[t_unseen] = _dist_obs_oracle(oracle, query[i],
-                                                t_unseen, dfunc)
+        dist_cache[t_unseen] = _dist_obs_oracle(oracle, query[i], t_unseen,
+                                                metric=metric)
     dvec = dist_cache[t]
     if smooth and P[i-1][k] < oracle.n_states-1:
         weighted_distances = weight * np.array([D[P[i-1][k]][_t-1] for _t in t])
