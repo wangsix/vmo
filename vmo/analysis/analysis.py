@@ -553,13 +553,13 @@ def _query_k(k, i, P, oracle, query, trn, state_cache, dist_cache,
     """
     _trn = trn(oracle, P[i-1][k])
     latent_data_trn = [oracle.latent[oracle.data[j]] for j in _trn]
-    t = list(itertools.chain.from_iterable(latent_data_trn))
+    t = flatten(latent_data_trn)
     _trn_unseen = [_t for _t in _trn if _t not in state_cache]
     state_cache.extend(_trn_unseen)
 
     if _trn_unseen:
-        t_unseen = list(itertools.chain.from_iterable(
-            [oracle.latent[oracle.data[j]] for j in _trn_unseen]))
+        t_unseen = flatten([oracle.latent[oracle.data[j]]
+                            for j in _trn_unseen])
         dist_cache[t_unseen] = _dist_obs_oracle(oracle, query[i], t_unseen,
                                                 metric=metric)
     dvec = dist_cache[t]
@@ -574,7 +574,7 @@ def _create_trn_complete(oracle, prev):
     """TODO: please insert documentation."""
     latent_prev_data = [oracle.latent[_c]for _c
                         in list(oracle.con[oracle.data[prev]])]
-    return list(itertools.chain.from_iterable(latent_prev_data))
+    return flatten(latent_prev_data)
 
     
 def _create_trn_self(oracle, prev):
@@ -705,3 +705,7 @@ def _get_rsfx(oracle, rs_set, k):
         for _k in oracle.rsfx[k]:
             rs_set = rs_set.union(_get_rsfx(oracle, rs_set, _k))
         return rs_set
+
+def flatten(lists):
+    """Flatten the input list of lists"""
+    return list(itertools.chain.from_iterable(lists))
