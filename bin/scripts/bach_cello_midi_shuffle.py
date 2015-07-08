@@ -71,7 +71,7 @@ def main(filepath=path_to_bach):
                                        LRS=LRS, weight=weight)
 
     stream1 = music21.stream.Stream()
-    x = [oracle.data[i] for i in b]
+    x = [oracle.symbol[i] for i in b]
     for i in range(len(x)):
         _n = music21.note.Note(x[i].nameWithOctave)
         _n.duration.type = x[i].duration.type

@@ -108,11 +108,11 @@ def create_transition(oracle, method='trn'):
 def _create_trn_mat_symbolic(oracle, method):
     trn_list = None
     n = oracle.num_clusters()
-    sym_list = [oracle.data[_s] for _s in oracle.rsfx[0]]
-    hist = np.zeros(n, )
+    sym_list = [oracle.symbol[_s] for _s in oracle.rsfx[0]]
+    hist = np.zeros(n,)
     mat = np.zeros((n, n))
     for i in range(1, oracle.n_states - 1):
-        _i = sym_list.index(oracle.data[i])
+        _i = sym_list.index(oracle.symbol[i])
         if method == 'trn':
             trn_list = oracle.trn[i]
         elif method == 'seq':
@@ -120,7 +120,7 @@ def _create_trn_mat_symbolic(oracle, method):
 
         for j in trn_list:
             if j < oracle.n_states:
-                _j = sym_list.index(oracle.data[j])
+                _j = sym_list.index(oracle.symbol[j])
                 mat[_i][_j] += 1
             else:
                 print "index " + str(j) + " is out of bounds."
@@ -189,8 +189,8 @@ def predict(oracle, context, ab=None, verbose=False):
     d_count = len(ab)
     hist = [1.0] * len(ab)  # initialize all histograms with 1s.
 
-    trn_data = [oracle.data[n] for n in oracle.trn[_s]]
-    for k in trn_data:
+    trn_symbol = [oracle.symbol[n] for n in oracle.trn[_s]]
+    for k in trn_symbol:
         hist[ab[k]] += 1.0
         d_count += 1.0
 
@@ -252,16 +252,16 @@ def _test_context(oracle, context):
 
 def _rsfx_count(oracle, s, count, hist, alphabet):
     """Accumulate counts for context"""
-    trn_data = [oracle.data[n] for n in oracle.trn[s]]
-    for k in trn_data:
+    trn_symbol = [oracle.symbol[n] for n in oracle.trn[s]]
+    for k in trn_symbol:
         hist[alphabet[k]] += 1.0
         count += 1.0
 
     rsfx_candidate = oracle.rsfx[s][:]
     while rsfx_candidate:
         s = rsfx_candidate.pop(0)
-        trn_data = [oracle.data[n] for n in oracle.trn[s]]
-        for k in trn_data:
+        trn_symbol = [oracle.symbol[n] for n in oracle.trn[s]]
+        for k in trn_symbol:
             hist[alphabet[k]] += 1.0
             count += 1.0
         rsfx_candidate.extend(oracle.rsfx[s])
@@ -273,7 +273,7 @@ def _rsfx_count(oracle, s, count, hist, alphabet):
 
 
 def query_complete(oracle, query, trn_type=1, smooth=False, weight=0.5,
-                   metric='euclidean'):
+                   dfunc='euclidean'):
     """Return the closest path in target oracle given a query sequence.
     
     Args:
@@ -291,17 +291,17 @@ def query_complete(oracle, query, trn_type=1, smooth=False, weight=0.5,
     P = [[0] * K for _i in range(N)]
     if smooth:
         # Create self-similarity matrix D
-        D = dist.pdist(oracle.f_array[1:], 'sqeuclidean')
+        D = dist.pdist(oracle.feature[1:], 'sqeuclidean')
         D = dist.squareform(D, checks=False)
         map_k_outer = partial(_query_k, oracle=oracle, query=query,
                               smooth=smooth, D=D, weight=weight,
-                              metric=metric)  
+                              dfunc=dfunc)  
     else:
         map_k_outer = partial(_query_k, oracle=oracle, query=query,
-                              metric=metric)
+                              dfunc=dfunc)
         
     map_query_init = partial(_query_init, oracle=oracle, query=query[0],
-                             metric=metric)
+                             dfunc=dfunc)
     P[0], C = zip(*map(map_query_init, oracle.rsfx[0][:]))
     P[0] = list(P[0])
     C = np.array(C)
@@ -384,7 +384,7 @@ def tracking(oracle, obs, trn_type=1, reverse_init=False, method='else',
 
     return T
 
-def tracking_multiple_seq(oracle_vec, obs, selftrn=True, metric='euclidean'):
+def tracking_multiple_seq(oracle_vec, obs, selftrn=True, dfunc='euclidean'):
     N = len(obs)  # Length of observation
     K = len(oracle_vec)  # Number of gesture candidates
 
@@ -401,12 +401,12 @@ def tracking_multiple_seq(oracle_vec, obs, selftrn=True, metric='euclidean'):
     for i, _obs in enumerate(obs):
         for k, vo in enumerate(oracle_vec):
             if i == 0:
-                dist_init = _dist_obs_oracle(vo, _obs, [1], metric)
+                dist_init = _dist_obs_oracle(vo, _obs, [1], dfunc)
                 C[k] += dist_init
             else:
                 s = P[i - 1][k]
                 _trn = trn(vo, s)
-                dvec = _dist_obs_oracle(vo, _obs, _trn, metric)
+                dvec = _dist_obs_oracle(vo, _obs, _trn, dfunc)
                 C[k] += np.min(dvec) 
                 P[i][k] = _trn[np.argmin(dvec)]
         g = np.argmin(C)
@@ -457,7 +457,7 @@ def create_pttr_vmo(oracle, pattern):
     for p in pattern:
         _vmo_vec.append([])
         for sfx in p[0]:
-            local_obs = oracle.f_array[sfx-p[1]+1:sfx+1]
+            local_obs = oracle.feature[sfx-p[1]+1:sfx+1]
             local_vmo = vmo.build_oracle(local_obs, flag='a', threshold=thresh)
             _vmo_vec[-1].append(local_vmo)
 
@@ -499,36 +499,29 @@ def create_pttr_vmo(oracle, pattern):
 #     return A, L
 
 def create_reverse_oracle(oracle):
-    reverse_data = oracle.f_array[-1:0:-1]
-    r_oracle = vmo.build_oracle(reverse_data, 'v',
+    reverse_features = oracle.feature[-1:0:-1]
+    r_oracle = vmo.build_oracle(reverse_features, 'v',
                                 threshold=oracle.params['threshold'])
     return r_oracle
 
-def _query_init(k, oracle, query, method='all', metric='euclidean'): 
+def _query_init(k, oracle, query, method='all', dfunc='euclidean'): 
     """Initialize query-matching"""
     if method == 'all':
-        dvec = _dist_obs_oracle(oracle, query, oracle.latent[oracle.data[k]],
-                                metric=metric)
+        dvec = _dist_obs_oracle(oracle, query, oracle.latent[oracle.symbol[k]],
+                                dfunc=dfunc)
         _d = dvec.argmin()
-        return oracle.latent[oracle.data[k]][_d], dvec[_d]
+        return oracle.latent[oracle.symbol[k]][_d], dvec[_d]
     else:
-        dvec = _dist_obs_oracle(oracle, query, [k], metric=metric)
+        dvec = _dist_obs_oracle(oracle, query, [k], dfunc=dfunc)
         return k, dvec
 
-def _dist_obs_oracle(oracle, query, trn_list, metric='euclidean'): 
+def _dist_obs_oracle(oracle, query, trn_list, dfunc='euclidean'): 
     """Compute distances between a single feature and frames in oracle."""
-    frames = [oracle.f_array[t] for t in trn_list]
-    return vdists.cdist([query], frames, metric=metric)
-
-    # if metric == 'euclidean':
-    #     a = np.subtract(query, frames)  
-    #     return np.sqrt((a*a).sum(axis=1))
-    # elif metric == 'tonnetz':
-    #     return tonnetz.distances_vector_matrix(query, frames)
-    # else: raise AttributeError("Unsupported distance type")
+    frames = [oracle.feature[t] for t in trn_list]
+    return vdists.cdist([query], frames, dfunc=dfunc)[0]
     
 def _query_k(k, i, P, oracle, query, trn, state_cache, dist_cache,
-             smooth=False, D=None, weight=0.5, metric='euclidean'):
+             smooth=False, D=None, weight=0.5, dfunc='euclidean'):
     """Compute query-matching function`s iteration over observations
     
     Args:
@@ -552,16 +545,16 @@ def _query_k(k, i, P, oracle, query, trn, state_cache, dist_cache,
     
     """
     _trn = trn(oracle, P[i-1][k])
-    latent_data_trn = [oracle.latent[oracle.data[j]] for j in _trn]
-    t = flatten(latent_data_trn)
+    latent_symbol_trn = [oracle.latent[oracle.symbol[j]] for j in _trn]
+    t = flatten(latent_symbol_trn)
     _trn_unseen = [_t for _t in _trn if _t not in state_cache]
     state_cache.extend(_trn_unseen)
 
     if _trn_unseen:
-        t_unseen = flatten([oracle.latent[oracle.data[j]]
+        t_unseen = flatten([oracle.latent[oracle.symbol[j]]
                             for j in _trn_unseen])
         dist_cache[t_unseen] = _dist_obs_oracle(oracle, query[i], t_unseen,
-                                                metric=metric)
+                                                dfunc=dfunc)
     dvec = dist_cache[t]
     if smooth and P[i-1][k] < oracle.n_states-1:
         weighted_distances = weight * np.array([D[P[i-1][k]][_t-1] for _t in t])
@@ -571,10 +564,10 @@ def _query_k(k, i, P, oracle, query, trn, state_cache, dist_cache,
 
 
 def _create_trn_complete(oracle, prev):
-    """TODO: please insert documentation."""
-    latent_prev_data = [oracle.latent[_c]for _c
-                        in list(oracle.con[oracle.data[prev]])]
-    return flatten(latent_prev_data)
+    """TODO: add documentation."""
+    latent_prev_symbol = [oracle.latent[_c]for _c
+                        in list(oracle.con[oracle.symbol[prev]])]
+    return flatten(latent_prev_symbol)
 
     
 def _create_trn_self(oracle, prev):

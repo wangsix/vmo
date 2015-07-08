@@ -26,19 +26,19 @@ from scipy.io import wavfile
 
 def improvise_step(oracle, i, LRS=0, weight=None):
     """Incremental improvisation function given an oracle and a state"""
-
-    trn_link = [s + 1 for s in oracle.latent[oracle.data[i]] if
-                (oracle.lrs[s] >= LRS and (s + 1) < oracle.n_states)]
+    
+    trn_link = [s+1 for s in oracle.latent[oracle.symbol[i]]
+                if (oracle.lrs[s] >= LRS and (s+1) < oracle.n_states)]
     if not trn_link:
-        if i == oracle.n_states - 1:
+        if i == oracle.n_states-1:
             n = 1
         else:
             n = i + 1
     else:
         if weight == 'lrs':
             lrs_link = [oracle.lrs[s] for s in
-                        oracle.latent[oracle.data[i]] if
-                        (oracle.lrs[s] >= LRS and (s + 1) < oracle.n_states)]
+                        oracle.latent[oracle.symbol[i]]
+                        if (oracle.lrs[s] >= LRS and (s+1) < oracle.n_states)]
             lrs_pop = list(itertools.chain.from_iterable(
                     [[[i] * _x for (i, _x) in zip(trn_link, lrs_link)]]))
             n = random.choice(lrs_pop)[0]
@@ -143,20 +143,12 @@ def generate(oracle, seq_len, p=0.5, k=1, LRS=0, weight=None):
                     elif weight == 'max':
                         sym = k_vec[np.argmax([lrs[_i] for _i in k_vec])]
                     else:
-<<<<<<< 0eee77f4e6b295928edcd668ce87757315f18e5b
-                        sym = k_vec[int(np.floor(random.random() * len(k_vec)))]
-
-                    if sym == len(sfx) - 1:
-                        sym = sfx[sym] + 1
-                    else:
-=======
                         sym = k_vec[int(np.floor(
                             random.random()*len(k_vec)))]
                     
                     if sym == len(sfx)-1:
                         sym = sfx[sym] + 1                        
                     else:                        
->>>>>>> Minor cosmetic updates
                         s.append(sym + 1)
                     k = sym + 1
                     ktrace.append(k)
