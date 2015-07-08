@@ -26,41 +26,53 @@ along with vmo.  If not, see <http://www.gnu.org/licenses/>.
 
 import numpy as np
 import scipy.spatial.distance as dist
+
+import vmo.analysis as van
 import vmo.VMO.utility as utl
-from matplotlib.mlab import find
+import vmo.distances as distances
         
 class FactorOracle(object):
     """The base class for the FO(factor oracle) and MO(variable markov oracle)
     
     Attributes:
-        sfx: a list containing the suffix link of each state.
-        trn: a list containing the forward links of each state as a list.
-        rsfx: a list containing the reverse suffix links of each state 
-            as a list.
-        lrs: the value of longest repeated suffix of each state.
-        data: the symbols associated with the direct link 
-            connected to each state.
-        compror: a list of tuples (i, i-j), i is the current coded position,
+        sfx: list of ints
+            The suffix link of each state.
+        trn: list of lists of ints
+            The forward links of each state, as a list.
+        rsfx: list of lists of ints
+            The reverse suffix links of each state, as a list.
+        lrs: list of ints
+            The length of the longest repeated suffix of each state.
+        symbol: list of ints
+            The symbol associated with the direct link connected to each state.
+        compror: a list of tuples (i, i-j)
+            i is the current coded position,
             i-j is the length of the corresponding coded words.
-        code: a list of tuples (len, pos), len is the length of the 
-            corresponding coded words, pos is the position where the coded
-            words starts.
-        seg: same as code but non-overlapping.
-        f_array: (For kind 'a' and 'v'): a list containing the feature array
-        latent: (For kind 'a' and 'v'): a list of lists with each sub-list
-            containing the indexes for each symbol.
-        kind: 
+        code: list of tuples (len, pos)
+            len is the length of the corresponding coded words,
+            pos is the position where the coded words starts.
+        seg: list of tuples (len, pos)
+            same as code but non-overlapping.
+        feature: list of feature arrays (for kinds 'a' and 'v')
+            feature[i] contains the i-th feature
+        latent: a list of lists (for kinds 'a' and 'v')
+            latent[i] contains the indexes in the oracle for the i-th symbol
+        kind: character
             'a': Variable Markov oracle
             'f': repeat oracle
             'v': Centroid-based oracle (under test)
-        n_states: number of total states, also is length of the input 
-            sequence plus 1.
-        max_lrs: the longest lrs so far.
-        avg_lrs: the average lrs so far.
-        name: the name of the oracle.
-        params: a python dictionary for different feature and distance settings.
+        n_states: int
+            Total number of states. (The length of the input sequence plus 1.)
+        max_lrs: int
+            The maximum length of a repeated suffix so far.
+        avg_lrs: float
+            The average length of repeated suffixes so far.
+        name: string
+            The oracle's name.
+        params: dictionary
+            Different feature and distance settings.
             keys:
-                'threshold': the minimum value for separating two values as 
+                'threshold': the minimum value for separating two features as 
                     different symbols.
                 'weights': a dictionary containing different weights for features
                     used.
@@ -91,7 +103,7 @@ class FactorOracle(object):
         self.trn = [[]]
         self.rsfx= [[]]
         self.lrs = [0]
-        self.data= [0] 
+        self.symbol= [0] 
                 
         # Compression attributes
         self.compror = []
@@ -111,7 +123,7 @@ class FactorOracle(object):
         """Subclass this"""
         self.params.update(kwargs)
         
-    def add_state(self, new_data):
+    def add_state(self, new_symbol):
         def _init_new_state(self):
             """Initialize content holders for the newly-added state.
 
@@ -121,20 +133,102 @@ class FactorOracle(object):
             self.rsfx.append([])
             self.trn.append([])
             self.lrs.append(0)
-            self.data.append(new_data)
+            self.symbol.append(new_symbol)
         
             self.n_states += 1
         
             new_i = self.n_states - 1  # Index of the newly added state
 
             self.trn[new_i - 1].append(new_i)
+            _init_sfx = self.sfx[new_i - 1]
+            _init_pi_1 = new_i - 1
             
-            return new_i
+            return new_i, _init_sfx, _init_pi_1
 
-        new_i = self._init_new_state()
+        new_i, current_suffix, pi_1 = self._init_new_state()
+
+        while current_suffix != None:  # Follow chain of suffixes
+            # Check whether the current state holds a transition labeled
+            # by new_symbol
+            can_read = self.read_symbol(current_suffix, new_symbol) 
+            if not can_read:
+                self.trn[current_suffix].append(new_i)
+                pi_1 = current_suffix
+                current_suffix = self.sfx[current_suffix]
+            else:
+                break
+                
+        if current_suffix == None:
+            self.sfx[new_i] = 0
+            self.lrs[new_i] = 0
+        else:
+            self.sfx[new_i] = self.read_symbol(current_suffix, new_symbol)
+            self.lrs[new_i] = 1 + self._len_common_suffix(pi_1,
+                                                          self.sfx[new_i] - 1)
+
+        previous_suffix_pos = new_i - self.lrs[new_i] 
+        current_suffix = self._find_better(new_i,
+                                           self.symbol[previous_suffix_pos])
+
+        if current_suffix is not None:
+            self.lrs[new_i] += 1
+            self.sfx[i] = current_suffix
+
+        self.rsfx[self.sfx[new_i]].append(new_i)
+        
         """Subclass this"""
         pass
 
+    def read_symbol_forward(self, state, symbol):
+        """Return the state reached by reading <symbol> in <state>.
+
+        Return None if the given symbol is not recognized in <state>.
+        Keyword arguments:
+            state: int
+                A state in the oracle.
+            symbol: an oracle symbol (implementation dependant)
+                The symbol to read.
+        """
+        _same_symbol_neighbour = [goal for goal in self.trn[state]
+                                if self.symbol[goal] == symbol]
+        if len(_same_symbol_neighbours) > 0:
+            # len(_same_symbol_neighbour) == 1 since the oracle is deterministic
+            return _same_symbol_neighbour[0]
+        else:
+            return None
+
+    def read_feature(self, state, feature):
+        """Return all neighbours from <state> with a feature close to <feature>.
+
+        The returned states are sorted according to their distance to <feature>.
+        """
+        neighbour_features = [self.feature[goal] for goal in self.trn[state]]
+        dists = distances.cdist([feature], neighbour_features,
+                                metric=self.params['dfunc'])[0]
+        dists_decorated = [(self.trn[state][i], dists[i])
+                           for i in range(len(dists))
+                           if dists[i] < self.params['threshold']]
+        dists_sorted = sorted(dists_decorated,
+                              key=lambda (_, dist): dist)
+        return dists_sorted
+        
+    def _len_common_suffix(self, p1, p2):
+        if p2 == self.sfx[p1]:
+            return self.lrs[p1]
+        else:
+            while self.sfx[p2] != self.sfx[p1] and p2 != 0:
+                p2 = self.sfx[p2]
+        return min(self.lrs[p1], self.lrs[p2])
+    
+    def _find_better(self, i, symbol):
+        self.rsfx[i].sort()
+        for j in self.rsfx[i]:
+            if (self.lrs[j] == self.lrs[i] and
+                self.symbol[j-self.lrs[i]] == symbol):
+                return j
+        return None
+                    
+    @property
     def _encode(self):
         _code = []
         _compror = []
@@ -339,7 +433,7 @@ class FactorOracle(object):
     def threshold(self):
         threshold = self.params.get('threshold')
         if (threshold is not None):
-            return int(threshold)
+            return int(threshold)  # Todo, no need for int here
         else:
             raise ValueError("Threshold is not set!")
 
@@ -354,27 +448,11 @@ class FactorOracle(object):
         fun = self.params['dfunc_handle']  
         return fun(a, b_vec)
 
-    def _len_common_suffix(self, p1, p2):
-        if p2 == self.sfx[p1]:
-            return self.lrs[p1]
-        else:
-            while self.sfx[p2] != self.sfx[p1] and p2 != 0:
-                p2 = self.sfx[p2]
-        return min(self.lrs[p1], self.lrs[p2])
-
-    def _find_better(self, i, symbol):
-        
-        self.rsfx[i].sort()
-        for j in self.rsfx[i]:
-            if (self.lrs[j] == self.lrs[i] and
-                        self.data[j - self.lrs[i]] == symbol):
-                return j
-        return None
-
 class FO(FactorOracle):
     """An implementation of the factor oracle.
     """
     def __init__(self, **kwargs):
+        super(FO, self).__init__(**kwargs)
         self.reset(**kwargs)
         
     def reset(self):
@@ -391,43 +469,45 @@ class FO(FactorOracle):
         self.rsfx.append([])
         self.trn.append([])
         self.lrs.append(0)
-        self.data.append(new_symbol)
-
+        self.symbol.append(new_symbol)
+        
         self.n_states += 1
         
         new_i = self.n_states - 1  # Index of the newly added state
         
         self.trn[new_i - 1].append(new_i)
-        reached_suffix = self.sfx[new_i - 1]
+        current_suffix = self.sfx[new_i - 1]
         pi_1 = new_i-1
         
         # Add forward links
-        while reached_suffix != None:
-            _symbols = [self.data[state] for state in self.trn[reached_suffix]]    
-            if self.data[new_i] not in _symbols:
-                self.trn[reached_suffix].append(new_i)
-                pi_1 = reached_suffix
-                reached_suffix = self.sfx[reached_suffix]
+        while current_suffix != None:
+            _symbols = [self.symbol[state] for state in self.trn[current_suffix]]    
+            if self.symbol[new_i] not in _symbols:
+                self.trn[current_suffix].append(new_i)
+                pi_1 = current_suffix
+                current_suffix = self.sfx[current_suffix]
             else:
                 break
         
-        if reached_suffix == None:
+        if current_suffix == None:
             # No repeated suffix found, link to initial state
             self.sfx[new_i] = 0
             self.lrs[new_i] = 0
         else:
             # A repeated suffix was found
-            _query = [(self.data[state], state) for state in
-                      self.trn[reached_suffix] if self.data[state] == self.data[new_i]]
-            _query = sorted(_query, key=lambda _query: _query[1])
-            _state = _query[0][1]
-            self.sfx[new_i] = _state
+            _out_trn_sharing_symbol = [state for state in self.trn[current_suffix]
+                                     if self.symbol[state] == new_symbol]
+            _out_trn_sharing_symbol = sorted(_out_trn_sharing_symbol,
+                                           key=lambda x: x)
+            _first_state_sharing_symbol = _out_trn_sharing_symbol[0]
+            self.sfx[new_i] = _first_state_sharing_symbol
             self.lrs[new_i] = self._len_common_suffix(pi_1, self.sfx[new_i]-1) + 1
         
-        reached_suffix = self._find_better(new_i, self.data[new_i-self.lrs[new_i]])
-        if reached_suffix != None:
+        current_suffix = self._find_better(new_i,
+                                           self.symbol[new_i-self.lrs[new_i]])
+        if current_suffix != None:
             self.lrs[new_i] += 1
-            self.sfx[new_i] = reached_suffix
+            self.sfx[new_i] = current_suffix
         self.rsfx[self.sfx[new_i]].append(new_i)
 
         new_max_lrs = max(self.lrs[new_i], self.max_lrs[new_i-1])
@@ -437,34 +517,35 @@ class FO(FactorOracle):
         previous_average_lrs = self.avg_lrs[new_i-1]
         self.avg_lrs.append(previous_average_lrs*((N-1)/N) + 
                             self.lrs[new_i]*(1/N))
-    
+
     def accept(self, context):
         """Check if the context could be accepted by the oracle
         
-        Args:
-            context: s sequence same type as the oracle data
-        
+        Keyword arguments:
+            context: oracle's symbols sequence
+                sequence same type as the oracle symbols
         Returns:
             bAccepted: whether the sequence is accepted (resp. rejected)
             _next: the state where the sequence is accepted (resp. rejected)
         """
         _next = 0
         for _s in context:
-            _data = [self.data[j] for j in self.trn[_next]]
-            if _s in _data:
-                _next = self.trn[_next][_data.index(_s)]
+            _symbols = [self.symbol[j] for j in self.trn[_next]]
+            if _s in _symbols:
+                _next = self.trn[_next][_symbols.index(_s)]
             else:
                 return 0, _next
         return 1, _next
 
     def get_alphabet(self):
-        alphabet = [self.data[i] for i in self.trn[0]]
+        alphabet = [self.symbol[i] for i in self.trn[0]]
         dictionary = dict(zip(alphabet, range(len(alphabet))))
         return dictionary
 
 
 class MO(FactorOracle):
     def __init__(self, **kwargs):
+        super(MO, self).__init__(**kwargs)
         self.reset(**kwargs)
         
     def reset(self, suffix_method='inc', **kwargs):
@@ -473,32 +554,35 @@ class MO(FactorOracle):
         # Reset class specific attributes
         self.kind = 'a'
         # self.f_array = [0]
-        self.f_array = feature_array(self.params['dim'])
-        self.f_array.add(np.zeros(self.params['dim'], ))
-        self.data[0] = None
+        self.feature = feature_array(self.params['dim'])
+        self.feature.add(np.zeros(self.params['dim'], ))
+        self.symbol[0] = None
         self.latent = []
         self.suffix_method = suffix_method
         
-    def add_state(self, new_data):
+    def add_state(self, new_feature):
         """Create new state and update related links and compressed state"""
         self.sfx.append(0)
         self.rsfx.append([])
         self.trn.append([])
         self.lrs.append(0)
 
-        self.f_array.add(new_data)  # Experiment using pointers
-        
-        self.n_states += 1 
+        self.feature.add(new_feature)  # Experiment using pointers
+
+        self.n_states += 1
         new_i = self.n_states - 1  # Index of the newly added state
-        
-        """Experiment enforcing continuity
+
+        # assign new transition from state new_i-1 to new_i
+        self.trn[new_i - 1].append(new_i)
+                
+        """Experiment enforcing continuity"""
 #        if new_i != 1:
 #            self.trn[new_i - 1].append(new_i-1)
 #            k = new_i - 1
 #        else:
 #            k = self.sfx[new_i - 1]
-        """
-        k = self.sfx[new_i - 1]
+
+        current_suffix = self.sfx[new_i - 1]
         pi_1 = new_i - 1
     
         # iteratively backtrack suffixes from state new_i-1
@@ -509,69 +593,57 @@ class MO(FactorOracle):
             suffix_candidate = []
         else:
             suffix_candidate = 0
+        
+        while current_suffix is not None:
+            close_features = self.read_feature(current_suffix, new_feature)
 
-        while k is not None:
-            if self.params['dfunc'] == 'other':
-                dvec = self.dfunc_handle(new_data,
-                                         self.f_array[self.trn[k]])
-            else:
-                dvec = dist.cdist([new_data],
-                                  self.f_array[self.trn[k]],
-                                  metric=self.params['dfunc'])[0]
-
-            I = np.where(dvec < self.params['threshold'])[0]
-            if len(I) == 0:
+            if len(close_features) == 0:  # If no transition from suffix
                 # Add new forward link to unvisited state
-                self.trn[k].append(new_i)
-                pi_1 = k
+                self.trn[current_suffix].append(new_i)
+                
+                pi_1 = current_suffix
                 if self.suffix_method != 'complete':
-                    k = self.sfx[k]
+                    current_suffix = self.sfx[current_suffix]
             else:
+                closest_feature, lowest_distance = close_features[0]
                 if self.suffix_method == 'inc':
-                    if I.shape[0] == 1:
-                        suffix_candidate = self.trn[k][I[0]]
-                    else:
-                        suffix_candidate = self.trn[k][I[np.argmin(dvec[I])]]
+                    suffix_candidate = closest_feature
                     break
                 elif self.suffix_method == 'complete':
-                    suffix_candidate.append((self.trn[k][I[np.argmin(dvec[I])]],
-                                             np.min(dvec)))
+                    suffix_candidate.append(closest_feature, lowest_distance)
                 else:
-                    suffix_candidate = self.trn[k][I[np.argmin(dvec[I])]]
+                    suffix_candidate = closest_feature
                     break
-
+            
             if self.suffix_method == 'complete':
-                k = self.sfx[k]
-
-        # Assign new transition from state new_i-1 to new_i
-        self.trn[new_i - 1].append(new_i)
+                current_suffix = self.sfx[current_suffix]
 
         if self.suffix_method == 'complete':
             if suffix_candidate == []:
                 self.sfx[new_i] = 0
                 self.lrs[new_i] = 0
                 self.latent.append([new_i])
-                self.data.append(len(self.latent)-1)
+                self.symbol.append(len(self.latent)-1)
             else:
                 sorted_suffix_candidates = sorted(suffix_candidate,
                                                   key=lambda suffix:suffix[1])
                 self.sfx[new_i] = sorted_suffix_candidates[0][0]
                 lrs_new_i = self._len_common_suffix(pi_1, self.sfx[new_i]-1) + 1
                 self.lrs[new_i] = lrs_new_i
-                self.latent[self.data[self.sfx[new_i]]].append(new_i)
-                self.data.append(self.data[self.sfx[new_i]])
+                self.latent[self.symbol[self.sfx[new_i]]].append(new_i)
+                self.symbol.append(self.symbol[self.sfx[new_i]])
         else:
-            if k == None:
+            if current_suffix == None:
                 self.sfx[new_i] = 0
                 self.lrs[new_i] = 0
                 self.latent.append([new_i])
-                self.data.append(len(self.latent)-1)
+                self.symbol.append(len(self.latent)-1)
             else:
-                self.sfx[new_i] = suffix_candidate                    
+                self.sfx[new_i] = suffix_candidate
                 lrs_new_i = self._len_common_suffix(pi_1, self.sfx[new_i]-1) + 1
                 self.lrs[new_i] = lrs_new_i
-                self.latent[self.data[self.sfx[new_i]]].append(new_i)
-                self.data.append(self.data[self.sfx[new_i]])
+                self.latent[self.symbol[self.sfx[new_i]]].append(new_i)
+                self.symbol.append(self.symbol[self.sfx[new_i]])
             
         self.rsfx[self.sfx[new_i]].append(new_i)
         
@@ -591,6 +663,7 @@ class MO(FactorOracle):
 
 class VMO(FactorOracle):
     def __init__(self, **kwargs):
+        super(VMO, self).__init__(**kwargs)
         self.reset(**kwargs)
      
     def reset(self, **kwargs):
@@ -598,8 +671,8 @@ class VMO(FactorOracle):
 
         # Reset class-specific attributes
         self.kind = 'v'
-        self.f_array = [0]
-        self.data[0] = None
+        self.feature = [0]
+        self.symbol[0] = None
         self.latent = []
         self.centroid = []
         self.hist = []
@@ -608,13 +681,13 @@ class VMO(FactorOracle):
         self.con = []     
         self.transition = []
 
-    def add_state(self, new_data):          
+    def add_state(self, new_feature):          
         self.sfx.append(0)
         self.rsfx.append([])
         self.trn.append([])
         self.lrs.append(0)
 
-        self.f_array.append(new_data)  # Experiment using pointers
+        self.feature.append(new_feature)  # Experiment using pointers
         
         self.n_states += 1
         new_i = self.n_states - 1  # Index of the newly added state
@@ -629,56 +702,51 @@ class VMO(FactorOracle):
         suffix_candidate = 0
         
         while k is not None:
-            # NEW Implementation
+            suffix_features = [self.centroid[self.symbol[t]] for t in self.trn[k]]
+            dvec = distances.cdist([new_feature], suffix_features,
+                                   metric=self.params['dfunc'])[0]
+            close_features = np.where(dvec < self.params['threshold'])
 
-            if self.params['dfunc'] == 'others':
-                dvec = self.dfunc_handle(new_data,
-                                         [self.centroid[self.data[t]] for
-                                          t in self.trn[k]])
-            else:
-                dvec = dist.cdist([new_data],
-                                  np.array([self.centroid[self.data[t]]
-                                            for t in self.trn[k]]),
-                                  metric=self.params['dfunc'])[0]
-
-            # if no transition from suffix
-            I = np.where(dvec < self.params['threshold'])[0]
-            if len(I) == 0:
+            if len(close_features) == 0:  # If no transition from suffix
                 # Create a new forward link to unvisited state
                 self.trn[k].append(new_i)
                 trn_list.append(k)
                 pi_1 = k
                 k = self.sfx[k]
             else:
-                suffix_candidate = self.trn[k][I[np.argmin(dvec[I])]]
+                earliest_close_feat = close_features[np.argmin(
+                    dvec[close_features])]
+                suffix_candidate = self.trn[k][earliest_close_feat]
                 trn_list.append(new_i-1)
                 break
 
         if k == None:
+            # Beginning of the input sequence reached, no repeated suffix found
             self.sfx[new_i] = 0
             self.lrs[new_i] = 0
             self.latent.append([new_i])
             self.hist.append(1)
-            self.data.append(len(self.latent) - 1)
-            self.centroid.append(new_data)
+            self.symbol.append(len(self.latent)-1)
+            self.centroid.append(new_feature)
             if new_i > 1:
-                self.con[self.data[new_i-1]].add(self.data[new_i])
-                self.con.append({self.data[new_i]})
+                self.con[self.symbol[new_i-1]].add(self.symbol[new_i])
+                self.con.append(set([self.symbol[new_i]]))
             else:
-                self.con.append(set([]))
+                self.con.append({})
         else:
+            # k is the first state of the longest repeated suffix
             self.sfx[new_i] = suffix_candidate
             self.lrs[new_i] = self._len_common_suffix(pi_1, self.sfx[new_i]-1) + 1
-            _suffix_data = self.data[self.sfx[new_i]]
-            self.latent[_suffix_data].append(new_i)
-            self.hist[_suffix_data] += 1
-            self.data.append(_suffix_data)
-            self.centroid[_suffix_data] = ((self.centroid[_suffix_data] * (self.hist[_suffix_data]-1)
-                                  + new_data) /
-                                  self.hist[_suffix_data])
-            self.con[self.data[new_i-1]].add(self.data[new_i])
-            map(set.add, [self.con[self.data[c]] for c in trn_list],
-                [self.data[new_i]]*len(trn_list))
+            _suffix_symbol = self.symbol[self.sfx[new_i]]
+            self.latent[_suffix_symbol].append(new_i)
+            self.hist[_suffix_symbol] += 1
+            self.symbol.append(_suffix_symbol)
+            self.centroid[_suffix_symbol] = ((self.centroid[_suffix_symbol] * (self.hist[_suffix_symbol]-1)
+                                  + new_feature) /
+                                  self.hist[_suffix_symbol])
+            self.con[self.symbol[new_i-1]].add(self.symbol[new_i])
+            map(set.add, [self.con[self.symbol[c]] for c in trn_list],
+                [self.symbol[new_i]]*len(trn_list))
         self.rsfx[self.sfx[new_i]].append(new_i)
         
         if self.lrs[new_i] > self.max_lrs[new_i-1]:
@@ -733,57 +801,50 @@ def create_oracle(flag, threshold=0, dfunc='euclidean',
     return _create_oracle(flag, threshold=threshold, dfunc=dfunc,
                           dfunc_handle=dfunc_handle, dim=dim)
 
+def _build_oracle(flag, oracle, input_features):
+    if (type(input_features) != np.ndarray or
+        type(input_features[0]) != np.ndarray):
+        input_features = np.array(input_features)
 
-def _build_oracle(flag, oracle, input_data, suffix_method='inc'):
-    if type(input_data) != np.ndarray or type(input_data[0]) != np.ndarray:
-        input_data = np.array(input_data)
+    if input_features.ndim != 2:
+        input_features = np.expand_dims(input_features, axis=1)
+    
+    for obs in input_features:
+        oracle.add_state(obs)
 
-    if input_data.ndim != 2:
-        input_data = np.expand_dims(input_data, axis=1)
-
-    if flag == 'a':
-        [oracle.add_state(obs, suffix_method) for obs in input_data]
-        # for obs in input_data:
-        #     oracle.add_state(obs, suffix_method)
-        oracle.f_array.finalize()
-    else:
-        [oracle.add_state(obs) for obs in input_data]
-        # for obs in input_data:
-        #     oracle.add_state(obs)
+    if flag is 'a':
+        oracle.feature.finalize()
+        
     return oracle
-
-
-def build_oracle(input_data, flag, threshold=0, suffix_method='inc',
+ 
+def build_oracle(input_features, flag, threshold=0, suffix_method='inc', 
                  feature=None, weights=None, dfunc='cosine',
                  dfunc_handle=None, dim=1):
-    # initialize `weights` if needed1
+    
+    # Initialize `weights` if needed
     if weights is None:
         weights = {}
         weights.setdefault(feature, 1.0)
 
-    if flag == 'a':
+    if flag in ['a', 'f', 'v']:
         oracle = _create_oracle(flag, threshold=threshold, dfunc=dfunc,
                                 dfunc_handle=dfunc_handle, dim=dim)
-        oracle = _build_oracle(flag, oracle, input_data, suffix_method)
-    elif flag == 'f' or flag == 'v':
-        oracle = _create_oracle(flag, threshold=threshold, dfunc=dfunc,
-                                dfunc_handle=dfunc_handle, dim=dim)
-        oracle = _build_oracle(flag, oracle, input_data)
+        oracle = _build_oracle(flag, oracle, input_features)
     else:
         oracle = _create_oracle('a', threshold=threshold, dfunc=dfunc,
                                 dfunc_handle=dfunc_handle, dim=dim)
-        oracle = _build_oracle(flag, oracle, input_data, suffix_method)
+        oracle = _build_oracle(flag, oracle, input_features, suffix_method)
 
     return oracle
 
 
-def find_threshold_sgd(input_data, r=(0, 1, 0.1), method='ir', flag='a',
+def find_threshold_sgd(input_features, r=(0, 1, 0.1), method='ir', flag='a',
                        suffix_method='inc', alpha=1.0, feature=None, ir_type='cum',
                        dfunc='cosine', dfunc_handle=None, dim=1):
     thresholds = np.arange(r[0], r[1], r[2])
     prev_ir = 0
     for t in thresholds:
-        tmp_oracle = build_oracle(input_data, flag=flag, threshold=t,
+        tmp_oracle = build_oracle(input_features, flag=flag, threshold=t,
                                   suffix_method=suffix_method, feature=feature,
                                   dfunc=dfunc, dfunc_handle=dfunc_handle, dim=dim)
         tmp_ir, h0, h1 = tmp_oracle.IR(ir_type=ir_type, alpha=alpha)
@@ -794,18 +855,18 @@ def find_threshold_sgd(input_data, r=(0, 1, 0.1), method='ir', flag='a',
             prev_ir = ir
 
 
-def find_threshold_nt(input_data, r=(0, 1, 0.1), method='ir', flag='a',
+def find_threshold_nt(input_features, r=(0, 1, 0.1), method='ir', flag='a',
                       suffix_method='inc', alpha=1.0, feature=None, ir_type='cum',
                       dfunc='cosine', dfunc_handle=None, dim=1):
     t = r[1] / 2.0
-    tmp_oracle = build_oracle(input_data, flag=flag, threshold=t,
+    tmp_oracle = build_oracle(input_features, flag=flag, threshold=t,
                               suffix_method=suffix_method, feature=feature,
                               dfunc=dfunc, dfunc_handle=dfunc_handle, dim=dim)
     tmp_ir, h0, h1 = tmp_oracle.IR(ir_type=ir_type, alpha=alpha)
     ir = tmp_ir.sum()
 
     t_tmp = t + r[2]
-    tmp_oracle = build_oracle(input_data, flag=flag, threshold=t_tmp,
+    tmp_oracle = build_oracle(input_features, flag=flag, threshold=t_tmp,
                               suffix_method=suffix_method, feature=feature,
                               dfunc=dfunc, dfunc_handle=dfunc_handle, dim=dim)
     tmp_ir, h0, h1 = tmp_oracle.IR(ir_type=ir_type, alpha=alpha)
@@ -817,14 +878,14 @@ def find_threshold_nt(input_data, r=(0, 1, 0.1), method='ir', flag='a',
             ir = ir_tmp
 
             t_tmp = t + r[2]
-            tmp_oracle = build_oracle(input_data, flag=flag, threshold=t_tmp,
+            tmp_oracle = build_oracle(input_features, flag=flag, threshold=t_tmp,
                                       suffix_method=suffix_method, feature=feature,
                                       dfunc=dfunc, dfunc_handle=dfunc_handle, dim=dim)
             tmp_ir, h0, h1 = tmp_oracle.IR(ir_type=ir_type, alpha=alpha)
             ir_tmp = tmp_ir.sum()
     else:
         t_tmp = t - r[2]
-        tmp_oracle = build_oracle(input_data, flag=flag, threshold=t_tmp,
+        tmp_oracle = build_oracle(input_features, flag=flag, threshold=t_tmp,
                                   suffix_method=suffix_method, feature=feature,
                                   dfunc=dfunc, dfunc_handle=dfunc_handle, dim=dim)
         tmp_ir, h0, h1 = tmp_oracle.IR(ir_type=ir_type, alpha=alpha)
@@ -835,7 +896,7 @@ def find_threshold_nt(input_data, r=(0, 1, 0.1), method='ir', flag='a',
             ir = ir_tmp
 
             t_tmp = t - r[2]
-            tmp_oracle = build_oracle(input_data, flag=flag, threshold=t_tmp,
+            tmp_oracle = build_oracle(input_features, flag=flag, threshold=t_tmp,
                                       suffix_method=suffix_method, feature=feature,
                                       dfunc=dfunc, dfunc_handle=dfunc_handle, dim=dim)
             tmp_ir, h0, h1 = tmp_oracle.IR(ir_type=ir_type, alpha=alpha)
@@ -843,20 +904,20 @@ def find_threshold_nt(input_data, r=(0, 1, 0.1), method='ir', flag='a',
     return t, ir
 
 
-def find_threshold(input_data, r=(0, 1, 0.1), method='ir', flag='a',
+def find_threshold(input_features, r=(0, 1, 0.1), method='ir', flag='a',
                    suffix_method='inc', alpha=1.0, feature=None, ir_type='cum',
                    dfunc='cosine', dfunc_handle=None, dim=1,
                    verbose=False, entropy=False):
     if method == 'ir':
-        return find_threshold_ir(input_data, r, flag, suffix_method, alpha,
+        return find_threshold_ir(input_features, r, flag, suffix_method, alpha,
                                  feature, ir_type, dfunc, dfunc_handle, dim,
                                  verbose, entropy)
     # elif method == 'motif':
-    #     return find_threshold_motif(input_data, r, flag, suffix_method, alpha,
+    #     return find_threshold_motif(input_features, r, flag, suffix_method, alpha,
     #                                 feature, dfunc, dfunc_handle, dim, verbose)
 
 
-def find_threshold_ir(input_data, r=(0, 1, 0.1), flag='a', suffix_method='inc',
+def find_threshold_ir(input_features, r=(0,1,0.1), flag='a', suffix_method='inc',
                       alpha=1.0, feature=None, ir_type='cum',
                       dfunc='cosine', dfunc_handle=None, dim=1,
                       verbose=False, entropy=False):
@@ -868,7 +929,7 @@ def find_threshold_ir(input_data, r=(0, 1, 0.1), flag='a', suffix_method='inc',
     for t in thresholds:
         if verbose:
             print 'Testing threshold:', t
-        tmp_oracle = build_oracle(input_data, flag=flag, threshold=t,
+        tmp_oracle = build_oracle(input_features, flag=flag, threshold=t,
                                   suffix_method=suffix_method, feature=feature,
                                   dfunc=dfunc, dfunc_handle=dfunc_handle, dim=dim)
         tmp_ir, h0, h1 = tmp_oracle.IR(ir_type=ir_type, alpha=alpha)
@@ -886,7 +947,7 @@ def find_threshold_ir(input_data, r=(0, 1, 0.1), flag='a', suffix_method='inc',
     else:
         return ir_thresh_pairs[0], pairs_return
 
-# def find_threshold_motif(input_data, r=(0, 1, 0.1), flag='a',
+# def find_threshold_motif(input_features, r=(0, 1, 0.1), flag='a',
 #                          suffix_method='inc', alpha=1.0, feature=None,
 #                          dfunc='euclidean', dfunc_handle=None, dim=1,
 #                          verbose=False):
@@ -896,7 +957,7 @@ def find_threshold_ir(input_data, r=(0, 1, 0.1), flag='a', suffix_method='inc',
 #     avg_num = []
 #
 #     for t in thresholds:
-#         tmp_oracle = build_oracle(input_data, flag=flag, threshold=t,
+#         tmp_oracle = build_oracle(input_features, flag=flag, threshold=t,
 #                                   suffix_method=suffix_method, feature=feature,
 #                                   dfunc=dfunc, dfunc_handle=dfunc_handle, dim=dim)
 #         pttr = van.find_repeated_patterns(tmp_oracle, alpha)
