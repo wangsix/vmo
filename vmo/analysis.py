@@ -26,6 +26,7 @@ import sys
 import itertools
 from functools import partial
 from scipy.stats import multivariate_normal
+import fuzzywuzzy.fuzz as fuzz
 import vmo.VMO
 
 '''Self-similarity matrix and transition matrix from an oracle
@@ -35,6 +36,7 @@ import vmo.VMO
 def create_selfsim(oracle, method='compror'):
     """ Create self similarity matrix from compror codes or suffix links
     
+    :type oracle: a vmo object
     Args:
         oracle: a encoded vmo object
         method: 
@@ -49,7 +51,7 @@ def create_selfsim(oracle, method='compror'):
     if method == 'com':
         if not oracle.code:
             print "Codes not generated. Generating codes with encode()."
-            oracle.encode()
+            oracle.encode
         ind = 0  # index
         for l, p in oracle.code:  # l for length, p for position
 
@@ -76,6 +78,18 @@ def create_selfsim(oracle, method='compror'):
                 s = oracle.sfx[i + 1]
                 mat[range((s - l) + 1, s + 1), range(i - l + 1, i + 1)] = 1
                 mat[range(i - l + 1, i + 1), range((s - l) + 1, s + 1)] = 1
+    elif method == 'seg':
+        seg = oracle.seg
+        for l, p in seg:  # l for length, p for position
+
+            if l == 0:
+                inc = 1
+            else:
+                inc = l
+            mat[range(ind, ind + inc), range(p - 1, p - 1 + inc)] = 1
+            mat[range(p - 1, p - 1 + inc), range(ind, ind + inc)] = 1
+            ind = ind + l
+
     return mat
 
 
@@ -89,7 +103,7 @@ def _create_trn_mat_symbolic(oracle, method):
     trn_list = None
     n = oracle.num_clusters()
     sym_list = [oracle.data[_s] for _s in oracle.rsfx[0]]
-    hist = np.zeros(n,)
+    hist = np.zeros(n, )
     mat = np.zeros((n, n))
     for i in range(1, oracle.n_states - 1):
         _i = sym_list.index(oracle.data[i])
@@ -188,7 +202,8 @@ def logEval(oracle, testSequence, ab=[], m_order=None, VERBOSE=False):
             sys.stdout.write("\r[" + "=" * bar_count +
                              " " * (100 - bar_count) + "] " +
                              str(bar_count) + "% " +
-                             str(i) + "/" + str(len(testSequence) - 1) + " Current max length: " + str(maxContextLength))
+                             str(i) + "/" + str(len(testSequence) - 1) + " Current max length: " + str(
+                maxContextLength))
             sys.stdout.flush()
     return logP / len(testSequence), avgContext
 
@@ -220,17 +235,32 @@ def _rsfx_count(oracle, s, count, hist, ab, VERBOSE=False):
 
     return count, hist
 
+
 """Segmentation algorithms
 """
 
-def segment(oracle):
 
+def segmentation(oracle, lower=1, threshold=.6, srange=4):
+    """
 
+    :param oracle:
+    :param lower:
+    :param threshold:
+    """
+    if lower < 1:
+        lower = 1
 
+    segment_list = []
 
+    for i in range(oracle.n_states - 1, lower + 1, -1):
+        s_l = oracle.lrs[i]
+        if i == oracle.n_states - 1:
+            s = oracle.data[i - s_l + 1:]
+        else:
+            s = oracle.data[i - s_l + 1:i + 1]
 
-
-    raise NotImplementedError("segment() is under construction, coming soon!")
+        sfx = oracle.sfx[i]
+        rsfx = oracle.rsfx[i]
 
 
 '''Query-matching and gesture tracking algorithms
@@ -555,7 +585,7 @@ def _dist2prob(f, a):
 '''
 
 
-def find_repeated_patterns(oracle, lower=1):
+def find_repeated_patterns(oracle, lower=1, inexact=False):
     if lower < 1:
         lower = 1
 
@@ -567,11 +597,9 @@ def find_repeated_patterns(oracle, lower=1):
         rsfx = oracle.rsfx[i]
         pattern_found = False
         if (sfx != 0  # not pointing to zeroth state
-            and i - oracle.lrs[i] + 1 > sfx
-            and oracle.lrs[i] > lower  # constraint on length of patterns
-            ):
+            and i - oracle.lrs[i] + 1 > sfx and oracle.lrs[i] > lower):  # constraint on length of patterns
             for p in pattern_list:  # for existing pattern
-                if not [_p for _p in p[0] if _p - p[1] < i and _p > i]:
+                if not [_p for _p in p[0] if _p - p[1] < i < _p]:
                     if sfx in p[0]:
                         p[0].append(i)
                         lrs_len = np.min([p[1], oracle.lrs[i]])
@@ -580,10 +608,7 @@ def find_repeated_patterns(oracle, lower=1):
                         break
                     else:
                         pattern_found = False
-            if (
-                                prev_sfx - sfx != 1
-                    and not pattern_found
-            ):
+            if prev_sfx - sfx != 1 and not pattern_found:
                 _rsfx = np.array(rsfx).tolist()
                 if _rsfx:
                     _rsfx.extend([i, sfx])

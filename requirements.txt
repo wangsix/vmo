@@ -1,3 +1,4 @@
 vmo
 numpy
 scipy
+matplotlib
