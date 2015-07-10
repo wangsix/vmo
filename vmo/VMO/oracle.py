@@ -449,8 +449,7 @@ class FactorOracle(object):
         return fun(a, b_vec)
 
 class FO(FactorOracle):
-    """An implementation of the factor oracle.
-    """
+    """An implementation of the factor oracle."""
     def __init__(self, **kwargs):
         super(FO, self).__init__(**kwargs)
         self.reset(**kwargs)
@@ -585,7 +584,7 @@ class MO(FactorOracle):
         current_suffix = self.sfx[new_i - 1]
         pi_1 = new_i - 1
     
-        # iteratively backtrack suffixes from state new_i-1
+        # Iteratively backtrack through suffixes starting from state new_i-1
         dvec = []
         if self.suffix_method == 'inc':
             suffix_candidate = 0
@@ -656,9 +655,6 @@ class MO(FactorOracle):
         previous_average_lrs = self.avg_lrs[new_i-1]
         self.avg_lrs.append(previous_average_lrs*(N-1)/N + 
                             self.lrs[new_i]*(1/N))
-
-        self.avg_lrs.append(self.avg_lrs[i - 1] * ((i - 1.0) / (self.n_states - 1.0)) +
-                            self.lrs[i] * (1.0 / (self.n_states - 1.0)))
 
 
 class VMO(FactorOracle):
