@@ -93,6 +93,31 @@ def from_chord(chord):
         return chroma
     else: raise ValueError("Not a chord of note")
 
+def to_chord(chroma):
+    """Return music21 Chord for a chromagram array.
+
+    Return only pitches, no octaves.
+
+    Keyword aguments:
+        chroma: np.array
+            The chromagram to convert
+    ----
+    >>> chroma = np.array([0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 0, 0])
+    >>> result = to_chord(chroma)
+    >>> expected = music21.chord.Chord(['D', 'F#', 'A'])
+
+    Test normalForm equality, because Chord object have unique identifiers
+    >>> result.normalForm == expected.normalForm
+    True
+    """
+    pitches = []
+    def make_note(pitchClass):
+        return mus.note.Note(mus.pitch.Pitch(pitchClass))
+    for i in range(12):
+        if chroma[i] > 0:
+            pitches.append(make_note(i))
+    return mus.chord.Chord(pitches)
+            
 def from_stream(stream, framesize=1.0, overlap=0.0,
                 smooth=False, sigma=None):
     """Slice stream at all quarter lengths and return the matrix of chromagrams
