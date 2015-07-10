@@ -53,7 +53,7 @@ def main(filepath=path_to_bach):
     # c = s.getElementById('Keyboard')
     m = s.flat.notes
     note_obj_seq = [x for x in m if type(x) is music21.note.Note]    
-    oracle = vmo.build_oracle(note_obj_seq,'f')
+    oracle = vmo.build_oracle(note_obj_seq, 'f')
     oracle.name = filepath.split('/')[-1]
     
     if len(sys.argv) == 1:
