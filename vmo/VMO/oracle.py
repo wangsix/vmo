@@ -204,7 +204,7 @@ class FactorOracle(object):
         """
         neighbour_features = [self.feature[goal] for goal in self.trn[state]]
         dists = distances.cdist([feature], neighbour_features,
-                                metric=self.params['dfunc'])[0]
+                                dfunc=self.params['dfunc'])[0]
         dists_decorated = [(self.trn[state][i], dists[i])
                            for i in range(len(dists))
                            if dists[i] < self.params['threshold']]
@@ -455,7 +455,7 @@ class FO(FactorOracle):
         super(FO, self).__init__(**kwargs)
         self.reset(**kwargs)
         
-    def reset(self):
+    def reset(self, **kwargs):
         super(FO, self).reset(**kwargs)
         self.kind = 'r'
 
@@ -681,7 +681,7 @@ class VMO(FactorOracle):
         self.con = []     
         self.transition = []
 
-    def add_state(self, new_feature):          
+    def add_state(self, new_feature):
         self.sfx.append(0)
         self.rsfx.append([])
         self.trn.append([])
@@ -704,7 +704,7 @@ class VMO(FactorOracle):
         while k is not None:
             suffix_features = [self.centroid[self.symbol[t]] for t in self.trn[k]]
             dvec = distances.cdist([new_feature], suffix_features,
-                                   metric=self.params['dfunc'])[0]
+                                   dfunc=self.params['dfunc'])[0]
             close_features = np.where(dvec < self.params['threshold'])
 
             if len(close_features) == 0:  # If no transition from suffix
