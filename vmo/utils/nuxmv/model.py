@@ -237,7 +237,7 @@ def print_pitches(oracle, nuxmv_state_name='s'):
 """Print chromagram oracle"""
 
 def print_oracle(oracle, nuxmv_state_name='s'):
-    """Return an assignation of the harmony to the root of `state`'s chord.
+    """Return a bytearray describing `oracle`, with oracle states and pitches.
 
     Assumes the oracle has been created with a chromagram as feature.
     ----
