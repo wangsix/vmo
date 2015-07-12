@@ -52,11 +52,27 @@ def _write_model(model_str):
         model_str: string
             The model to write, in nuXmv syntax
     """
-    model_description = tempfile.NamedTemporaryFile('w+')
+    model_description = tempfile.NamedTemporaryFile('w+', suffix='.smv')
     model_description.write(model_str)
     model_description.flush()
     
     return model_description
+
+def _write_model_and_property(model, properties):
+    """Return a new, opened, uniquely-named file descriptor to the input model.
+
+    Warning: please close the returned file descriptor after using it.
+    The written file on disk is temporary and will be deleted as soon as the
+    associated file descriptor is closed.
+     
+    Keyword arguments:
+        model_str: string
+            The model to write, in nuXmv syntax
+        prop: list of string
+            The property (or properties) to check, in nuXmv syntax 
+    """
+    properties_str = ";\n".join(properties)
+    return _write_model(model + '\n\n' + properties_str + ';\n')
 
 # def _build_model(model_str):
 #     """Build the model with nuXmv and write the associated files to disk.
@@ -101,14 +117,17 @@ def _check_property_full(model_str, prop):
 
     Check reachability of state 2
     >>> nuxmv_output = _check_property_full(model_str,
-    ...                                     "(E [s=0 U (E [s=1 U s=0])])")
+    ...                                     "CTLSPEC (EF s=2)")
 
     Any oracle is strongly connected (because of the forward transitions) 
     >>> parser.is_accepting(nuxmv_output)
     True
     """
-    model = _write_model(model_str + "\n\nCTLSPEC {};\n".format(prop))
-    
+    model = _write_model(model_str)
+
+    model.write("\n\n" + prop + ";\n")
+    model.flush()
+            
     output = subprocess32.check_output(
         [PATH_TO_NUXMV, # call nuXmv
          model.name])   # Input the model and property
@@ -116,11 +135,103 @@ def _check_property_full(model_str, prop):
     return output
 
 def check_property(model_str, prop):
+    """Return the truth value of `prop` on the model described by `model_str`
+
+    Keyword arguments:
+        model_str: string
+            The model to work on, in nuXmv syntax
+        prop: string
+            The property to check, in nuXmv syntax
+    """
     nuxmv_output = _check_property_full(model_str, prop)
     return parser.is_accepting(nuxmv_output)
 
-# def generate_path()
+def generate_path(model_str, prop):
+    """Return a sequence of states in the model disproving prop.
 
+    Each state in the sequence is a dictionary,
+    with keys the states in the model.
+    Return None if `prop` is true on the given model.
+    Keyword arguments:
+        model_str: string
+            The model to work on, in nuXmv syntax
+        prop: string
+            The property for which to exhibit a counter-example,
+            in nuXmv syntax
+    ----
+    >>> import vmo.VMO.oracle as oracle
+    >>> import vmo.analysis as analysis
+    >>> import vmo.utils.nuxmv.parse as parser
+
+    >>> o = oracle.create_oracle('f')
+    >>> o.add_state(1)  # create_oracle generates state 0
+    >>> o.add_state(2)
+    >>> adj = analysis.graph_adjacency_lists(o)
+    >>> model_str = model.print_module(adj)
+
+    Fail to generate a path disproving the reachability of state 2.
+    >>> failure = generate_path(model_str,
+    ...                         "CTLSPEC (E [s=0 U (E [s=1 U s=0])])")
+    >>> failure is None
+    True
+    
+    Generate a path disproving the unreachability of state 2 then 1.
+    >>> path = generate_path(model_str,
+    ...                          "CTLSPEC !(EF (s=2 & (EF s=1)))")
+    >>> path is not None
+    True
+
+    The generated path starts in the initial state, 0.
+    >>> path[0]['s'] == 0
+    True
+    
+    The generated path ends in the requested state, 1.
+    >>> path[-1]['s'] == 1
+    True
+
+    The generated path goes through state 2 at some time.
+    >>> any(state['s'] == 2 for state in path)
+    True
+    """
+    model = _write_model_and_property(model_str, [prop])
+    commands = tempfile.NamedTemporaryFile('w+', suffix='.xmv')
+    path_xml = tempfile.NamedTemporaryFile('w+', suffix='.xml')
+    nuxmv_output = tempfile.TemporaryFile('w+', suffix='.txt')
+    nuxmv_errors = tempfile.TemporaryFile('w+', suffix='.txt')
+    
+    commands_str = ("read_model -i \"{0}\"\n".format(model.name) +
+                    "flatten_hierarchy\n" +
+                    "encode_variables\n" +
+                    "build_model\n" +
+                    "check_ctlspec\n" +
+                    "set default_trace_plugin 4\n" +
+                    "show_traces -o {0}\n".format(path_xml.name) +
+                    "quit\n")
+    commands.write(commands_str)
+    commands.flush()
+
+    with open(os.devnull, 'w') as NULL:
+        subprocess32.call([PATH_TO_NUXMV,  # Call nuXmv
+                           '-source', commands.name],  # Execute the commands
+                           stdout=nuxmv_output,  # Redirect command-line output
+                           stderr=NULL) 
+    nuxmv_output.flush()
+    nuxmv_output.seek(0)
+    model.close()
+    commands.close()
+
+    if "is true" in nuxmv_output.read():
+        # prop is true on the model
+        path_xml.close()
+        nuxmv_output.close()
+        return None
+
+    nuxmv_output.close()
+    
+    path = parser.parse_path(path_xml)
+    path_xml.close()
+    return path
+        
 if __name__ == "__main__":
     import doctest
     doctest.testmod()
