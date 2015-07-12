@@ -104,7 +104,10 @@ class FactorOracle(object):
         self.rsfx= [[]]
         self.lrs = [0]
         self.symbol= [0] 
-                
+
+        # The oracle's initial state, hiding the actual implementation
+        self.initial_state = 0
+                        
         # Compression attributes
         self.compror = []
         self.code = []    
