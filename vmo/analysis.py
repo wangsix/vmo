@@ -19,7 +19,7 @@ You should have received a copy of the GNU General Public License
 along with vmo.  If not, see <http://www.gnu.org/licenses/>.
 """
 
-import vmo, sys, itertools,librosa
+import vmo, sys, itertools, librosa
 import numpy as np
 import scipy.spatial.distance as dist
 import scipy.cluster.hierarchy as scihc
@@ -29,6 +29,7 @@ from functools import partial
 from scipy.stats import multivariate_normal
 import fuzzywuzzy.fuzz as fuzz
 import vmo.VMO
+import vmo.VMO.utility as utils
 
 '''Self-similarity matrix and transition matrix from an oracle
 '''
@@ -92,9 +93,6 @@ def create_selfsim(oracle, method='rsfx'):
             mat[range(ind, ind + inc), range(p - 1, p - 1 + inc)] = 1
             mat[range(p - 1, p - 1 + inc), range(ind, ind + inc)] = 1
             ind = ind + l
-    elif method == 'pttr':
-        pttr = find_repeated_patterns(oracle)
-
 
     return mat
 
@@ -246,34 +244,47 @@ def _rsfx_count(oracle, s, count, hist, ab, VERBOSE=False):
 """
 
 
-def _seg_by_hc_single_symbol(oracle, connectivity='temporal', **kwargs):
+def _seg_by_single_frame(oracle, cluster_method='agglomerative', connectivity='temporal', data='symbol', width=5, **kwargs):
     obs_len = oracle.n_states - 1
     if connectivity is 'temporal':
         connectivity = np.zeros((obs_len, obs_len))
     else:
         connectivity = create_selfsim(oracle, method=connectivity)
         connectivity = librosa.segment.recurrence_to_lag(connectivity, pad=False)
-        connectivity = sig.medfilt(connectivity, [1, 5])
+        connectivity = np.pad(connectivity, [(0, 0), [width, width]], mode='reflect')
+        connectivity = sig.medfilt(connectivity, [1, width])
+        connectivity = connectivity[:, width:-width]
         connectivity = librosa.segment.lag_to_recurrence(connectivity)
 
     connectivity[range(1, obs_len), range(obs_len - 1)] = 1.0
     connectivity[range(obs_len - 1), range(1, obs_len)] = 1.0
     connectivity[np.diag_indices(obs_len)] = 0
 
-    data = np.zeros((oracle.n_states - 1, oracle.num_clusters()))
-    data[range(oracle.n_states - 1), oracle.data[1:]] = 1
+    if data is 'raw':
+        data = np.array(oracle.f_array[1:])
+    else:
+        data = np.zeros((oracle.n_states - 1, oracle.num_clusters()))
+        data[range(oracle.n_states - 1), oracle.data[1:]] = 1
+
+    if cluster_method is 'agglomerative':
+        return _seg_by_hc_single_frame(obs_len=obs_len, connectivity=connectivity, data=data, **kwargs)
+    elif cluster_method is 'spectral':
+        return _seg_by_spectral_single_frame(connectivity)
+
+
+def _seg_by_hc_single_frame(obs_len, connectivity, data, **kwargs):
 
     _children, _n_c, _n_leaves, parents, distances = \
         sklhc.ward_tree(data, connectivity=connectivity, return_distance=True)
 
-    reconstructed_z = np.zeros((obs_len-1, 4))
+    reconstructed_z = np.zeros((obs_len - 1, 4))
     reconstructed_z[:, :2] = _children
     reconstructed_z[:, 2] = distances
 
     if 'threshold' in kwargs.keys():
         t = kwargs['threshold']
     else:
-        t = 0.7*np.max(reconstructed_z[:, 2])
+        t = 0.7 * np.max(reconstructed_z[:, 2])
 
     if 'criterion' in kwargs.keys():
         criterion = kwargs['criterion']
@@ -282,20 +293,29 @@ def _seg_by_hc_single_symbol(oracle, connectivity='temporal', **kwargs):
 
     label = scihc.fcluster(reconstructed_z, t=t, criterion=criterion)
 
-    return label, reconstructed_z
+    boundaries = utils.find_boundaries(label)
+    labels = utils.segment_labeling(data, boundaries, np.max(label))
+
+    return boundaries, labels
+
+
+def _seg_by_spectral_single_frame(connectivity):
+    graph_lap = utils.normalized_graph_laplacian(connectivity)
+    eigen_vecs = utils.eigen_decomposition(graph_lap)
+    boundaries, labels = utils.clustering_by_entropy(eigen_vecs, k_min=2)
+
+    return boundaries, labels
+
 
 def _seg_by_hc_string_matching(oracle):
-
-
-
-
     pass
 
 
-
-def segmentation(oracle, method='single_symbol', **kwargs):
-    if method is 'single_symbol':
-        return _seg_by_hc_single_symbol(oracle, **kwargs)
+def segmentation(oracle, method='symbol_agglomerative', **kwargs):
+    if method is 'symbol_agglomerative':
+        return _seg_by_single_frame(oracle, cluster_method='agglomerative', **kwargs)
+    elif method is 'symbol_spectral':
+        return _seg_by_single_frame(oracle, cluster_method='spectral', **kwargs)
 
 
 """Query-matching and gesture tracking algorithms"""
