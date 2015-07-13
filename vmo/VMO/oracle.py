@@ -178,7 +178,6 @@ class FactorOracle(object):
         """Subclass this"""
         pass
 
-    @property
     def _encode(self):
         _code = []
         _compror = []
@@ -201,9 +200,8 @@ class FactorOracle(object):
             j = i
         return _code, _compror
 
-    @property
     def encode(self):
-        _c, _cmpr = self._encode
+        _c, _cmpr = self._encode()
         self.code.extend(_c)
         self.compror.extend(_cmpr)
 
@@ -216,7 +214,10 @@ class FactorOracle(object):
         if not self.seg:
             j = 0
         else:
-            j = self.seg[-1][0]
+            j = self.seg[-1][1]
+            last_len = self.seg[-1][0]
+            if last_len+j > self.n_states:
+                return
 
         i = j
         while j < self.n_states - 1:
@@ -244,7 +245,7 @@ class FactorOracle(object):
         return self.seg
 
     def _ir(self, alpha=1.0):
-        code, _ = self.encode
+        code, _ = self.encode()
         cw = np.zeros(len(code))  # Number of code words
         for i, c in enumerate(code):
             cw[i] = c[0] + 1
@@ -262,7 +263,7 @@ class FactorOracle(object):
         return ir, h0, h1
 
     def _ir_fixed(self, alpha=1.0):
-        code, _ = self.encode
+        code, _ = self.encode()
 
         h0 = np.log2(self.num_clusters())
 
@@ -286,7 +287,7 @@ class FactorOracle(object):
         return ir, h0, h1
 
     def _ir_cum(self, alpha=1.0):
-        code, _ = self.encode
+        code, _ = self.encode()
 
         N = self.n_states
 

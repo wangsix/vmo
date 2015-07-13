@@ -60,3 +60,16 @@ target/
 # Emacs temp files
 *~
 *#
+.idea/.name
+
+.idea/dictionaries/chwang.xml
+
+.idea/misc.xml
+
+.idea/modules.xml
+
+.idea/vcs.xml
+
+.idea/vmo.iml
+
+.idea/workspace.xml

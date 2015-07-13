@@ -19,11 +19,12 @@ You should have received a copy of the GNU General Public License
 along with vmo.  If not, see <http://www.gnu.org/licenses/>.
 """
 
-import vmo
+import vmo, sys, itertools,librosa
 import numpy as np
 import scipy.spatial.distance as dist
-import sys
-import itertools
+import scipy.cluster.hierarchy as scihc
+import scipy.signal as sig
+import sklearn.cluster as sklhc
 from functools import partial
 from scipy.stats import multivariate_normal
 import fuzzywuzzy.fuzz as fuzz
@@ -33,7 +34,7 @@ import vmo.VMO
 '''
 
 
-def create_selfsim(oracle, method='compror'):
+def create_selfsim(oracle, method='rsfx'):
     """ Create self similarity matrix from compror codes or suffix links
     
     :type oracle: a vmo object
@@ -44,6 +45,7 @@ def create_selfsim(oracle, method='compror'):
             "sfx" - use suffix links
             "rsfx" - use reverse suffix links
             "lrs" - use LRS values
+            "pttr" - use patterns found
         
     """
     len_oracle = oracle.n_states - 1
@@ -51,7 +53,7 @@ def create_selfsim(oracle, method='compror'):
     if method == 'com':
         if not oracle.code:
             print "Codes not generated. Generating codes with encode()."
-            oracle.encode
+            oracle.encode()
         ind = 0  # index
         for l, p in oracle.code:  # l for length, p for position
 
@@ -79,7 +81,8 @@ def create_selfsim(oracle, method='compror'):
                 mat[range((s - l) + 1, s + 1), range(i - l + 1, i + 1)] = 1
                 mat[range(i - l + 1, i + 1), range((s - l) + 1, s + 1)] = 1
     elif method == 'seg':
-        seg = oracle.seg
+        seg = oracle.segment
+        ind = 0
         for l, p in seg:  # l for length, p for position
 
             if l == 0:
@@ -89,6 +92,9 @@ def create_selfsim(oracle, method='compror'):
             mat[range(ind, ind + inc), range(p - 1, p - 1 + inc)] = 1
             mat[range(p - 1, p - 1 + inc), range(ind, ind + inc)] = 1
             ind = ind + l
+    elif method == 'pttr':
+        pttr = find_repeated_patterns(oracle)
+
 
     return mat
 
@@ -240,31 +246,59 @@ def _rsfx_count(oracle, s, count, hist, ab, VERBOSE=False):
 """
 
 
-def segmentation(oracle, lower=1, threshold=.6, srange=4):
-    """
+def _seg_by_hc_single_symbol(oracle, connectivity='temporal', **kwargs):
+    obs_len = oracle.n_states - 1
+    if connectivity is 'temporal':
+        connectivity = np.zeros((obs_len, obs_len))
+    else:
+        connectivity = create_selfsim(oracle, method=connectivity)
+        connectivity = librosa.segment.recurrence_to_lag(connectivity, pad=False)
+        connectivity = sig.medfilt(connectivity, [1, 5])
+        connectivity = librosa.segment.lag_to_recurrence(connectivity)
 
-    :param oracle:
-    :param lower:
-    :param threshold:
-    """
-    if lower < 1:
-        lower = 1
+    connectivity[range(1, obs_len), range(obs_len - 1)] = 1.0
+    connectivity[range(obs_len - 1), range(1, obs_len)] = 1.0
+    connectivity[np.diag_indices(obs_len)] = 0
 
-    segment_list = []
+    data = np.zeros((oracle.n_states - 1, oracle.num_clusters()))
+    data[range(oracle.n_states - 1), oracle.data[1:]] = 1
 
-    for i in range(oracle.n_states - 1, lower + 1, -1):
-        s_l = oracle.lrs[i]
-        if i == oracle.n_states - 1:
-            s = oracle.data[i - s_l + 1:]
-        else:
-            s = oracle.data[i - s_l + 1:i + 1]
+    _children, _n_c, _n_leaves, parents, distances = \
+        sklhc.ward_tree(data, connectivity=connectivity, return_distance=True)
 
-        sfx = oracle.sfx[i]
-        rsfx = oracle.rsfx[i]
+    reconstructed_z = np.zeros((obs_len-1, 4))
+    reconstructed_z[:, :2] = _children
+    reconstructed_z[:, 2] = distances
+
+    if 'threshold' in kwargs.keys():
+        t = kwargs['threshold']
+    else:
+        t = 0.7*np.max(reconstructed_z[:, 2])
+
+    if 'criterion' in kwargs.keys():
+        criterion = kwargs['criterion']
+    else:
+        criterion = 'distance'
+
+    label = scihc.fcluster(reconstructed_z, t=t, criterion=criterion)
+
+    return label, reconstructed_z
+
+def _seg_by_hc_string_matching(oracle):
 
 
-'''Query-matching and gesture tracking algorithms
-'''
+
+
+    pass
+
+
+
+def segmentation(oracle, method='single_symbol', **kwargs):
+    if method is 'single_symbol':
+        return _seg_by_hc_single_symbol(oracle, **kwargs)
+
+
+"""Query-matching and gesture tracking algorithms"""
 
 
 def query_complete(oracle, query, trn_type=1, smooth=False, weight=0.5):
@@ -275,7 +309,7 @@ def query_complete(oracle, query, trn_type=1, smooth=False, weight=0.5):
         query: the query sequence in a matrix form such that 
              the ith row is the feature at the ith time point
         method: 
-        selftrn:
+        trn_type:
         smooth:(off-line only)
         weight:
     
@@ -535,7 +569,7 @@ def _query_k(k, i, P, oracle, query, trn, state_cache, dist_cache, smooth=False,
     _trn_unseen = [_t for _t in _trn if _t not in state_cache]
     state_cache.extend(_trn_unseen)
 
-    if _trn_unseen != []:
+    if _trn_unseen:
         t_unseen = list(itertools.chain.from_iterable([oracle.latent[oracle.data[j]] for j in _trn_unseen]))
         dist_cache[t_unseen] = _dist_obs_oracle(oracle, query[i], t_unseen)
     dvec = dist_cache[t]

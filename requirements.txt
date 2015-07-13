@@ -2,3 +2,5 @@ vmo
 numpy
 scipy
 matplotlib
+scikit-learn
+librosa
