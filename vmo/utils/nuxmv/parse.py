@@ -55,39 +55,8 @@ def parse_path(xml_file):
     Keyword arguments:
         xml_file: opened file descriptor
             The file containing the path in XML format as output by nuXmv 
-    ----
-    TODO: Rewrite this doctest and remove calls to vmo and check, make it
-    more independent.
-        
-    >>> import vmo.VMO.oracle as oracle
-    >>> import vmo.analysis as analysis
-    >>> import vmo.utils.nuxmv.model as model
-    >>> import vmo.utils.nuxmv.check as check
-    
-    >>> o = oracle.create_oracle('f')
-    >>> o.add_state(1)  # create_oracle generates state 0
-    >>> o.add_state(2)
-    >>> adj = analysis.graph_adjacency_lists(o)
-    >>> model_str = model.print_module(adj, nuxmv_state_name='s')
-    
-    Generate a path disproving the unreachability of state 2 then 1.
-    >>> xml_path = check.generate_path(model_str,
-    ...                                "CTLSPEC !(EF (s=2 & (EF s=1)))")
-    >>> path = parse_path(xml_path)
-
-    The path starts in the initial state, 0.
-    >>> path[0]['s'] == 0
-    True
-
-    The path end in the desired state, 0.
-    >>> path[-1]['s'] == 1
-    True
-
-    The path goes through state 2.
-    >>> any(state['s'] == 2 for state in path)
-    True
     """
-    tree = ET.parse(xml_path_output)
+    tree = ET.parse(xml_file)
 
     root = tree.getroot()
     path = []
@@ -95,7 +64,7 @@ def parse_path(xml_file):
         new_state = {}
         for variable in state.iter('value'):
             name = variable.attrib['variable']
-            value = int(variable.text)
+            value = variable.text
             new_state.setdefault(str(name), value)
         path.append(new_state)
 
