@@ -38,7 +38,6 @@ import vmo.utils.nuxmv.parse as parser
 """Functions to call nuXmv on a model and property and return the output.""" 
 
 # Assumes the user has installed nuxmv as a shell command
-# PATH_TO_NUXMV = "/home/theis/Documents/nuxmv/nuxmv-1.0.1-linux-x86_64/nuXmv"
 PATH_TO_NUXMV = distutils.spawn.find_executable('nuXmv')    
 
 def _write_model(model_str):
