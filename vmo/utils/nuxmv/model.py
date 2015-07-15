@@ -28,6 +28,8 @@ import numpy as np
 from fractions import Fraction
 import string
 
+import music21 as mus
+
 import vmo.analysis as van
 import vmo.utils.chromagram as chroma
 import vmo.utils.probabilities as probas
@@ -212,22 +214,25 @@ def print_pitch_state(oracle, state, nuxmv_state_name='s'):
     """
     chroma_array = oracle.feature[state]
     chord = chroma.to_chord(chroma_array)
-    root_name = ('p_' + chord.root().name)
+    root_name = make_root_name(chord)
     return bytearray("{0}={1}: {2};".format(nuxmv_state_name, state,
                                            root_name))
 
 def print_pitches(oracle, nuxmv_state_name='s'):
+    # TODO : Add docstring.
+    # TODO : FIX : this definition has an undesired behaviour, the pitchRoot is
+    # always updated with a delay of one step.
     header = []
-    pitch_decl = ("VAR pitchRoot : {None, p_C, p_C#, p_D, p_E-, p_E, p_F, " +
-                  "p_F#, p_G, p_G#, p_A, p_B-, p_B};")
+    pitch_decl = ("VAR pitchRoot : {p_Init, p_Silence, p_C, p_C#, p_D, p_E-, " +
+                  "p_E, p_F, p_F#, p_G, p_G#, p_A, p_B-, p_B};")
     header.append(bytearray(pitch_decl))
-    pitch_init = "ASSIGN init(pitchRoot) := None;"
+    pitch_init = "ASSIGN init(pitchRoot) := p_Init;"
     header.append(bytearray(pitch_init))
 
     cases = []
     cases.append(bytearray("next(pitchRoot) :="))
     cases.append(bytearray("case"))
-    cases.append(bytearray("{}=0: None;".format(nuxmv_state_name)))
+    cases.append(bytearray("{}=0: p_Init;".format(nuxmv_state_name)))
     for s in range(oracle.n_states)[1:]:
         cases.append(print_pitch_state(oracle, s, nuxmv_state_name))
     cases.append(bytearray("esac;"))
@@ -261,12 +266,12 @@ def print_oracle(oracle, nuxmv_state_name='s'):
     ...     "\\ts=1: {0, 2};\\n" +
     ...     "\\ts=2: {0};\\n" +
     ...     "\\tesac;\\n\\n" +
-    ...     "VAR pitchRoot : {None, p_C, p_C#, p_D, p_E-, p_E, " +
+    ...     "VAR pitchRoot : {p_Init, p_Silence, p_C, p_C#, p_D, p_E-, p_E, " +
     ...     "p_F, p_F#, p_G, p_G#, p_A, p_B-, p_B};\\n" +
-    ...     "ASSIGN init(pitchRoot) := None;\\n" +
+    ...     "ASSIGN init(pitchRoot) := p_Init;\\n" +
     ...     "\\tnext(pitchRoot) :=\\n" +
     ...     "\\tcase\\n" +
-    ...     "\\ts=0: None;\\n" +
+    ...     "\\ts=0: p_Init;\\n" +
     ...     "\\ts=1: p_C;\\n" +
     ...     "\\ts=2: p_E;\\n" +
     ...     "\\tesac;\\n"
@@ -317,6 +322,20 @@ def _bytes_concat(bytearrays):
     True
     """ 
     return bytearray("").join(bytearrays)    
+
+def make_root_name(chord, nuxmv_silence_name='p_Silence'):
+    """Generic function to return a valid root name for a model.
+
+    Keyword arguments:
+        chord: music21.chord.Chord input type
+            The note or chord for which to extract a root.
+    """
+    chord = mus.chord.Chord(chord)
+    if not chord.pitches:
+        return nuxmv_silence_name
+    else:
+        root_name = ('p_' + chord.root().name)
+        return root_name
     
 if __name__ == "__main__":
     import doctest
