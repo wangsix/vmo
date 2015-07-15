@@ -38,8 +38,8 @@ import vmo.utils.nuxmv.parse as parser
 """Functions to call nuXmv on a model and property and return the output.""" 
 
 # Assumes the user has installed nuxmv as a shell command
-PATH_TO_NUXMV = "/home/theis/Documents/nuxmv/nuxmv-1.0.1-linux-x86_64/nuXmv"
-# distutils.spawn.find_executable('nuXmv')    
+# PATH_TO_NUXMV = "/home/theis/Documents/nuxmv/nuxmv-1.0.1-linux-x86_64/nuXmv"
+PATH_TO_NUXMV = distutils.spawn.find_executable('nuXmv')    
 
 def _write_model(model_str):
     """Return a new, opened, uniquely-named file descriptor to the input model.
@@ -177,7 +177,7 @@ def generate_path(model_str, prop):
     
     Generate a path disproving the unreachability of state 2 then 1.
     >>> path = generate_path(model_str,
-    ...                          "CTLSPEC !(EF (s=2 & (EF s=1)))")
+    ...                      "CTLSPEC !(EF (s=2 & (EF s=1)))")
     >>> path is not None
     True
 
@@ -235,3 +235,4 @@ def generate_path(model_str, prop):
 if __name__ == "__main__":
     import doctest
     doctest.testmod()
+
