@@ -27,8 +27,62 @@ along with vmo.  If not, see <http://www.gnu.org/licenses/>.
 import numpy as np
 from fractions import Fraction
 import string
+import copy
+
+import music21 as music
+
+import vmo.utils.nuxmv.model as model
 
 """nuXmv properties generation module."""
 
-'''Well, for now, we're gonna stick to writing them down manually
-in the nuXmv-syntax.'''
+def pitch_equal(pitch, nuxmv_pitch_name='pitchRoot',
+                nuxmv_silence_name='p_Silence'):
+    # if pitch == nuxmv_silence_name:
+    equality_test = "{0}={1}".format(nuxmv_pitch_name,
+                                     pitch)
+    # else:
+    #     equality_test = "{0}={1} | {0}={2}".format(nuxmv_pitch_name,
+    #                                                pitch,
+    #                                                nuxmv_silence_name)
+    return equality_test
+
+def make_cadence(cadence, exists=True, nuxmv_pitch_name='pitchRoot',
+                 nuxmv_silence_name='p_Silence'):
+    """Return a CTL string stating the existence of a path following `cadence`.
+
+    Keyword arguments:
+        cadence: (string, int) sequence
+            The cadence to test for.
+            Each pair in the sequence consists of:
+                The name of the root note, e.g. 'C#' or 'D-'
+                The quarter-length duration for which the note should be held.
+                    A value of zero means the duration can be arbitrary. 
+        nuxmv_pitch_name: string
+            The name of the nuxmv model variable representing the current pitch
+            class.
+        exists: bool
+            The truth value to test
+            (default True, should be False for counter-example generation).
+    """
+    cadence_copy = copy.deepcopy(cadence)
+    cadence_copy.reverse()
+    
+    def cadence_aux(cadence):
+        if not cadence:
+            return 'TRUE'
+        else:
+            pitch, duration = cadence.pop()
+            root_name = model.make_root_name(pitch)
+            next_prop = cadence_aux(cadence)
+            equality_test = pitch_equal(root_name, nuxmv_pitch_name,
+                                        nuxmv_silence_name)
+            if duration == 0:
+                prop = "({0}) & E [({0}) U ({1})]".format(equality_test,
+                                                          next_prop)
+            else:
+                prop = "({0}) & E [({0}) BU {2} .. {2} ({1})]".format(
+                    equality_test, next_prop, duration)
+            return prop
+    
+    return "CTLSPEC {1}(EF ({0}))".format(cadence_aux(cadence_copy),
+                                          '' if exists else '!')
