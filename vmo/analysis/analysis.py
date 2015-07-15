@@ -136,7 +136,7 @@ def graph_adjacency_lists(oracle):
     Edges are stored with multiplicity.
     """
     length = oracle.n_states
-    graph = [(oracle.trn[i]+oracle.rsfx[i]) for i in range(length)]
+    graph = [oracle.trn[i] for i in range(length)]
     for i in range(length):
         sfx_trans = oracle.sfx[i]
         if sfx_trans is not None:
@@ -152,7 +152,7 @@ def graph_adjacency_matrix(oracle):
     """ 
     length = oracle.n_states
     graph = [[0 for i in range(length)] for j in range(length)]
-    for ls in [oracle.rsfx, oracle.trn]:
+    for ls in [oracle.trn]:
         for i, js in enumerate(ls):
             for j in js:
                 graph[i][j] += 1
