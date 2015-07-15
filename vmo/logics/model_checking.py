@@ -74,7 +74,7 @@ def generate_cadence(oracle, cadence, start=None, model_checker='nuxmv'):
     model, check, properties = _init_modules(model_checker)
     
     if model_checker == 'nuxmv':
-        model_str = model.print_oracle(oracle)
+        model_str = model.print_oracle(oracle, init_state=start)
         cadence_prop = nuxmv_props.make_cadence(cadence, False)
         
         return (check.generate_path(model_str, cadence_prop))

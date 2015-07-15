@@ -65,7 +65,9 @@ def parse_path(xml_file):
         for variable in state.iter('value'):
             name = variable.attrib['variable']
             value = variable.text
-            new_state.setdefault(str(name), value)
+            if name != '_PITCH_TYPE':
+                # Exclude variable _PITCH_TYPE used only for type declaration
+                new_state.setdefault(str(name), value)
         path.append(new_state)
 
     return path

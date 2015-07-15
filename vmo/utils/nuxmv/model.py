@@ -134,7 +134,7 @@ def print_graph(adj_lists, init_state=0, nuxmv_state_name='s'):
     header.append(bytearray(range_decl))
     # Declare initial state
     init_state = "ASSIGN init({0}) := {1};".format(nuxmv_state_name,
-                                                 init_state)
+                                                   init_state)
     header.append(bytearray(init_state))
     
     states = []
@@ -149,7 +149,8 @@ def print_graph(adj_lists, init_state=0, nuxmv_state_name='s'):
     
     return header, states
 
-def print_module(adj_lists, nuxmv_state_name='s', module_name='main'):
+def print_module(adj_lists, nuxmv_state_name='s', init_state=0,
+                 module_name='main'):
     """Return a nuXmv-formatted bytearray defining a dtmc-module for the graph.
 
     Keyword arguments:
@@ -179,8 +180,9 @@ def print_module(adj_lists, nuxmv_state_name='s', module_name='main'):
     """
     header = bytearray("MODULE {0}()\n".format(module_name))
     
-    graph_header, graph_states = print_graph(
-        adj_lists, nuxmv_state_name=nuxmv_state_name)
+    graph_header, graph_states = print_graph(adj_lists,
+                                             init_state=init_state,
+                                             nuxmv_state_name=nuxmv_state_name)
     graph_header_str = indent_join_lines(graph_header, tabulate_by=0)
     graph_states_str = indent_join_lines(graph_states) 
 
@@ -223,25 +225,38 @@ def print_pitches(oracle, nuxmv_state_name='s'):
     # TODO : FIX : this definition has an undesired behaviour, the pitchRoot is
     # always updated with a delay of one step.
     header = []
-    pitch_decl = ("VAR pitchRoot : {p_Init, p_Silence, p_C, p_C#, p_D, p_E-, " +
+    # Declare an unused variable, _PITCH_INIT, to make nuXmv aware of the
+    # type used to describe pitches
+    pitch_decl = ("VAR _PITCH_TYPE : {p_Init, p_Silence, p_C, p_C#, p_D, p_E-, " +
                   "p_E, p_F, p_F#, p_G, p_G#, p_A, p_B-, p_B};")
     header.append(bytearray(pitch_decl))
-    pitch_init = "ASSIGN init(pitchRoot) := p_Init;"
+    pitch_init = "ASSIGN init(_PITCH_TYPE) := p_Init;"
+    pitch_conserve = "\tnext(_PITCH_TYPE) := p_Init;"
     header.append(bytearray(pitch_init))
+    header.append(bytearray(pitch_conserve))
+    
+    # cases = []
+    # cases.append(bytearray("next(pitchRoot) :="))
+    # cases.append(bytearray("case"))
+    # cases.append(bytearray("{}=0: p_Init;".format(nuxmv_state_name)))
+    # for s in range(oracle.n_states)[1:]:
+    #     cases.append(print_pitch_state(oracle, s, nuxmv_state_name))
+    # cases.append(bytearray("esac;"))
 
     cases = []
-    cases.append(bytearray("next(pitchRoot) :="))
+    cases.append(bytearray("DEFINE pitchRoot :="))
     cases.append(bytearray("case"))
     cases.append(bytearray("{}=0: p_Init;".format(nuxmv_state_name)))
     for s in range(oracle.n_states)[1:]:
         cases.append(print_pitch_state(oracle, s, nuxmv_state_name))
     cases.append(bytearray("esac;"))
 
+    
     return header, cases
 
 """Print chromagram oracle"""
 
-def print_oracle(oracle, nuxmv_state_name='s'):
+def print_oracle(oracle, nuxmv_state_name='s', init_state=None):
     """Return a bytearray describing `oracle`, with oracle states and pitches.
 
     Assumes the oracle has been created with a chromagram as feature.
@@ -266,10 +281,11 @@ def print_oracle(oracle, nuxmv_state_name='s'):
     ...     "\\ts=1: {0, 2};\\n" +
     ...     "\\ts=2: {0};\\n" +
     ...     "\\tesac;\\n\\n" +
-    ...     "VAR pitchRoot : {p_Init, p_Silence, p_C, p_C#, p_D, p_E-, p_E, " +
+    ...     "VAR _PITCH_TYPE : {p_Init, p_Silence, p_C, p_C#, p_D, p_E-, p_E, " +
     ...     "p_F, p_F#, p_G, p_G#, p_A, p_B-, p_B};\\n" +
-    ...     "ASSIGN init(pitchRoot) := p_Init;\\n" +
-    ...     "\\tnext(pitchRoot) :=\\n" +
+    ...     "ASSIGN init(_PITCH_TYPE) := p_Init;\\n" +
+    ...     "\\tnext(_PITCH_TYPE) := p_Init;\\n" +
+    ...     "\\tDEFINE pitchRoot :=\\n" +
     ...     "\\tcase\\n" +
     ...     "\\ts=0: p_Init;\\n" +
     ...     "\\ts=1: p_C;\\n" +
@@ -279,8 +295,12 @@ def print_oracle(oracle, nuxmv_state_name='s'):
     >>> result == expected
     True
     """
+    if init_state is None:
+        init_state = oracle.initial_state
+    
     adj_lists = van.graph_adjacency_lists(oracle)
-    base_model = print_module(adj_lists, nuxmv_state_name)
+    base_model = print_module(adj_lists, nuxmv_state_name=nuxmv_state_name,
+                              init_state=init_state)
 
     pitches_header, pitches_cases = print_pitches(oracle, nuxmv_state_name)
     pitches_header_str = indent_join_lines(pitches_header, tabulate_by=0)
@@ -330,6 +350,8 @@ def make_root_name(chord, nuxmv_silence_name='p_Silence'):
         chord: music21.chord.Chord input type
             The note or chord for which to extract a root.
     """
+    if isinstance(chord, str):
+        chord = [chord] 
     chord = mus.chord.Chord(chord)
     if not chord.pitches:
         return nuxmv_silence_name
