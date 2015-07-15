@@ -222,8 +222,6 @@ def print_pitch_state(oracle, state, nuxmv_state_name='s'):
 
 def print_pitches(oracle, nuxmv_state_name='s'):
     # TODO : Add docstring.
-    # TODO : FIX : this definition has an undesired behaviour, the pitchRoot is
-    # always updated with a delay of one step.
     header = []
     # Declare an unused variable, _PITCH_INIT, to make nuXmv aware of the
     # type used to describe pitches
@@ -235,13 +233,6 @@ def print_pitches(oracle, nuxmv_state_name='s'):
     header.append(bytearray(pitch_init))
     header.append(bytearray(pitch_conserve))
     
-    # cases = []
-    # cases.append(bytearray("next(pitchRoot) :="))
-    # cases.append(bytearray("case"))
-    # cases.append(bytearray("{}=0: p_Init;".format(nuxmv_state_name)))
-    # for s in range(oracle.n_states)[1:]:
-    #     cases.append(print_pitch_state(oracle, s, nuxmv_state_name))
-    # cases.append(bytearray("esac;"))
 
     cases = []
     cases.append(bytearray("DEFINE pitchRoot :="))
