@@ -233,7 +233,6 @@ def print_pitches(oracle, nuxmv_state_name='s'):
     header.append(bytearray(pitch_init))
     header.append(bytearray(pitch_conserve))
     
-
     cases = []
     cases.append(bytearray("DEFINE pitchRoot :="))
     cases.append(bytearray("case"))
@@ -242,7 +241,6 @@ def print_pitches(oracle, nuxmv_state_name='s'):
         cases.append(print_pitch_state(oracle, s, nuxmv_state_name))
     cases.append(bytearray("esac;"))
 
-    
     return header, cases
 
 """Print chromagram oracle"""
