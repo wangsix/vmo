@@ -19,22 +19,26 @@ You should have received a copy of the GNU General Public License
 along with vmo.  If not, see <http://www.gnu.org/licenses/>.
 """
 
-import vmo
+import vmo, sys, itertools, librosa
 import numpy as np
 import scipy.spatial.distance as dist
-import sys
-import itertools
+import scipy.cluster.hierarchy as scihc
+import scipy.signal as sig
+import sklearn.cluster as sklhc
 from functools import partial
 from scipy.stats import multivariate_normal
+import fuzzywuzzy.fuzz as fuzz
 import vmo.VMO
+import vmo.VMO.utility as utils
 
 '''Self-similarity matrix and transition matrix from an oracle
 '''
 
 
-def create_selfsim(oracle, method='compror'):
+def create_selfsim(oracle, method='rsfx'):
     """ Create self similarity matrix from compror codes or suffix links
     
+    :type oracle: a vmo object
     Args:
         oracle: a encoded vmo object
         method: 
@@ -42,6 +46,7 @@ def create_selfsim(oracle, method='compror'):
             "sfx" - use suffix links
             "rsfx" - use reverse suffix links
             "lrs" - use LRS values
+            "pttr" - use patterns found
         
     """
     len_oracle = oracle.n_states - 1
@@ -76,6 +81,19 @@ def create_selfsim(oracle, method='compror'):
                 s = oracle.sfx[i + 1]
                 mat[range((s - l) + 1, s + 1), range(i - l + 1, i + 1)] = 1
                 mat[range(i - l + 1, i + 1), range((s - l) + 1, s + 1)] = 1
+    elif method == 'seg':
+        seg = oracle.segment
+        ind = 0
+        for l, p in seg:  # l for length, p for position
+
+            if l == 0:
+                inc = 1
+            else:
+                inc = l
+            mat[range(ind, ind + inc), range(p - 1, p - 1 + inc)] = 1
+            mat[range(p - 1, p - 1 + inc), range(ind, ind + inc)] = 1
+            ind = ind + l
+
     return mat
 
 
@@ -89,7 +107,7 @@ def _create_trn_mat_symbolic(oracle, method):
     trn_list = None
     n = oracle.num_clusters()
     sym_list = [oracle.data[_s] for _s in oracle.rsfx[0]]
-    hist = np.zeros(n,)
+    hist = np.zeros(n, )
     mat = np.zeros((n, n))
     for i in range(1, oracle.n_states - 1):
         _i = sym_list.index(oracle.data[i])
@@ -188,7 +206,8 @@ def logEval(oracle, testSequence, ab=[], m_order=None, VERBOSE=False):
             sys.stdout.write("\r[" + "=" * bar_count +
                              " " * (100 - bar_count) + "] " +
                              str(bar_count) + "% " +
-                             str(i) + "/" + str(len(testSequence) - 1) + " Current max length: " + str(maxContextLength))
+                             str(i) + "/" + str(len(testSequence) - 1) + " Current max length: " + str(
+                maxContextLength))
             sys.stdout.flush()
     return logP / len(testSequence), avgContext
 
@@ -220,21 +239,101 @@ def _rsfx_count(oracle, s, count, hist, ab, VERBOSE=False):
 
     return count, hist
 
+
 """Segmentation algorithms
 """
 
-def segment(oracle):
+
+def _seg_by_single_frame(oracle, cluster_method='agglomerative', connectivity='temporal', data='symbol', width=5, **kwargs):
+    obs_len = oracle.n_states - 1
+    if connectivity is 'temporal':
+        connectivity = np.zeros((obs_len, obs_len))
+    else:
+        connectivity = create_selfsim(oracle, method=connectivity)
+        connectivity = librosa.segment.recurrence_to_lag(connectivity, pad=False)
+        connectivity = np.pad(connectivity, [(0, 0), [width, width]], mode='reflect')
+        connectivity = sig.medfilt(connectivity, [1, width])
+        connectivity = connectivity[:, width:-width]
+        connectivity = librosa.segment.lag_to_recurrence(connectivity)
+
+    connectivity[range(1, obs_len), range(obs_len - 1)] = 1.0
+    connectivity[range(obs_len - 1), range(1, obs_len)] = 1.0
+    connectivity[np.diag_indices(obs_len)] = 0
+
+    if data is 'raw':
+        data = np.array(oracle.f_array[1:])
+    else:
+        data = np.zeros((oracle.n_states - 1, oracle.num_clusters()))
+        data[range(oracle.n_states - 1), oracle.data[1:]] = 1
+
+    if cluster_method is 'agglomerative':
+        return _seg_by_hc_single_frame(obs_len=obs_len, connectivity=connectivity, data=data, **kwargs)
+    elif cluster_method is 'spectral':
+        return _seg_by_spectral_single_frame(connectivity, **kwargs)
 
 
+def _seg_by_hc_single_frame(obs_len, connectivity, data, **kwargs):
+
+    _children, _n_c, _n_leaves, parents, distances = \
+        sklhc.ward_tree(data, connectivity=connectivity, return_distance=True)
+
+    reconstructed_z = np.zeros((obs_len - 1, 4))
+    reconstructed_z[:, :2] = _children
+    reconstructed_z[:, 2] = distances
+
+    if 'threshold' in kwargs.keys():
+        t = kwargs['threshold']
+    else:
+        t = 0.7 * np.max(reconstructed_z[:, 2])
+
+    if 'criterion' in kwargs.keys():
+        criterion = kwargs['criterion']
+    else:
+        criterion = 'distance'
+
+    label = scihc.fcluster(reconstructed_z, t=t, criterion=criterion)
+
+    boundaries = utils.find_boundaries(label, **kwargs)
+    labels = utils.segment_labeling(data, boundaries, np.max(label))
+
+    return boundaries, labels
 
 
+def _seg_by_spectral_single_frame(connectivity, width=33):
+    graph_lap = utils.normalized_graph_laplacian(connectivity)
+    eigen_vecs = utils.eigen_decomposition(graph_lap)
+    boundaries, labels = utils.clustering_by_entropy(eigen_vecs, k_min=2, width=width)
+    return boundaries, labels
 
 
-    raise NotImplementedError("segment() is under construction, coming soon!")
+def _seg_by_hc_string_matching(oracle):
+
+    frag_pos, frag_indices = find_fragments(oracle)
+    frag_num = len(frag_indices)
+    frag_connectivity = np.zeros((frag_num, frag_num))
+    fragments = []
+    for f in frag_pos:
+        if f[0] == oracle.n_states-1:
+            fragments.append(oracle.data[f[0]-f[1]+1:])
+        else:
+            fragments.append(oracle.data[f[0]-f[1]+1:f[0]+1])
+        if f[1] > 1:
+            rsfx = oracle.rsfx[f[0]]
+            if rsfx and frag_indices[np.min(rsfx)] == frag_indices[f[0]]:
+                frag_connectivity[frag_indices[f[0]], frag_indices[np.min(rsfx)]] = 1.0
+                frag_connectivity[frag_indices[np.min(rsfx)], frag_indices[f[0]]] = 1.0
+    frag_connectivity[range(1, frag_num), range(frag_num - 1)] = 1.0
+    frag_connectivity[range(frag_num - 1), range(1, frag_num)] = 1.0
 
 
-'''Query-matching and gesture tracking algorithms
-'''
+def segmentation(oracle, method='symbol_agglomerative', **kwargs):
+    if method is 'symbol_agglomerative':
+        return _seg_by_single_frame(oracle, cluster_method='agglomerative', **kwargs)
+    elif method is 'symbol_spectral':
+        return _seg_by_single_frame(oracle, cluster_method='spectral', **kwargs)
+
+
+"""Query-matching and gesture tracking algorithms"""
 
 
 def query_complete(oracle, query, trn_type=1, smooth=False, weight=0.5):
@@ -245,7 +344,7 @@ def query_complete(oracle, query, trn_type=1, smooth=False, weight=0.5):
         query: the query sequence in a matrix form such that 
              the ith row is the feature at the ith time point
         method: 
-        selftrn:
+        trn_type:
         smooth:(off-line only)
         weight:
     
@@ -505,7 +604,7 @@ def _query_k(k, i, P, oracle, query, trn, state_cache, dist_cache, smooth=False,
     _trn_unseen = [_t for _t in _trn if _t not in state_cache]
     state_cache.extend(_trn_unseen)
 
-    if _trn_unseen != []:
+    if _trn_unseen:
         t_unseen = list(itertools.chain.from_iterable([oracle.latent[oracle.data[j]] for j in _trn_unseen]))
         dist_cache[t_unseen] = _dist_obs_oracle(oracle, query[i], t_unseen)
     dvec = dist_cache[t]
@@ -556,8 +655,8 @@ def _dist2prob(f, a):
 
 
 def find_repeated_patterns(oracle, lower=1):
-    if lower < 1:
-        lower = 1
+    if lower < 0:
+        lower = 0
 
     pattern_list = []
     prev_sfx = -1
@@ -567,11 +666,9 @@ def find_repeated_patterns(oracle, lower=1):
         rsfx = oracle.rsfx[i]
         pattern_found = False
         if (sfx != 0  # not pointing to zeroth state
-            and i - oracle.lrs[i] + 1 > sfx
-            and oracle.lrs[i] > lower  # constraint on length of patterns
-            ):
+                and i - oracle.lrs[i] + 1 > sfx and oracle.lrs[i] > lower):  # constraint on length of patterns
             for p in pattern_list:  # for existing pattern
-                if not [_p for _p in p[0] if _p - p[1] < i and _p > i]:
+                if not [_p for _p in p[0] if _p - p[1] < i < _p]:
                     if sfx in p[0]:
                         p[0].append(i)
                         lrs_len = np.min([p[1], oracle.lrs[i]])
@@ -580,10 +677,7 @@ def find_repeated_patterns(oracle, lower=1):
                         break
                     else:
                         pattern_found = False
-            if (
-                                prev_sfx - sfx != 1
-                    and not pattern_found
-            ):
+            if prev_sfx - sfx != 1 and not pattern_found:
                 _rsfx = np.array(rsfx).tolist()
                 if _rsfx:
                     _rsfx.extend([i, sfx])
@@ -603,6 +697,39 @@ Helper functions
 '''
 
 
+def find_fragments(oracle):
+
+    seg_list = []
+    seq_ind = 1
+    filled = np.zeros(oracle.n_states+1,)
+    pos = oracle.n_states-1
+    while pos > 0:
+        lrs = oracle.lrs[pos]
+
+        if lrs > 1:
+            _lrs_of_seg = np.array(oracle.lrs[pos-lrs+1:pos])
+
+            if lrs < np.max(_lrs_of_seg):
+                stop = np.where(lrs < _lrs_of_seg)[0][-1]
+                lrs = lrs-stop-1
+            seg = [pos, lrs]
+            rsfx = oracle.rsfx[pos]
+            if rsfx and filled[np.min(rsfx)] != 0:
+                filled[pos-lrs+1:pos+1] = filled[np.min(rsfx)]
+            else:
+                filled[pos-lrs+1:pos+1] = seq_ind
+                seq_ind += 1
+            seg_list.append(seg)
+            pos -= lrs
+        else:
+            filled[pos] = seq_ind
+            seg_list.append([pos,1])
+            seq_ind += 1
+            pos -= 1
+
+    return seg_list, filled[:-1]
+
+
 def _get_sfx(oracle, s_set, k):
     while oracle.sfx[k] != 0:
         s_set.add(oracle.sfx[k])
@@ -618,3 +745,4 @@ def _get_rsfx(oracle, rs_set, k):
         for _k in oracle.rsfx[k]:
             rs_set = rs_set.union(_get_rsfx(oracle, rs_set, _k))
         return rs_set
+
