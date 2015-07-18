@@ -30,6 +30,7 @@ import scipy.spatial.distance as dist
 import vmo.analysis as van
 import vmo.VMO.utility as utl
 import vmo.distances as distances
+import vmo.utils.chromagram as chromagram
         
 class FactorOracle(object):
     """The base class for the FO(factor oracle) and MO(variable markov oracle)
@@ -558,7 +559,9 @@ class MO(FactorOracle):
         # self.f_array = [0]
         self.feature = feature_array(self.params['dim'])
         self.feature.add(np.zeros(self.params['dim'], ))
-        self.symbol[0] = None
+       
+        self.feature = [0]
+        self.symbol[0] = 0
         self.latent = []
         self.suffix_method = suffix_method
         
@@ -671,7 +674,7 @@ class VMO(FactorOracle):
         # Reset class-specific attributes
         self.kind = 'v'
         self.feature = [0]
-        self.symbol[0] = None
+        self.symbol[0] = 0
         self.latent = []
         self.centroid = []
         self.hist = []
@@ -740,9 +743,10 @@ class VMO(FactorOracle):
             self.latent[_suffix_symbol].append(new_i)
             self.hist[_suffix_symbol] += 1
             self.symbol.append(_suffix_symbol)
-            self.centroid[_suffix_symbol] = ((self.centroid[_suffix_symbol] * (self.hist[_suffix_symbol]-1)
-                                  + new_feature) /
-                                  self.hist[_suffix_symbol])
+            self.centroid[_suffix_symbol] = ((self.centroid[_suffix_symbol] *
+                                              (self.hist[_suffix_symbol]-1)
+                                              + new_feature) /
+                                              self.hist[_suffix_symbol])
             self.con[self.symbol[new_i-1]].add(self.symbol[new_i])
             map(set.add, [self.con[self.symbol[c]] for c in trn_list],
                 [self.symbol[new_i]]*len(trn_list))
@@ -975,3 +979,14 @@ def find_threshold_ir(input_features, r=(0,1,0.1), flag='a', suffix_method='inc'
 #             print '          avg_num:', avg_num[-1]
 #
 #     return avg_len, avg_occ, avg_num, thresholds
+
+def from_stream(stream, framesize=1.0, threshold=0,
+                suffix_method='inc', weights=None,
+                dfunc='tonnetz', dfunc_handle=None):
+    chroma = chromagram.from_stream(stream, framesize=framesize)
+    features = np.array(chroma).T
+    oracle = build_oracle(features, 'v', feature='chromagram',
+                          threshold=threshold, suffix_method=suffix_method,
+                          weights=weights,
+                          dfunc=dfunc, dfunc_handle=dfunc_handle)
+    return oracle
