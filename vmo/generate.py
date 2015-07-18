@@ -20,8 +20,12 @@ along with vmo.  If not, see <http://www.gnu.org/licenses/>.
 """
 
 import random, itertools
+from functools import partial
 import numpy as np
 from scipy.io import wavfile
+import copy
+
+import music21 as mus
 
 
 def improvise_step(oracle, i, LRS=0, weight=None):
@@ -267,7 +271,7 @@ def audio_synthesis(ifilename, ofilename, s, analysis_sr=44100, buffer_size=8192
 def generate_audio(ifilename, ofilename, oracle, seq_len,
                    analysis_sr=44100, buffer_size=8192, hop=4096,
                    p=0.5, k=0, lrs=0):
-    """make audio output using audio oracle for generation.
+    """Generate audio output using audio oracle for generation.
     
     Args:
         ifilename: input audio file path.
@@ -335,3 +339,38 @@ def generate_audio(ifilename, ofilename, oracle, seq_len,
     x_new = x_new.astype(np.int16)
     wavfile.write(ofilename, fs, x_new)
     return x_new, wsum, fs
+
+def path_to_stream(original, path, framesize=1.0):
+    """Generate a new stream from `original` following the path `offsets`.
+
+    Keyword arguments:
+        original_stream: music21.stream.Stream
+            The stream on which to follow the path.
+        offsets: float sequence
+            The path given as a sequence of offsets to the beginning
+            of each successive frame in the path.
+        framesize: float, optional
+            The duration of each frame in the sequence.
+    """
+    new_stream = mus.stream.Stream()
+
+    offsets = [framesize * state for state in path]
+    
+    def getFrame(offset):
+        return original.getElementsByOffset(
+            offset, offsetEnd=offset+framesize,
+            # Don't include notes from `original` starting in its next frame
+            includeEndBoundary=False,
+            # Only include notes starting in the extracted frame
+            mustBeginInSpan=True,
+        )
+    def insertFrame(offset, i):
+        extracted = getFrame(offset)
+        for note in extracted.notes:
+            note_copy = copy.deepcopy(note)
+            note_copy.offset = i * framesize + (note.offset - offset)
+            new_stream.insert(note_copy)
+
+    for i in range(len(offsets)):
+        insertFrame(offsets[i], i)
+    return new_stream
