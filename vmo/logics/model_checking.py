@@ -26,7 +26,7 @@ along with vmo.  If not, see <http://www.gnu.org/licenses/>.
 
 """Model-checking various logics (incl. CTL, LTL) on an oracle.
 
-Currently uses nuXmv as a backend, interface is in vmo/utils/nuxmv/.
+Currently uses nuXmv as a backend..
 """
 
 import vmo.utils.nuxmv.model as nuxmv_model
@@ -57,17 +57,25 @@ def check_property(oracle, prop, model_checker='nuxmv'):
     model_str = model.print_oracle(oracle)
     return (check.check_property(model_str, prop))
 
-def generate_cadence(oracle, cadence, start=None, model_checker='nuxmv'):
-    """Generate a path in `oracle` reaching the given `cadence` from `start`.
+def generate_chord_progression(oracle, progression, start=None,
+                               silence_equivalence=False,
+                               model_checker='nuxmv'):
+    """Generate a path in `oracle` reaching the given `progression` from `start`.
 
     Keyword arguments:
         oracle: vmo.VMO.VMO
             The oracle on which to generate a path.
-        cadence: (string, int) sequence
-            The cadence to test for.
+        progression: (string, int) sequence
+            The chord progression to test for.
             Each pair in the sequence consists of:
                 The name of the root note, e.g. 'C#' or 'D-'
                 The length for which the note should be held, in quarter length.
+        start: int, optional
+            The index of the start from which the generated path should start
+            (defaults to `oracle`'s initial state)
+        silence_equivalence: bool, optional
+            Whether silence should be considered equivalent to any given pitch
+            (default False, since we then generates less uninteresting paths)
     """
     if start is None:
         start = oracle.initial_state
@@ -75,8 +83,10 @@ def generate_cadence(oracle, cadence, start=None, model_checker='nuxmv'):
     
     if model_checker == 'nuxmv':
         model_str = model.print_oracle(oracle, init_state=start)
-        cadence_prop = nuxmv_props.make_cadence(cadence, False)
+        progression_prop = nuxmv_props.make_chord_progression(
+            progression,exists=False,
+            silence_equivalence=silence_equivalence)
         
-        return (check.generate_path(model_str, cadence_prop))
+        return (check.generate_path(model_str, progression_prop))
     else:
         raise ArgumentError("Unupported model-checker.")
