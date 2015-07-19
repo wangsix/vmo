@@ -266,7 +266,7 @@ def print_oracle(oracle, nuxmv_state_name='s', init_state=None):
     ...     "ASSIGN init(s) := 0;\\n" +
     ...     "\\tnext(s) :=\\n" +
     ...     "\\tcase\\n" +
-    ...     "\\ts=0: {1, 1, 2, 2};\\n" +
+    ...     "\\ts=0: {1, 2};\\n" +
     ...     "\\ts=1: {0, 2};\\n" +
     ...     "\\ts=2: {0};\\n" +
     ...     "\\tesac;\\n\\n" +
