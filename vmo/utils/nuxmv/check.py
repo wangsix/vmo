@@ -28,7 +28,7 @@ import numpy as np
 from time import strftime
 import tempfile
 import subprocess32
-import distutils.spawn
+from distutils.spawn import find_executable
 import os.path
 
 import vmo.utils.nuxmv.model as model
@@ -38,7 +38,17 @@ import vmo.utils.nuxmv.parse as parser
 """Functions to call nuXmv on a model and property and return the output.""" 
 
 # Assumes the user has installed nuxmv as a shell command
-PATH_TO_NUXMV = distutils.spawn.find_executable('nuXmv')    
+
+def get_nuxmv_path():
+    path = max(find_executable('nuXmv'),
+               find_executable('nuxmv'))
+    if path is None:
+        raise Exception("No command 'nuXmv' or 'nuxmv'" +
+                        "is available in the prompt")
+    return path
+
+PATH_TO_NUXMV = get_nuxmv_path()
+
 
 def _write_model(model_str):
     """Return a new, opened, uniquely-named file descriptor to the input model.
@@ -181,15 +191,15 @@ def generate_path(model_str, prop):
     True
 
     The generated path starts in the initial state, 0.
-    >>> path[0]['s'] == 0
+    >>> int(path[0]['s']) == 0
     True
     
     The generated path ends in the requested state, 1.
-    >>> path[-1]['s'] == 1
+    >>> int(path[-1]['s']) == 1
     True
 
     The generated path goes through state 2 at some time.
-    >>> any(state['s'] == 2 for state in path)
+    >>> any(int(state['s']) == 2 for state in path)
     True
     """
     model = _write_model_and_property(model_str, [prop])
