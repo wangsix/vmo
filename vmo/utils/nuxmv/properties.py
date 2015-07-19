@@ -35,47 +35,77 @@ import vmo.utils.nuxmv.model as model
 
 """nuXmv properties generation module."""
 
-def pitch_equal(pitch, nuxmv_pitch_name='pitchRoot',
+def pitch_equal(pitch, silence_equivalence=False, nuxmv_pitch_name='pitchRoot',
                 nuxmv_silence_name='p_Silence'):
-    # if pitch == nuxmv_silence_name:
-    equality_test = "{0}={1}".format(nuxmv_pitch_name,
+    """Return a nuxmv string stating the current pitch root is `pitch`.
+    
+    Keyword arguments:
+        pitch: string
+            The name of the pitch to test equality with.
+        silence_equivalence: bool, optional
+            Whether silence should be considered equivalent to any given pitch
+            (default False, since we then generates less uninteresting paths)
+        nuxmv_pitch_name: string, optional
+            The name of the variable in the nuXmv model specifying
+            the current pitch root (default 'pitchRoot')
+        nuxmv_silence_name: string, optional
+            The name of the nuxmv value specifying that the current
+            state holds no notes (default 'p_Silence')
+    """    
+    if pitch != nuxmv_silence_name and silence_equivalence:
+        equality_test = "{0}={1} | {0}={2}".format(nuxmv_pitch_name,
+                                                   pitch,
+                                                   nuxmv_silence_name)
+    else:
+        equality_test = "{0}={1}".format(nuxmv_pitch_name,
                                      pitch)
-    # else:
-    #     equality_test = "{0}={1} | {0}={2}".format(nuxmv_pitch_name,
-    #                                                pitch,
-    #                                                nuxmv_silence_name)
     return equality_test
 
-def make_cadence(cadence, exists=True, nuxmv_pitch_name='pitchRoot',
-                 nuxmv_silence_name='p_Silence'):
+def make_chord_progression(progression, exists=True, silence_equivalence=False,
+                           nuxmv_pitch_name='pitchRoot',
+                           nuxmv_silence_name='p_Silence'):
     """Return a CTL string stating the existence of a path following `cadence`.
 
     Keyword arguments:
-        cadence: (string, int) sequence
-            The cadence to test for.
+        progression: ((string, int) or string) sequence
+            The chord progression to test for.
             Each pair in the sequence consists of:
                 The name of the root note, e.g. 'C#' or 'D-'
                 The quarter-length duration for which the note should be held.
-                    A value of zero means the duration can be arbitrary. 
+                    A value of zero means the duration can be arbitrary,
+                    if no duration is given, a value of zero is assumed.
+        exists: bool
+            The truth value to test
+            (default True, should be False for counter-example generation). 
+        silence_equivalence: bool, optional
+            Whether silence should be considered equivalent to any given pitch
+            (default False, since we then generates less uninteresting paths).
         nuxmv_pitch_name: string
             The name of the nuxmv model variable representing the current pitch
             class.
-        exists: bool
-            The truth value to test
-            (default True, should be False for counter-example generation).
+        nuxmv_silence_name: string, optional
+            The name of the nuxmv value specifying that the current
+            state holds no notes (default 'p_Silence').
     """
-    cadence_copy = copy.deepcopy(cadence)
-    cadence_copy.reverse()
+    progression_copy = copy.deepcopy(progression)
+    progression_copy.reverse()
     
-    def cadence_aux(cadence):
-        if not cadence:
+    def progression_aux(progression):
+        if not progression:
             return 'TRUE'
         else:
-            pitch, duration = cadence.pop()
+            next_elem = progression.pop()
+            if isinstance(next_elem, str):
+                (pitch, duration) = (next_elem, 0)
+            else:
+                (pitch, duration) = next_elem
             root_name = model.make_root_name(pitch)
-            next_prop = cadence_aux(cadence)
-            equality_test = pitch_equal(root_name, nuxmv_pitch_name,
-                                        nuxmv_silence_name)
+            next_prop = progression_aux(progression)
+            equality_test = pitch_equal(
+                root_name,
+                silence_equivalence=silence_equivalence,
+                nuxmv_pitch_name=nuxmv_pitch_name,
+                nuxmv_silence_name=nuxmv_silence_name)
             if duration == 0:
                 prop = "({0}) & E [({0}) U ({1})]".format(equality_test,
                                                           next_prop)
@@ -84,5 +114,5 @@ def make_cadence(cadence, exists=True, nuxmv_pitch_name='pitchRoot',
                     equality_test, next_prop, duration)
             return prop
     
-    return "CTLSPEC {1}(EF ({0}))".format(cadence_aux(cadence_copy),
+    return "CTLSPEC {1}(EF ({0}))".format(progression_aux(progression_copy),
                                           '' if exists else '!')
