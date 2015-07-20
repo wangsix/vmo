@@ -193,7 +193,7 @@ def from_stream(stream, framesize=1.0, overlap=0.0,
 def extract_frame(stream, offset_start, framesize):
     result = stream.getElementsByOffset(
         offset_start,
-        offset_end=offset_start+framesize,
+        offsetEnd=offset_start+framesize,
         # Don't include notes from `original` starting in its next frame
         includeEndBoundary=False,
         # Only include notes starting in the extracted frame
