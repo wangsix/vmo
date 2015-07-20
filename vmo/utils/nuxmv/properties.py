@@ -135,7 +135,7 @@ def make_chord_progression(progression, exists=True,
             elif isinstance(duration, int):
                 # Enforce equality for `duration` steps
                 interval_eq = "EBG {0} .. {1} ({2})".format(
-                    0, duration-1, equality_test)
+                    0, duration - 1, equality_test)
 
                 # Enforce reachability of next interval in exactly `duration`
                 reachability_prop = "EBF {0} .. {0} ({1})".format(
@@ -148,7 +148,7 @@ def make_chord_progression(progression, exists=True,
 
                 # Enforce equality for at least `min_dur` steps
                 interval_eq = "EBG {0} .. {1} ({2})".format(
-                    0, min_dur, equality_test)
+                    0, min_dur - 1, equality_test)
 
                 # Enforce reachability of next interval
                 # between `min_dur` and `max_dur`
