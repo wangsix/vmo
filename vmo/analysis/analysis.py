@@ -129,30 +129,50 @@ def _create_trn_mat_symbolic(oracle, method):
     mat = mat.transpose()
     return mat, hist, n
 
-def graph_adjacency_lists(oracle):
+def graph_adjacency_lists(oracle, include_rsfx=False):
     """Return <oracle>'s underlying graph, using adjacency lists.
 
     Use all of the input material's states, not the oracle's clusters.
     Edges are stored with multiplicity.
+
+    Keyword arguments:
+        oracle: vmo.VMO.oracle
+            The oracle to convert.
+        include_rsfx: bool, optional
+            Whether reverse suffix links should be included in the transitions.
     """
     length = oracle.n_states
-    graph = [oracle.trn[i] for i in range(length)]
+    if include_rsfx:
+        graph = [(oracle.trn[i]+oracle.rsfx[i]) for i in range(length)]
+    else:
+        graph = [oracle.trn[i] for i in range(length)]
+
     for i in range(length):
         sfx_trans = oracle.sfx[i]
         if sfx_trans is not None:
             graph[i].append(sfx_trans)
     return graph
 
-def graph_adjacency_matrix(oracle):
+def graph_adjacency_matrix(oracle, include_rsfx=False):
     """Return the adjacency matrix of <oracle>'s underlying graph.
 
     Use all of the input material's states, not the oracle's clusters.
     Edges are counted with multiplicity.
     Uses quadratic memory in the number of states of the oracle
+
+    Keyword arguments:
+        oracle: vmo.VMO.oracle
+            The oracle to convert.
+        include_rsfx: bool, optional
+            Whether reverse suffix links should be included in the transitions.
     """ 
     length = oracle.n_states
     graph = [[0 for i in range(length)] for j in range(length)]
-    for ls in [oracle.trn]:
+    if include_rsfx:
+        transition_lists = [oracle.trn, oracle.rsfx]
+    else:
+        transition_lists = [oracle.trn]
+    for ls in transition_lists:
         for i, js in enumerate(ls):
             for j in js:
                 graph[i][j] += 1
