@@ -91,7 +91,8 @@ def from_chord(chord):
         for p_class in p_classes:
             chroma[p_class] = 1
         return chroma
-    else: raise ValueError("Not a chord of note")
+    else:
+        raise ValueError("Not a chord of note")
 
 def to_chord(chroma):
     """Return music21 Chord for a chromagram array.
@@ -159,29 +160,47 @@ def from_stream(stream, framesize=1.0, overlap=0.0,
     >>> chromagram[0, 4] == 0
     True
     """
-    chords = stream.flat.chordify()
+    chords = stream.flat.chordify().notes
     duration_quarters = int(floor(chords.duration.quarterLength))
     frames_count = int(ceil(duration_quarters * (1. / framesize)))
-
+    offsets = np.arange(0, duration_quarters, framesize)
+    
     # slice the chordified stream uniformly at each framesize
-    chords = chords.sliceAtOffsets(
-        np.arange(0, duration_quarters, framesize))
+    chords = chords.sliceAtOffsets(offsets)
 
     chroma_matrix = np.zeros(shape=(pitch_space_size, frames_count))
-    current_frame = 0 # stores the current position in the chroma_matrix
-    for offset in np.arange(0, duration_quarters, framesize):
-        chroma_vector = from_chord(chords.getElementsByOffset(offset)[0])
-        chroma_matrix[:,current_frame] = chroma_vector
-        current_frame+=1
+    for frame, offset in enumerate(offsets):
+        elements = extract_frame(chords, offset, framesize)
+        # Get all pitch classes appearing in the extracted frame
+        pitch_classes = [pc for chord in elements for pc in chord.pitchClasses]
+                                       
+        chroma_vector = from_chord(mus.chord.Chord(pitch_classes))
+            
+        chroma_matrix[:,frame] = chroma_vector
         
     if smooth:
         if sigma is None:
+            # Arbitrary value, scalable with `framesize`
             sigma = 4*framesize
         for i in range(pitch_space_size):
             smoothed_row = gaussian(chroma_matrix[i,:], sigma=sigma)
             chroma_matrix[i,:] = smoothed_row
 
     return chroma_matrix
+
+"""Helper functions"""
+
+def extract_frame(stream, offset_start, framesize):
+    result = stream.getElementsByOffset(
+        offset_start,
+        offset_end=offset_start+framesize,
+        # Don't include notes from `original` starting in its next frame
+        includeEndBoundary=False,
+        # Only include notes starting in the extracted frame
+        mustBeginInSpan=True
+        )
+    return result
+
 
 if __name__ == "__main__":
     import doctest
