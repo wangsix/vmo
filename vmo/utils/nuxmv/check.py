@@ -155,7 +155,7 @@ def check_property(model_str, prop):
     nuxmv_output = _check_property_full(model_str, prop)
     return parser.is_accepting(nuxmv_output)
 
-def generate_path(model_str, prop):
+def make_counterexample(model_str, prop):
     """Return a sequence of states in the model disproving prop.
 
     Each state in the sequence is a dictionary,
@@ -179,14 +179,14 @@ def generate_path(model_str, prop):
     >>> model_str = model.print_module(adj)
 
     Fail to generate a path disproving the reachability of state 2.
-    >>> failure = generate_path(model_str,
-    ...                         "CTLSPEC (E [s=0 U (E [s=1 U s=0])])")
+    >>> failure = make_counterexample(model_str,
+    ...                               "CTLSPEC (E [s=0 U (E [s=1 U s=0])])")
     >>> failure is None
     True
     
     Generate a path disproving the unreachability of state 2 then 1.
-    >>> path = generate_path(model_str,
-    ...                      "CTLSPEC !(EF (s=2 & (EF s=1)))")
+    >>> path = make_counterexample(model_str,
+    ...                            "CTLSPEC !(EF (s=2 & (EF s=1)))")
     >>> path is not None
     True
 
