@@ -245,7 +245,8 @@ def print_pitches(oracle, nuxmv_state_name='s'):
 
 """Print chromagram oracle"""
 
-def print_oracle(oracle, nuxmv_state_name='s', init_state=None):
+def print_oracle(oracle, include_rsfx=False, init_state=None,
+                 nuxmv_state_name='s'):
     """Return a bytearray describing `oracle`, with oracle states and pitches.
 
     Assumes the oracle has been created with a chromagram as feature.
@@ -287,7 +288,7 @@ def print_oracle(oracle, nuxmv_state_name='s', init_state=None):
     if init_state is None:
         init_state = oracle.initial_state
     
-    adj_lists = van.graph_adjacency_lists(oracle)
+    adj_lists = van.graph_adjacency_lists(oracle, include_rsfx)
     base_model = print_module(adj_lists, nuxmv_state_name=nuxmv_state_name,
                               init_state=init_state)
 
