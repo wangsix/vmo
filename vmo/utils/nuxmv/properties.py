@@ -35,8 +35,9 @@ import vmo.utils.nuxmv.model as model
 
 """nuXmv properties generation module."""
 
-def pitch_equal(pitch, silence_equivalence=False, nuxmv_pitch_name='pitchRoot',
-                nuxmv_silence_name='p_Silence'):
+def pitch_equal(pitch, silence_equivalence=False, allow_init=False,
+                nuxmv_pitch_name='pitchRoot',
+                nuxmv_silence_name='p_Silence', nuxmv_empty_name='p_Init'):
     """Return a nuxmv string stating the current pitch root is `pitch`.
     
     Keyword arguments:
@@ -44,42 +45,64 @@ def pitch_equal(pitch, silence_equivalence=False, nuxmv_pitch_name='pitchRoot',
             The name of the pitch to test equality with.
         silence_equivalence: bool, optional
             Whether silence should be considered equivalent to any given pitch
-            (default False, since we then generates less uninteresting paths)
+            (default False, since we then generate less interesting paths)
+        allow_init: bool, optional
+            Whether an empty state should be considered equivalent
+            to any given pitch
+            (default False, since we then generate less interesting paths)
         nuxmv_pitch_name: string, optional
             The name of the variable in the nuXmv model specifying
             the current pitch root (default 'pitchRoot')
         nuxmv_silence_name: string, optional
             The name of the nuxmv value specifying that the current
             state holds no notes (default 'p_Silence')
-    """    
-    if pitch != nuxmv_silence_name and silence_equivalence:
-        equality_test = "{0}={1} | {0}={2}".format(nuxmv_pitch_name,
-                                                   pitch,
-                                                   nuxmv_silence_name)
-    else:
-        equality_test = "{0}={1}".format(nuxmv_pitch_name,
+        nuxmv_empty_name: string, optional
+            The name of the nuxmv value specifying that the current
+            state is the initial state (default 'p_Init')
+            (Note: could test for `state == 0`)
+    """
+    equality_test = "{0}={1}".format(nuxmv_pitch_name,
                                      pitch)
+    if pitch != nuxmv_silence_name and silence_equivalence:
+        equality_test = "{0} | {1}={2}".format(equality_test,
+                                               nuxmv_pitch_name,
+                                               nuxmv_silence_name)
+    if allow_init:
+        equality_test = "{0} | {1}={2}".format(equality_test,
+                                               nuxmv_pitch_name,
+                                               nuxmv_empty_name)
     return equality_test
 
-def make_chord_progression(progression, exists=True, silence_equivalence=False,
+def make_chord_progression(progression, exists=True,
+                           silence_equivalence=False, allow_init=False,
                            nuxmv_pitch_name='pitchRoot',
                            nuxmv_silence_name='p_Silence'):
-    """Return a CTL string stating the existence of a path following `cadence`.
+    # TODO: Fix this, the properties for fixed ranges are wrong,
+    # should use a combination of EBF and EBG, because E [ BU ] actually
+    # does not enforce truth on all states before m, so the strict progression
+    # only states that the last state satisfies the requirement
+    """Return a string stating the existence of a path following `progression`.
 
     Keyword arguments:
-        progression: ((string, int) or string) sequence
+        progression: ((string, (int, int)) or (string, int) or string) sequence
             The chord progression to test for.
             Each pair in the sequence consists of:
                 The name of the root note, e.g. 'C#' or 'D-'
-                The quarter-length duration for which the note should be held.
-                    A value of zero means the duration can be arbitrary,
-                    if no duration is given, a value of zero is assumed.
+                The quarter-length duration for which the note should be held,
+                as an interval of acceptable durations.
+                    A single int means an exact duration is expected.
+                    A value of zero means the duration can be arbitrary.
+                    If no duration is given, a value of zero is assumed.
         exists: bool
             The truth value to test
             (default True, should be False for counter-example generation). 
         silence_equivalence: bool, optional
             Whether silence should be considered equivalent to any given pitch
-            (default False, since we then generates less uninteresting paths).
+            (default False, since we then generate less interesting paths).
+        allow_init: bool, optional
+            Whether an empty state should be considered equivalent
+            to any given pitch
+            (default False, since we then generate less interesting paths).
         nuxmv_pitch_name: string
             The name of the nuxmv model variable representing the current pitch
             class.
@@ -109,9 +132,38 @@ def make_chord_progression(progression, exists=True, silence_equivalence=False,
             if duration == 0:
                 prop = "({0}) & E [({0}) U ({1})]".format(equality_test,
                                                           next_prop)
+            elif isinstance(duration, int):
+                # Enforce equality for `duration` steps
+                interval_eq = "EBG {0} .. {1} ({2})".format(
+                    0, duration-1, equality_test)
+
+                # Enforce reachability of next interval in exactly `duration`
+                reachability_prop = "EBF {0} .. {0} ({1})".format(
+                    duration, next_prop)
+
+                # Combine interval constraint and reachability
+                prop = "({0}) & ({1})".format(interval_eq, reachability_prop)
+            elif isinstance(duration, tuple) and len(duration) == 2:
+                min_dur, max_dur = duration
+
+                # Enforce equality for at least `min_dur` steps
+                interval_eq = "EBG {0} .. {1} ({2})".format(
+                    0, min_dur, equality_test)
+
+                # Enforce reachability of next interval
+                # between `min_dur` and `max_dur`
+                reachability_prop = "E [({0}) BU {1} .. {2} ({3})]".format(
+                    equality_test, min_dur, max_dur, next_prop)
+
+                # Combine interval constraint and reachability
+                prop = "({0}) & ({1})".format(interval_eq, reachability_prop)
+                
             else:
-                prop = "({0}) & E [({0}) BU {2} .. {2} ({1})]".format(
-                    equality_test, next_prop, duration)
+                error_str = "Duration {} is not of the expected type".format(
+                    str(duration))
+                raise TypeError(error_str +
+                                " : no duration, int or int pair.")
+            
             return prop
     
     return "CTLSPEC {1}(EF ({0}))".format(progression_aux(progression_copy),
