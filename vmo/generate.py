@@ -110,7 +110,7 @@ def generate(oracle, seq_len, p=0.5, k=1, LRS=0, weight=None):
 
     for _i in range(seq_len):
         # iteratively generate each state, in seq_len steps
-        if sfx[k] != 0 and sfx[k] is not None:
+        if sfx[k] is not None and sfx[k] != 0:
             if (random.random() < p):
                 # copy forward according to transitions
                 I = trn[k]
@@ -120,11 +120,11 @@ def generate(oracle, seq_len, p=0.5, k=1, LRS=0, weight=None):
                     ktrace.append(k)
                     I = trn[k]
                 sym = I[int(np.floor(random.random() * len(I)))]
-                s.append(sym)  # Why (sym-1) before?
+                s.append(sym)  # TODO Why (sym-1) before?
                 k = sym
                 ktrace.append(k)
             else:
-                # copy any of the next symbols
+                # copy any of the next symbols.
                 ktrace.append(k)
                 _k = k
                 k_vec = []
@@ -358,7 +358,7 @@ def path_to_stream(original, path, framesize=1.0):
     offsets = [framesize * (state - 1) for state in path if state != 0]
 
     def insertFrame(offset, i):
-        extracted = vchroma.extractFrame(original, offset, framesize)
+        extracted = vchroma.extract_frame(original, offset, framesize)
         for note in extracted.notes:
             note_copy = copy.deepcopy(note)
             note_copy.offset = i * framesize + (note.offset - offset)
