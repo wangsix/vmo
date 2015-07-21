@@ -129,7 +129,8 @@ def _create_trn_mat_symbolic(oracle, method):
     mat = mat.transpose()
     return mat, hist, n
 
-def graph_adjacency_lists(oracle, include_rsfx=False):
+def graph_adjacency_lists(oracle, include_rsfx=False,
+                          compress_to_forward_links=False):
     """Return <oracle>'s underlying graph, using adjacency lists.
 
     Use all of the input material's states, not the oracle's clusters.
@@ -139,21 +140,34 @@ def graph_adjacency_lists(oracle, include_rsfx=False):
         oracle: vmo.VMO.oracle
             The oracle to convert.
         include_rsfx: bool, optional
-            Whether reverse suffix links should be included in the transitions.
+            Whether reverse suffix links should be included in the transitions
+            (default False).
+        compress_to_forward_links: bool, optional
+            Whether suffix links paths should be compressed to only return
+            links that are actually labeled by a symbol, by considering a
+            succession of suffix links and a final direct link to be a
+            single direct link (default False).
     """
     length = oracle.n_states
-    if include_rsfx:
-        graph = [(oracle.trn[i]+oracle.rsfx[i]) for i in range(length)]
+
+    if not compress_to_forward_links:
+        if include_rsfx:
+            graph = [(oracle.trn[i]+oracle.rsfx[i]) for i in range(length)]
+        else:
+            graph = [oracle.trn[i] for i in range(length)]
+
+        for i in range(length):
+            sfx_trans = oracle.sfx[i]
+            if sfx_trans is not None:
+                graph[i].append(sfx_trans)
+        return graph
     else:
-        graph = [oracle.trn[i] for i in range(length)]
+        # Return all forward links
+        graph = [list(oracle.forward_links_state(s)) for s in range(length)]
+        return graph
 
-    for i in range(length):
-        sfx_trans = oracle.sfx[i]
-        if sfx_trans is not None:
-            graph[i].append(sfx_trans)
-    return graph
-
-def graph_adjacency_matrix(oracle, include_rsfx=False):
+def graph_adjacency_matrix(oracle, include_rsfx=False,
+                           compress_to_forward_links=False):
     """Return the adjacency matrix of <oracle>'s underlying graph.
 
     Use all of the input material's states, not the oracle's clusters.
@@ -165,20 +179,32 @@ def graph_adjacency_matrix(oracle, include_rsfx=False):
             The oracle to convert.
         include_rsfx: bool, optional
             Whether reverse suffix links should be included in the transitions.
+        compress_to_forward_links: bool, optional
+            Whether suffix links paths should be compressed to only return
+            links that are actually labeled by a symbol, by considering a
+            succession of suffix links and a final direct link to be a
+            single direct link (default False).        
     """ 
     length = oracle.n_states
     graph = [[0 for i in range(length)] for j in range(length)]
-    if include_rsfx:
-        transition_lists = [oracle.trn, oracle.rsfx]
+
+    if not compress_to_forward_links:
+        if include_rsfx:
+            transition_lists = [oracle.trn, oracle.rsfx]
+        else:
+            transition_lists = [oracle.trn]
+        for ls in transition_lists:
+            for i, js in enumerate(ls):
+                for j in js:
+                    graph[i][j] += 1
+        for i, j in enumerate(oracle.sfx):
+            if j is not None: graph[i][j] += 1
+        return graph
     else:
-        transition_lists = [oracle.trn]
-    for ls in transition_lists:
-        for i, js in enumerate(ls):
-            for j in js:
+        for i in range(length):
+            for j in oracle.forward_links_state(i):
                 graph[i][j] += 1
-    for i, j in enumerate(oracle.sfx):
-        if j is not None: graph[i][j] += 1
-    return graph
+        return graph
 
 
 """Symbolic sequence prediction by an oracle"""
@@ -585,8 +611,8 @@ def _query_k(k, i, P, oracle, query, trn, state_cache, dist_cache,
 
 def _create_trn_complete(oracle, prev):
     """TODO: add documentation."""
-    latent_prev_symbol = [oracle.latent[_c]for _c
-                        in list(oracle.con[oracle.symbol[prev]])]
+    latent_prev_symbol = [oracle.latent[_c] for _c
+                          in list(oracle.con[oracle.symbol[prev]])]
     return flatten(latent_prev_symbol)
 
     

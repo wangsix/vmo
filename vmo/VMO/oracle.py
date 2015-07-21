@@ -2,12 +2,12 @@
 oracle.py
 Variable Markov Oracle in python
 
-@copyright: 
+@copyright:
 Copyright (C) 9.2014 Cheng-i Wang
 
 This file is part of vmo.
 
-@license: 
+@license:
 vmo is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation, either version 3 of the License, or
@@ -25,7 +25,6 @@ along with vmo.  If not, see <http://www.gnu.org/licenses/>.
 """
 
 import numpy as np
-import scipy.spatial.distance as dist
 
 import vmo.analysis as van
 import vmo.VMO.utility as utl
@@ -54,8 +53,8 @@ class FactorOracle(object):
             pos is the position where the coded words starts.
         seg: list of tuples (len, pos)
             same as code but non-overlapping.
-        feature: list of feature arrays (for kinds 'a' and 'v')
-            feature[i] contains the i-th feature
+        feature: list of features (for kinds 'a' and 'v')
+            Contains the features used to generate the oracle
         latent: a list of lists (for kinds 'a' and 'v')
             latent[i] contains the indexes in the oracle for the i-th symbol
         kind: character
@@ -122,12 +121,20 @@ class FactorOracle(object):
         self.n_states = 1
         self.max_lrs = [0]
         self.avg_lrs = [0.]
-        
+
+        # Reachability class via (possibly reverse) suffix links
+        self.suffix_class = [set([0])]
+
     def update_params(self, **kwargs):
         """Subclass this"""
         self.params.update(kwargs)
         
     def add_state(self, new_symbol):
+        # TODO : finish this
+        """Skeleton of a generic add_state function. 
+
+        Not being called by any of the implementations for now.
+        """ 
         def _init_new_state(self):
             """Initialize content holders for the newly-added state.
 
@@ -146,6 +153,9 @@ class FactorOracle(object):
             self.trn[new_i - 1].append(new_i)
             _init_sfx = self.sfx[new_i - 1]
             _init_pi_1 = new_i - 1
+
+            # `new_i` is reachable from `new_i` by an empty path
+            self.suffix_class.append(set(new_i))
             
             return new_i, _init_sfx, _init_pi_1
 
@@ -170,7 +180,7 @@ class FactorOracle(object):
             self.lrs[new_i] = 1 + self._len_common_suffix(pi_1,
                                                           self.sfx[new_i] - 1)
 
-        previous_suffix_pos = new_i - self.lrs[new_i] 
+        previous_suffix_pos = new_i - self.lrs[new_i]
         current_suffix = self._find_better(new_i,
                                            self.symbol[previous_suffix_pos])
 
@@ -183,10 +193,48 @@ class FactorOracle(object):
         """Subclass this"""
         pass
 
+    def update_suffix_class(self, state):
+        """Update `state`'s suffix reachability class."""
+        suffix = self.sfx[state]
+        # Init new reachability class
+        self.suffix_class.append(set([state]))
+        # Add `suffix`'s reachable states to `state`'s reachability class
+        self.suffix_class[state].update(self.suffix_class[suffix])
+    
+        if self.include_rsfx():
+            # Allow moves through reverse suffix links on the oracle
+            # Add `new_i` to the chosen suffix's class and all its members
+            # `copy()` is required, because `suffix`'s suffix-class will
+            # grow too.
+
+            # Note : a special case is required for state `0`, because
+            # allowing reverse suffix moves from `0` breaks all suffix
+            # structure (it makes the suffix links graph strongly connected)
+            for s in self.suffix_class[suffix].copy():
+                if s != 0:
+                    self.suffix_class[s].add(state)
+            
+    
+    def forward_links_state(self, state):
+        """List the states reachable by a forward link from `state`.
+
+        Forward links are either a direct transition or
+        a sequence of (possibly reverse) suffix links and a final direct link.
+
+        Keyword arguments:
+            state: int
+                The state for which to extract the forward links
+        """
+        forward = set()
+        forward.update(*[self.trn[s] for s in self.suffix_class[state]])
+        return forward    
+
+    
     def read_symbol_forward(self, state, symbol):
         """Return the state reached by reading <symbol> in <state>.
 
         Return None if the given symbol is not recognized in <state>.
+
         Keyword arguments:
             state: int
                 A state in the oracle.
@@ -194,7 +242,7 @@ class FactorOracle(object):
                 The symbol to read.
         """
         _same_symbol_neighbour = [goal for goal in self.trn[state]
-                                if self.symbol[goal] == symbol]
+                                  if self.symbol[goal] == symbol]
         if len(_same_symbol_neighbours) > 0:
             # len(_same_symbol_neighbour) == 1 since the oracle is deterministic
             return _same_symbol_neighbour[0]
@@ -452,6 +500,14 @@ class FactorOracle(object):
         fun = self.params['dfunc_handle']  
         return fun(a, b_vec)
 
+    def include_rsfx(self):
+        include_rsfx = self.params.get('include_rsfx')
+        if (include_rsfx is not None):
+            return include_rsfx
+        else:
+            raise ValueError("include_rsfx is not set!")
+
+    
 class FO(FactorOracle):
     """An implementation of the factor oracle."""
     def __init__(self, **kwargs):
@@ -499,9 +555,8 @@ class FO(FactorOracle):
         else:
             # A repeated suffix was found
             _out_trn_sharing_symbol = [state for state in self.trn[current_suffix]
-                                     if self.symbol[state] == new_symbol]
-            _out_trn_sharing_symbol = sorted(_out_trn_sharing_symbol,
-                                           key=lambda x: x)
+                                       if self.symbol[state] == new_symbol]
+            _out_trn_sharing_symbol = sorted(_out_trn_sharing_symbol)
             _first_state_sharing_symbol = _out_trn_sharing_symbol[0]
             self.sfx[new_i] = _first_state_sharing_symbol
             self.lrs[new_i] = self._len_common_suffix(pi_1, self.sfx[new_i]-1) + 1
@@ -521,6 +576,8 @@ class FO(FactorOracle):
         self.avg_lrs.append(previous_average_lrs*((N-1)/N) + 
                             self.lrs[new_i]*(1/N))
 
+        self.update_suffix_class(new_i)
+        
     def accept(self, context):
         """Check if the context could be accepted by the oracle
         
@@ -661,7 +718,9 @@ class MO(FactorOracle):
         previous_average_lrs = self.avg_lrs[new_i-1]
         self.avg_lrs.append(previous_average_lrs*(N-1)/N + 
                             self.lrs[new_i]*(1/N))
-
+    
+        self.update_suffix_class(new_i)
+        
 
 class VMO(FactorOracle):
     def __init__(self, **kwargs):
@@ -762,6 +821,7 @@ class VMO(FactorOracle):
         self.avg_lrs.append(previous_average_lrs*((N-1)/N) +
                             self.lrs[new_i]*(1/N))
 
+        self.update_suffix_class(new_i)
 
 class feature_array:
     def __init__(self, dim):
@@ -785,8 +845,7 @@ class feature_array:
 
     def finalize(self):
         self.data = self.data[:self.size, :]
-
-
+        
 def _create_oracle(oracle_type, **kwargs):
     """Create a factor oracle based on the input type."""
     if oracle_type == 'f':
@@ -797,7 +856,7 @@ def _create_oracle(oracle_type, **kwargs):
         return VMO(**kwargs)
     else:
         return MO(**kwargs)
-
+    
 
 def create_oracle(flag, threshold=0, dfunc='euclidean',
                   dfunc_handle=None, dim=1):
