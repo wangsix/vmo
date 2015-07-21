@@ -92,7 +92,7 @@ def make_counter_example(oracle, prop, start=None, include_rsfx=False,
     
     model_str = model.print_oracle(oracle, include_rsfx=include_rsfx,
                                    init_state=start)
-    counterexample = check.make_example(oracle, prop)
+    counterexample = check.make_counterexample(oracle, prop)
     return counterexample
     
 def make_chord_progression(oracle, progression, start=None, include_rsfx=False,
@@ -134,4 +134,4 @@ def make_chord_progression(oracle, progression, start=None, include_rsfx=False,
         silence_equivalence=silence_equivalence,
         allow_init=allow_init)
         
-    return (check.generate_path(model_str, progression_prop))
+    return (check.make_counterexample(model_str, progression_prop))
