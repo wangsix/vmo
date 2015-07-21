@@ -158,9 +158,11 @@ def check_property(model_str, prop):
 def make_counterexample(model_str, prop):
     """Return a sequence of states in the model disproving prop.
 
-    Each state in the sequence is a dictionary,
-    with keys the states in the model.
+    Each state in the sequence is a dictionary, with keys the states
+    in the model.
+
     Return None if `prop` is true on the given model.
+
     Keyword arguments:
         model_str: string
             The model to work on, in nuXmv syntax
