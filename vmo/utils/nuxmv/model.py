@@ -268,8 +268,8 @@ def print_oracle(oracle, include_rsfx=False, init_state=None,
     ...     "\\tnext(s) :=\\n" +
     ...     "\\tcase\\n" +
     ...     "\\ts=0: {1, 2};\\n" +
-    ...     "\\ts=1: {0, 2};\\n" +
-    ...     "\\ts=2: {0};\\n" +
+    ...     "\\ts=1: {1, 2};\\n" +
+    ...     "\\ts=2: {1, 2};\\n" +
     ...     "\\tesac;\\n\\n" +
     ...     "VAR _PITCH_TYPE : {p_Init, p_Silence, p_C, p_C#, p_D, p_E-, p_E, " +
     ...     "p_F, p_F#, p_G, p_G#, p_A, p_B-, p_B};\\n" +
@@ -288,7 +288,8 @@ def print_oracle(oracle, include_rsfx=False, init_state=None,
     if init_state is None:
         init_state = oracle.initial_state
     
-    adj_lists = van.graph_adjacency_lists(oracle, include_rsfx)
+    adj_lists = van.graph_adjacency_lists(oracle, include_rsfx,
+                                          compress_to_forward_links=True)
     base_model = print_module(adj_lists, nuxmv_state_name=nuxmv_state_name,
                               init_state=init_state)
 
