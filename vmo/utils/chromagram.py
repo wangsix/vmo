@@ -194,7 +194,7 @@ def extract_frame(stream, offset_start, framesize):
     result = stream.getElementsByOffset(
         offset_start,
         offsetEnd=offset_start+framesize,
-        # Don't include notes from `original` starting in its next frame
+        # Don't include notes from `stream` starting in its next frame
         includeEndBoundary=False,
         # Only include notes starting in the extracted frame
         mustBeginInSpan=True
