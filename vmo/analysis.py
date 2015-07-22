@@ -19,15 +19,15 @@ You should have received a copy of the GNU General Public License
 along with vmo.  If not, see <http://www.gnu.org/licenses/>.
 """
 
-import vmo, sys, itertools, librosa
+import vmo, sys, itertools, librosa, copy
 import numpy as np
 import scipy.spatial.distance as dist
 import scipy.cluster.hierarchy as scihc
 import scipy.signal as sig
+import scipy.sparse as spa
 import sklearn.cluster as sklhc
 from functools import partial
 from scipy.stats import multivariate_normal
-import fuzzywuzzy.fuzz as fuzz
 import vmo.VMO
 import vmo.VMO.utility as utils
 
@@ -244,7 +244,8 @@ def _rsfx_count(oracle, s, count, hist, ab, VERBOSE=False):
 """
 
 
-def _seg_by_single_frame(oracle, cluster_method='agglomerative', connectivity='temporal', data='symbol', width=5, **kwargs):
+def _seg_by_single_frame(oracle, cluster_method='agglomerative', connectivity='temporal', data='symbol', width=5,
+                         **kwargs):
     obs_len = oracle.n_states - 1
     if connectivity is 'temporal':
         connectivity = np.zeros((obs_len, obs_len))
@@ -273,7 +274,6 @@ def _seg_by_single_frame(oracle, cluster_method='agglomerative', connectivity='t
 
 
 def _seg_by_hc_single_frame(obs_len, connectivity, data, **kwargs):
-
     _children, _n_c, _n_leaves, parents, distances = \
         sklhc.ward_tree(data, connectivity=connectivity, return_distance=True)
 
@@ -294,7 +294,7 @@ def _seg_by_hc_single_frame(obs_len, connectivity, data, **kwargs):
     label = scihc.fcluster(reconstructed_z, t=t, criterion=criterion)
 
     boundaries = utils.find_boundaries(label, **kwargs)
-    labels = utils.segment_labeling(data, boundaries, np.max(label))
+    labels = utils.segment_labeling(data, boundaries)
 
     return boundaries, labels
 
@@ -306,24 +306,218 @@ def _seg_by_spectral_single_frame(connectivity, width=33):
     return boundaries, labels
 
 
-def _seg_by_hc_string_matching(oracle):
+def _seg_by_hc_string_matching(oracle, data='symbol', connectivity=None, **kwargs):
 
-    frag_pos, frag_indices = find_fragments(oracle)
-    frag_num = len(frag_indices)
+    if data is 'raw':
+        data = np.array(oracle.f_array[1:])
+    else:
+        data = np.zeros((oracle.n_states - 1, oracle.num_clusters()))
+        data[range(oracle.n_states - 1), oracle.data[1:]] = 1
+
+    frag_pos, _frag_rsfx = find_fragments(oracle)
+    frag_num = len(frag_pos)
     frag_connectivity = np.zeros((frag_num, frag_num))
+
     fragments = []
-    for f in frag_pos:
-        if f[0] == oracle.n_states-1:
-            fragments.append(oracle.data[f[0]-f[1]+1:])
+    for i, (f, r) in enumerate(zip(frag_pos, _frag_rsfx)):  # f[0]-> pos, f[1]->lrs
+        if f[0] == oracle.n_states - 1:
+            fragments.append(oracle.data[f[0] - f[1] + 1:])
         else:
-            fragments.append(oracle.data[f[0]-f[1]+1:f[0]+1])
-        if f[1] > 1:
-            rsfx = oracle.rsfx[f[0]]
-            if rsfx and frag_indices[np.min(rsfx)] == frag_indices[f[0]]:
-                frag_connectivity[frag_indices[f[0]], frag_indices[np.min(rsfx)]] = 1.0
-                frag_connectivity[frag_indices[np.min(rsfx)], frag_indices[f[0]]] = 1.0
-    frag_connectivity[range(1, frag_num), range(frag_num - 1)] = 1.0
+            fragments.append(oracle.data[f[0] - f[1] + 1:f[0] + 1])
+            if r > 0:
+                frag_connectivity[i, r] = 1.0
     frag_connectivity[range(frag_num - 1), range(1, frag_num)] = 1.0
+
+    n_nodes = 2 * frag_num - 1
+
+    _children = []
+    distances = np.empty(n_nodes - frag_num)
+    frag_indices = range(frag_num)
+    _frag = copy.copy(fragments)
+
+    for k in range(frag_num, n_nodes):
+
+        y = [utils.edit_distance(u, v) for (u, v) in zip(_frag[:-1], _frag[1:])]
+
+        flat_ind = np.argmin(y)
+        i = flat_ind
+        j = flat_ind + 1
+        _frag[i] = _frag[i]+_frag[j]
+        _frag.pop(j)
+        _children.append((frag_indices[i], frag_indices[j]))
+        frag_indices[i] = k
+        frag_indices.pop(j)
+        distances[k-frag_num] = y[flat_ind]
+
+    reconstructed_z = np.zeros((frag_num - 1, 4))
+    reconstructed_z[:, :2] = _children
+    reconstructed_z[:, 2] = distances
+    print reconstructed_z
+    if 'threshold' in kwargs.keys():
+        t = kwargs['threshold']
+    else:
+        t = 0.1 * np.max(reconstructed_z[:, 2])
+
+    if 'criterion' in kwargs.keys():
+        criterion = kwargs['criterion']
+    else:
+        criterion = 'distance'
+
+    _label = scihc.fcluster(reconstructed_z, t=t, criterion=criterion)
+    label = []
+    for lab, frag in zip(_label, fragments):
+        label.extend([lab]*len(frag))
+
+    boundaries = utils.find_boundaries(label, **kwargs)
+    labels = utils.segment_labeling(data, boundaries, k=0.25)
+
+    return boundaries, labels
+
+# def _seg_by_hc_string_matching(oracle, data='symbol', connectivity=None, **kwargs):
+#
+#     if data is 'raw':
+#         data = np.array(oracle.f_array[1:])
+#     else:
+#         data = np.zeros((oracle.n_states - 1, oracle.num_clusters()))
+#         data[range(oracle.n_states - 1), oracle.data[1:]] = 1
+#
+#     frag_pos, _frag_rsfx = find_fragments(oracle)
+#     frag_num = len(frag_pos)
+#     frag_connectivity = np.zeros((frag_num, frag_num))
+#
+#     fragments = []
+#     for i, (f, r) in enumerate(zip(frag_pos,_frag_rsfx)):  # f[0]-> pos, f[1]->lrs
+#         if f[0] == oracle.n_states - 1:
+#             fragments.append(oracle.data[f[0] - f[1] + 1:])
+#         else:
+#             fragments.append(oracle.data[f[0] - f[1] + 1:f[0] + 1])
+#             if r > 0:
+#                 frag_connectivity[i, r] = 1.0
+#     frag_connectivity[range(frag_num - 1), range(1, frag_num)] = 1.0
+#
+#     # frag_connectivity = frag_connectivity + frag_connectivity.T
+#
+#     n_nodes = frag_num + np.sum(frag_connectivity)
+#
+#     _children = []
+#     distances = []
+#     # distances = np.empty(n_nodes - frag_num)
+#     frag_indices = range(frag_num)
+#     _frag = copy.copy(fragments)
+#
+#     y = np.ones((frag_num, frag_num))*np.inf
+#     rows, cols = frag_connectivity.nonzero()
+#     vals = [utils.edit_distance(_frag[r], _frag[c]) for (r, c) in zip(rows, cols)]
+#     y[rows, cols] = vals
+#
+#     k = frag_num
+#     while np.sum(frag_connectivity) > 0:
+#     # for k in range(frag_num, n_nodes):
+#         flat_ind = np.argmin(y)
+#
+#         i, j = np.unravel_index(flat_ind, (frag_num, frag_num))
+#         distances.append(y[i, j])
+#
+#         # print i, j
+#         if j-i == 1:
+#             print i, j, 'neighbor'
+#             print y
+#             print frag_connectivity, 'before'
+#             _frag[i] = _frag[i]+_frag[j]
+#             _frag.pop(j)
+#             _children.append((frag_indices[i], frag_indices[j]))
+#             frag_indices[i] = k
+#             frag_indices.pop(j)
+#
+#             frag_connectivity[i, :] += frag_connectivity[j, :]
+#
+#             frag_connectivity = np.delete(frag_connectivity, j, 0)
+#             frag_connectivity = np.delete(frag_connectivity, j, 1)
+#
+#             y = np.delete(y, j, 0)
+#             y = np.delete(y, j, 1)
+#
+#             if i == 0:
+#                 rows = frag_connectivity[i, :].nonzero()[0]
+#                 vals = [utils.edit_distance(_frag[i], _frag[r]) for r in rows]
+#                 y[i, rows] = vals
+#             elif j == frag_num-1:
+#                 val = utils.edit_distance(_frag[i-1], _frag[i])
+#                 y[i-1, i] = val
+#             else:
+#                 rows = frag_connectivity[i, :].nonzero()[0]
+#                 vals = [utils.edit_distance(_frag[i], _frag[r]) for r in rows]
+#                 y[i, rows] = vals
+#
+#                 val = utils.edit_distance(_frag[i-1], _frag[i])
+#                 y[i-1, i] = val
+#
+#         else:
+#             print i, j, 'rsfx'
+#             print y
+#             print frag_connectivity, 'before'
+#             _frag[i].extend(_frag[j])
+#             _frag.pop(j)
+#             _children.append((frag_indices[i], frag_indices[j]))
+#             frag_indices[i] = k
+#             frag_indices.pop(j)
+#
+#             frag_connectivity[i, :] += frag_connectivity[j, :]
+#             frag_connectivity[:, i] += frag_connectivity[:, j]
+#
+#             y[i, np.isfinite(y[j, :])] = y[j, np.isfinite(y[j, :])]
+#             y[np.isfinite(y[:, j]), i] = y[np.isfinite(y[:, j]), j]
+#
+#             frag_connectivity = np.delete(frag_connectivity, j, 0)
+#             frag_connectivity = np.delete(frag_connectivity, j, 1)
+#
+#             y = np.delete(y, j, 0)
+#             y = np.delete(y, j, 1)
+#
+#             # if i == 0:
+#             #     rows = frag_connectivity[i, :].nonzero()[0]
+#             #     vals = [utils.edit_distance(_frag[i][], _frag[r]) for r in rows]
+#             #     y[i, rows] = vals
+#             # elif j == frag_num-1:
+#             #     val = utils.edit_distance(_frag[i-1], _frag[i])
+#             #     y[i-1, i] = val
+#             # else:
+#             #     rows = frag_connectivity[i, :].nonzero()[0]
+#             #     vals = [utils.edit_distance(_frag[i], _frag[r]) for r in rows]
+#             #     y[i, rows] = vals
+#             #
+#             #     val = utils.edit_distance(_frag[i-1], _frag[i])
+#             #     y[i-1, i] = val
+#
+#         frag_num -= 1
+#         print y,
+#         print frag_connectivity,'after'
+#         k += 1
+#
+#     frag_num = len(frag_pos)
+#     reconstructed_z = np.zeros((frag_num - 1, 4))
+#     reconstructed_z[:, :2] = _children
+#     reconstructed_z[:, 2] = distances
+#
+#     if 'threshold' in kwargs.keys():
+#         t = kwargs['threshold']
+#     else:
+#         t = 0.1 * np.max(reconstructed_z[:, 2])
+#
+#     if 'criterion' in kwargs.keys():
+#         criterion = kwargs['criterion']
+#     else:
+#         criterion = 'distance'
+#
+#     _label = scihc.fcluster(reconstructed_z, t=t, criterion=criterion)
+#     label = []
+#     for lab, frag in zip(_label, fragments):
+#         label.extend([lab]*len(frag))
+#
+#     boundaries = utils.find_boundaries(label, **kwargs)
+#     labels = utils.segment_labeling(data, boundaries, np.max(label))
+#
+#     return boundaries, labels
 
 
 def segmentation(oracle, method='symbol_agglomerative', **kwargs):
@@ -331,7 +525,8 @@ def segmentation(oracle, method='symbol_agglomerative', **kwargs):
         return _seg_by_single_frame(oracle, cluster_method='agglomerative', **kwargs)
     elif method is 'symbol_spectral':
         return _seg_by_single_frame(oracle, cluster_method='spectral', **kwargs)
-
+    elif method is 'string_agglomerative':
+        return _seg_by_hc_string_matching(oracle, **kwargs)
 
 """Query-matching and gesture tracking algorithms"""
 
@@ -666,7 +861,7 @@ def find_repeated_patterns(oracle, lower=1):
         rsfx = oracle.rsfx[i]
         pattern_found = False
         if (sfx != 0  # not pointing to zeroth state
-                and i - oracle.lrs[i] + 1 > sfx and oracle.lrs[i] > lower):  # constraint on length of patterns
+            and i - oracle.lrs[i] + 1 > sfx and oracle.lrs[i] > lower):  # constraint on length of patterns
             for p in pattern_list:  # for existing pattern
                 if not [_p for _p in p[0] if _p - p[1] < i < _p]:
                     if sfx in p[0]:
@@ -698,36 +893,34 @@ Helper functions
 
 
 def find_fragments(oracle):
-
     seg_list = []
-    seq_ind = 1
-    filled = np.zeros(oracle.n_states+1,)
-    pos = oracle.n_states-1
+    seg_rsfx = []
+    pos = oracle.n_states - 1
     while pos > 0:
         lrs = oracle.lrs[pos]
-
+        rsfx = oracle.rsfx[pos]
         if lrs > 1:
-            _lrs_of_seg = np.array(oracle.lrs[pos-lrs+1:pos])
+            _lrs_of_seg = np.array(oracle.lrs[pos - lrs + 1:pos])
 
             if lrs < np.max(_lrs_of_seg):
                 stop = np.where(lrs < _lrs_of_seg)[0][-1]
-                lrs = lrs-stop-1
+                lrs = lrs - stop - 1
             seg = [pos, lrs]
-            rsfx = oracle.rsfx[pos]
-            if rsfx and filled[np.min(rsfx)] != 0:
-                filled[pos-lrs+1:pos+1] = filled[np.min(rsfx)]
-            else:
-                filled[pos-lrs+1:pos+1] = seq_ind
-                seq_ind += 1
             seg_list.append(seg)
             pos -= lrs
         else:
-            filled[pos] = seq_ind
-            seg_list.append([pos,1])
-            seq_ind += 1
+            seg_list.append([pos, 1])
             pos -= 1
+        if rsfx and np.min(rsfx) in [s[0] for s in seg_list]:
+            seg_rsfx.insert(0, [s[0] for s in seg_list].index(np.min(rsfx)))
+        else:
+            seg_rsfx.insert(0, 0)
 
-    return seg_list, filled[:-1]
+    for i, r in enumerate(seg_rsfx):
+        if r > 0:
+            seg_rsfx[i] += i
+
+    return seg_list, seg_rsfx
 
 
 def _get_sfx(oracle, s_set, k):
@@ -745,4 +938,3 @@ def _get_rsfx(oracle, rs_set, k):
         for _k in oracle.rsfx[k]:
             rs_set = rs_set.union(_get_rsfx(oracle, rs_set, _k))
         return rs_set
-

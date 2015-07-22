@@ -29,10 +29,9 @@ import scipy
 import librosa
 import sklearn.cluster
 import sklearn.mixture
-# import scipy.spatial.distance as dist
 import scipy.stats as stats
 import scipy.cluster.hierarchy as scihc
-
+import editdistance as edit
 
 def entropy(x):
     return scipy.stats.entropy(x, base=2)
@@ -86,6 +85,15 @@ def eigen_decomposition(mat, k=11):
 
     return vecs[:, :k].T
 
+
+def edit_distance(u, v):
+    return float(edit.eval(u, v))
+
+
+def normalized_edit_distance(u, v):
+    return edit_distance(u, v)/np.max([len(u), len(v)])
+
+
 """Adopted from Brian McFee`s spectral clustering for structural segmentation"""
 
 
@@ -137,7 +145,7 @@ def clustering_by_entropy(eigen_vecs, k_min, width=33):
 
     # Classify each segment centroid
 
-    labels = segment_labeling(y_best, best_boundaries, best_n_types)
+    labels = segment_labeling(y_best, best_boundaries)
 
     # intervals = zip(boundaries[:-1], boundaries[1:])
     best_labels = labels
@@ -145,12 +153,12 @@ def clustering_by_entropy(eigen_vecs, k_min, width=33):
     return best_boundaries, best_labels
 
 
-def segment_labeling(x, boundaries, k):
+def segment_labeling(x, boundaries, k=0.05):
 
     x_sync = librosa.feature.sync(x.T, boundaries)
     # d = dist.pdist(x_sync)
     z = scihc.linkage(x_sync.T, method='ward')
-    t = 0.05 * np.max(z[:, 2])
+    t = k * np.max(z[:, 2])
     seg_labels = scihc.fcluster(z, t=t, criterion='distance')
 
     # c = sklearn.cluster.KMeans(n_clusters=k, tol=1e-8)
