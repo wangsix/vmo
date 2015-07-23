@@ -33,6 +33,7 @@ import scipy.stats as stats
 import scipy.cluster.hierarchy as scihc
 import editdistance as edit
 
+
 def entropy(x):
     return scipy.stats.entropy(x, base=2)
 
@@ -71,7 +72,7 @@ def normalized_graph_laplacian(mat):
     return laplacian
 
 
-def eigen_decomposition(mat, k=11):
+def eigen_decomposition(mat, k=6):  # Changed from 11 to 8 then to 6(7/22)
     vals, vecs = scipy.linalg.eig(mat)
     vals = vals.real
     vecs = vecs.real
@@ -97,7 +98,7 @@ def normalized_edit_distance(u, v):
 """Adopted from Brian McFee`s spectral clustering for structural segmentation"""
 
 
-def clustering_by_entropy(eigen_vecs, k_min, width=33):
+def clustering_by_entropy(eigen_vecs, k_min, width=9):
     best_score = -np.inf
     best_boundaries = [0, eigen_vecs.shape[1]]
     best_n_types = 1
@@ -167,7 +168,7 @@ def segment_labeling(x, boundaries, k=0.05):
     return seg_labels
 
 
-def find_boundaries(frame_labels, width=33):
+def find_boundaries(frame_labels, width=9):
     frame_labels = np.pad(frame_labels, (width/2, width/2+1), mode='reflect')
     frame_labels = np.array([stats.mode(frame_labels[i:j])[0][0]
                              for (i, j) in zip(range(0, len(frame_labels)-width),

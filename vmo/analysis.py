@@ -244,17 +244,18 @@ def _rsfx_count(oracle, s, count, hist, ab, VERBOSE=False):
 """
 
 
-def _seg_by_single_frame(oracle, cluster_method='agglomerative', connectivity='temporal', data='symbol', width=5,
-                         **kwargs):
+def _seg_by_single_frame(oracle, cluster_method='agglomerative', connectivity='temporal', data='symbol',
+                         median_filter_width=9, **kwargs):
     obs_len = oracle.n_states - 1
+    median_filter_width = median_filter_width
     if connectivity is 'temporal':
         connectivity = np.zeros((obs_len, obs_len))
     else:
         connectivity = create_selfsim(oracle, method=connectivity)
         connectivity = librosa.segment.recurrence_to_lag(connectivity, pad=False)
-        connectivity = np.pad(connectivity, [(0, 0), [width, width]], mode='reflect')
-        connectivity = sig.medfilt(connectivity, [1, width])
-        connectivity = connectivity[:, width:-width]
+        connectivity = np.pad(connectivity, [(0, 0), [median_filter_width, median_filter_width]], mode='reflect')
+        connectivity = sig.medfilt(connectivity, [1, median_filter_width])
+        connectivity = connectivity[:, median_filter_width:-median_filter_width]
         connectivity = librosa.segment.lag_to_recurrence(connectivity)
 
     connectivity[range(1, obs_len), range(obs_len - 1)] = 1.0
@@ -299,7 +300,7 @@ def _seg_by_hc_single_frame(obs_len, connectivity, data, **kwargs):
     return boundaries, labels
 
 
-def _seg_by_spectral_single_frame(connectivity, width=33):
+def _seg_by_spectral_single_frame(connectivity, width=9):
     graph_lap = utils.normalized_graph_laplacian(connectivity)
     eigen_vecs = utils.eigen_decomposition(graph_lap)
     boundaries, labels = utils.clustering_by_entropy(eigen_vecs, k_min=2, width=width)
@@ -352,7 +353,7 @@ def _seg_by_hc_string_matching(oracle, data='symbol', connectivity=None, **kwarg
     reconstructed_z = np.zeros((frag_num - 1, 4))
     reconstructed_z[:, :2] = _children
     reconstructed_z[:, 2] = distances
-    print reconstructed_z
+
     if 'threshold' in kwargs.keys():
         t = kwargs['threshold']
     else:
