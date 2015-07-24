@@ -3,7 +3,7 @@ utils/prism/model.py
 Variable Markov Oracle in python
 
 @copyright: 
-Copyright (C) 3.2015 Cheng-i Wang
+Copyright (C) 7.2015 Theis Bazin
 
 This file is part of vmo.
 
@@ -43,7 +43,7 @@ def print_proba(proba):
     if isinstance(proba, Fraction):
         return "{0}/{1}".format(proba.numerator, proba.denominator)
     elif isinstance(proba, float) or isinstance(proba, int):
-        return __repr__(proba)
+        return str(proba)
     else:
         raise ValueError("Unexpected probability type")
                 
