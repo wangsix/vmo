@@ -3,7 +3,7 @@ utils/nuxmv/properties.py
 Variable Markov Oracle in python
 
 @copyright: 
-Copyright (C) 3.2015 Cheng-i Wang
+Copyright (C) 7.2015 Theis Bazin
 
 This file is part of vmo.
 
@@ -73,26 +73,28 @@ def pitch_equal(pitch, silence_equivalence=False, allow_init=False,
                                                nuxmv_empty_name)
     return equality_test
 
-def make_chord_progression(progression, exists=True,
-                           silence_equivalence=False, allow_init=False,
-                           nuxmv_pitch_name='pitchRoot',
-                           nuxmv_silence_name='p_Silence'):
-    # TODO: Fix this, the properties for fixed ranges are wrong,
-    # should use a combination of EBF and EBG, because E [ BU ] actually
-    # does not enforce truth on all states before m, so the strict progression
-    # only states that the last state satisfies the requirement
+def make_piecewise_chord_progression(progressions, exists=True,
+                                     silence_equivalence=False,
+                                     allow_init=False,
+                                     nuxmv_pitch_name='pitchRoot',
+                                     nuxmv_silence_name='p_Silence'):
     """Return a string stating the existence of a path following `progression`.
 
     Keyword arguments:
-        progression: ((string, (int, int)) or (string, int) or string) sequence
-            The chord progression to test for.
-            Each pair in the sequence consists of:
+        progressions: {(string, (int, int)); (string, int) or string} sequences
+            The piecewise chord progression to test for, of the form:
+            [PROG_1, PROG_2, ..., PROG_n].
+            Each PROG_i should be continously satisfied.
+            Arbitrary paths can be taken to connect each PROG_i though.
+            
+            Each PROG_i is a sequence of pairs of the form:
                 The name of the root note, e.g. 'C#' or 'D-'
                 The quarter-length duration for which the note should be held,
                 as an interval of acceptable durations.
                     A single int means an exact duration is expected.
                     A value of zero means the duration can be arbitrary.
                     If no duration is given, a value of zero is assumed.
+
         exists: bool
             The truth value to test
             (default True, should be False for counter-example generation). 
@@ -110,20 +112,31 @@ def make_chord_progression(progression, exists=True,
             The name of the nuxmv value specifying that the current
             state holds no notes (default 'p_Silence').
     """
-    progression_copy = copy.deepcopy(progression)
-    progression_copy.reverse()
+    progressions_copy = copy.deepcopy(progressions)
+    for progression in progressions_copy:
+        # Necessary because list.pop() extracts `list`'s last element
+        progression.reverse()
     
-    def progression_aux(progression):
-        if not progression:
+    def progressions_aux(progressions):
+        if not progressions:
+            # Empty progression, existence is trivial
             return 'TRUE'
+        elif not progressions[0]:
+            # Existence of the sequence depends only on the following
+            # progressions in `progressions`
+            next_progressions = progressions_aux(progressions[1:])
+            return "EF ({})".format(next_progressions)
         else:
+            # Enforce next step in the current progression
+            progression = progressions[0]
+
             next_elem = progression.pop()
-            if isinstance(next_elem, str):
+            if isinstance(next_elem, basestring):
                 (pitch, duration) = (next_elem, 0)
             else:
                 (pitch, duration) = next_elem
             root_name = model.make_root_name(pitch)
-            next_prop = progression_aux(progression)
+            next_prop = progressions_aux(progressions)
             equality_test = pitch_equal(
                 root_name,
                 silence_equivalence=silence_equivalence,
@@ -166,5 +179,6 @@ def make_chord_progression(progression, exists=True,
             
             return prop
     
-    return "CTLSPEC {1}(EF ({0}))".format(progression_aux(progression_copy),
-                                          '' if exists else '!')
+    return "CTLSPEC {1}(EF ({0}))".format(progressions_aux(progressions_copy),
+                                     # Account for possible negation
+                                     '' if exists else '!')

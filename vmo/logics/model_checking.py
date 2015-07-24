@@ -3,7 +3,7 @@ logics/model_checking.py
 Variable Markov Oracle in python
 
 @copyright: 
-Copyright (C) 3.2015 Cheng-i Wang
+Copyright (C) 7.2015 Theis Bazin
 
 This file is part of vmo.
 
@@ -95,20 +95,30 @@ def make_counter_example(oracle, prop, start=None, include_rsfx=False,
     counterexample = check.make_counterexample(oracle, prop)
     return counterexample
     
-def make_chord_progression(oracle, progression, start=None, include_rsfx=False,
-                           silence_equivalence=False,
-                           allow_init=False,
-                           model_checker='nuxmv'):
+def make_piecewise_chord_progression(oracle, progressions, start=None,
+                                     include_rsfx=False,
+                                     silence_equivalence=False,
+                                     allow_init=False,
+                                     model_checker='nuxmv'):
     """Return a path in `oracle` reaching the given `progression` from `start`.
 
     Keyword arguments:
         oracle: vmo.VMO.VMO
             The oracle on which to generate a path.
-        progression: (string, int) sequence
-            The chord progression to test for.
-            Each pair in the sequence consists of:
+        progressions: (string, int) sequences
+            The piecewise chord progression to test for, of the form:
+                [PROG_1, PROG_2, ..., PROG_n].
+            Each PROG_i should be continously satisfied.
+            Arbitrary paths can be taken to connect each PROG_i.
+
+            Each PROG_i is a sequence of pairs of the form:
                 The name of the root note, e.g. 'C#' or 'D-'
-                The length for which the note should be held, in quarter length.
+                The quarter-length duration for which the note should be held,
+                as an interval of acceptable durations.
+                    A single int means an exact duration is expected.
+                    A value of zero means the duration can be arbitrary.
+                    If no duration is given, a value of zero is assumed.
+    
         start: int, optional
             The index of the state from which the generated path should start
             (defaults to `oracle`'s initial state)
@@ -129,8 +139,8 @@ def make_chord_progression(oracle, progression, start=None, include_rsfx=False,
     
     model_str = model.print_oracle(oracle, include_rsfx=include_rsfx,
                                    init_state=start)
-    progression_prop = properties.make_chord_progression(
-        progression, exists=False,
+    progression_prop = properties.make_piecewise_chord_progression(
+        progressions, exists=False,
         silence_equivalence=silence_equivalence,
         allow_init=allow_init)
         
