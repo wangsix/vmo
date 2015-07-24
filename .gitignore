@@ -63,7 +63,7 @@ target/
 .#*
 
 # iPython notebooks aux files
-.ipynb_checkpoints/
+*.ipynb_checkpoints*
 
 # User-specific
 .idea/
