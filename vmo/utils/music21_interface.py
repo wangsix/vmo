@@ -79,18 +79,30 @@ def morph_streams(query, target, framesize=1.0, threshold=0,
     path = vmodel.make_piecewise_chord_progression(oracle, [chord_progression])
     return path
 
-def path_to_stream(original, path, framesize=1.0):
+def path_to_stream(original, path, framesize=1.0, model_checker_state='s'):
     """Return a new stream from `original` following the path `offsets`.
 
     Keyword arguments:
         original_stream: music21.stream.Stream
             The stream on which to follow the path.
-        path: int sequence
-            The path given as a sequence of states within the oracle.
+        path: int sequence or dict sequence
+            The path given either:
+                As a sequence of states within the oracle.
+                As a sequence of dictionaries as output by model_checking,
+                  in that case the key used to retrieve the sequence of states
+                  in the oracle is `model_checker_state`.
         framesize: float, optional
             The duration of each frame in the sequence.
+        model_checker_state: str
+            The name of the variable in the model-checking used to represent
+            the oracle's state.
     """
     new_stream = mus.stream.Stream()
+
+    if not path:
+        return new_stream
+    elif isinstance(path[0], dict):
+        path = [int(state[model_checker_state]) for state in path]
     
     # Accounting for the fact that the first state of any oracle in empty. 
     offsets = [framesize * (state - 1) for state in path if state != 0]
