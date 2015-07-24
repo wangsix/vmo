@@ -26,7 +26,7 @@ along with vmo.  If not, see <http://www.gnu.org/licenses/>.
 
 import numpy as np
 
-import vmo.utility as vutl
+import vmo.VMO.utility as vutl
 import vmo.distances as distances
 
 class FactorOracle(object):
