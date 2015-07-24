@@ -92,7 +92,7 @@ def draw_compror():
 
 def get_pattern_mat(oracle, pattern):
     pattern_mat = np.zeros((len(pattern), oracle.n_states-1))
-    for i,p in enumerate(pattern):
+    for i, p in enumerate(pattern):
         length = p[1]
         for s in p[0]:
             pattern_mat[i][s-length:s-1] = 1
