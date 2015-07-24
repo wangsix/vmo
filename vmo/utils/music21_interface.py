@@ -50,7 +50,7 @@ def oracle_from_corpus(name, **kwags):
     # Unstable, can break depending on the music21 structure of the piece
     # extracted from the corpus (e.g. if it's grouped in staves), use smart
     stream = mus.corpus.parse(name).flat.notes
-    oracle = vmusic.from_stream(stream, **kwags)
+    oracle = from_stream(stream, **kwags)
     return oracle
 
 
@@ -75,7 +75,7 @@ def morph_streams(query, target, framesize=1.0, threshold=0,
     import vmo.logics.model_checking as vmodel
     
     chord_progression = get_chord_progression(query)
-    oracle = vmusic.from_stream(target)
+    oracle = from_stream(target)
     path = vmodel.make_piecewise_chord_progression(oracle, [chord_progression])
     return path
 
