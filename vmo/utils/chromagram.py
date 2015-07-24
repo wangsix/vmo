@@ -3,7 +3,7 @@ utils/chromagram.py
 Variable Markov Oracle in python
 
 @copyright: 
-Copyright (C) 3.2015 Cheng-i Wang
+Copyright (C) 7.2015 Theis Bazin
 
 This file is part of vmo.
 
@@ -29,6 +29,8 @@ from math import floor, ceil
 from scipy.ndimage.filters import gaussian_filter1d as gaussian
 
 import music21 as mus
+
+import vmo.utils.music21_interface as vmusic
 
 """Music21 chords and streams to chromagram conversion.
 
@@ -170,7 +172,7 @@ def from_stream(stream, framesize=1.0, overlap=0.0,
 
     chroma_matrix = np.zeros(shape=(pitch_space_size, frames_count))
     for frame, offset in enumerate(offsets):
-        elements = extract_frame(chords, offset, framesize)
+        elements = vmusic.extract_frame(chords, offset, framesize)
         # Get all pitch classes appearing in the extracted frame
         pitch_classes = [pc for chord in elements for pc in chord.pitchClasses]
                                        
@@ -187,19 +189,6 @@ def from_stream(stream, framesize=1.0, overlap=0.0,
             chroma_matrix[i,:] = smoothed_row
 
     return chroma_matrix
-
-"""Helper functions"""
-
-def extract_frame(stream, offset_start, framesize):
-    result = stream.getElementsByOffset(
-        offset_start,
-        offsetEnd=offset_start+framesize,
-        # Don't include notes from `stream` starting in its next frame
-        includeEndBoundary=False,
-        # Only include notes starting in the extracted frame
-        mustBeginInSpan=True
-        )
-    return result
 
 
 if __name__ == "__main__":
