@@ -30,8 +30,6 @@ from scipy.ndimage.filters import gaussian_filter1d as gaussian
 
 import music21 as mus
 
-import vmo.utils.music21_interface as vmusic
-
 """Music21 chords and streams to chromagram conversion.
 
 This module exports a function to turn a music21 Chord/Note object
@@ -162,6 +160,8 @@ def from_stream(stream, framesize=1.0, overlap=0.0,
     >>> chromagram[0, 4] == 0
     True
     """
+    import vmo.utils.music21_interface as vmusic
+
     chords = stream.flat.chordify().notes
     duration_quarters = int(floor(chords.duration.quarterLength))
     frames_count = int(ceil(duration_quarters * (1. / framesize)))
