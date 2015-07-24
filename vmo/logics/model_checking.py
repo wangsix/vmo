@@ -26,7 +26,7 @@ along with vmo.  If not, see <http://www.gnu.org/licenses/>.
 
 """Model-checking various logics (incl. CTL, LTL) on an oracle.
 
-Currently uses nuXmv as a backend..
+Currently uses nuXmv as a backend.
 """
 
 import music21 as mus
@@ -94,6 +94,57 @@ def make_counter_example(oracle, prop, start=None, include_rsfx=False,
                                    init_state=start)
     counterexample = check.make_counterexample(oracle, prop)
     return counterexample
+
+
+"""Chord progressions"""
+
+INFINITY = 'inf'
+
+def agglomerate_progression(progression):
+    """Sequence of notes with durations from a sequence of single notes.
+
+    ----
+    >>> agglomerate_progression(['C', 'D', 'E', 'E', 'E', 'D', 'C', 'C', 'F#'])
+    ['C', 'D', ('E', (3, 'inf')), 'D', ('C', (2, 'inf')), 'F#']
+    """
+    def get_note(elem):
+        if isinstance(elem, basestring):
+            return elem
+        else:
+            name, _ = elem
+            return name
+    
+    if not progression:
+        return progression
+    else:
+        acc = (progression[0], 1)
+        def aux(l, acc):
+            if not l:
+                note, start = acc
+                if start > 1:
+                    l.append((note, (start, INFINITY)))
+                    return l
+                else:
+                    l.append(note)
+                    return l
+            else:
+                if l[0] == acc[0]:
+                    acc = (acc[0], acc[1] + 1)
+                    return aux(l[1:], acc)
+                else:
+                    new_acc = (l[0], 1)
+                    note, start = acc
+                    if start > 1:
+                        result = aux(l[1:], new_acc)
+                        result.append((note, (start, INFINITY)))
+                        return result
+                    else:
+                        result = aux(l[1:], new_acc)
+                        result.append(note)
+                        return result
+        result = aux(progression[1:], acc)
+        result.reverse()
+        return result
     
 def make_piecewise_chord_progression(oracle, progressions, start=None,
                                      include_rsfx=False,
@@ -105,12 +156,12 @@ def make_piecewise_chord_progression(oracle, progressions, start=None,
     Keyword arguments:
         oracle: vmo.VMO.VMO
             The oracle on which to generate a path.
-        progressions: (string, int) sequences
+        progressions: sequences of (str, (int, {int or str})); (str, int) or str
             The piecewise chord progression to test for, of the form:
-                [PROG_1, PROG_2, ..., PROG_n].
+            [PROG_1, PROG_2, ..., PROG_n].
             Each PROG_i should be continously satisfied.
-            Arbitrary paths can be taken to connect each PROG_i.
-
+            Arbitrary paths can be taken to connect each PROG_i though.
+            
             Each PROG_i is a sequence of pairs of the form:
                 The name of the root note, e.g. 'C#' or 'D-'
                 The quarter-length duration for which the note should be held,
@@ -118,7 +169,9 @@ def make_piecewise_chord_progression(oracle, progressions, start=None,
                     A single int means an exact duration is expected.
                     A value of zero means the duration can be arbitrary.
                     If no duration is given, a value of zero is assumed.
-    
+                    If the second value is `'inf'`, the first value is
+                      taken a the minimum acceptable value and no constraint
+                      is set on the maximum value. 
         start: int, optional
             The index of the state from which the generated path should start
             (defaults to `oracle`'s initial state)
@@ -145,3 +198,80 @@ def make_piecewise_chord_progression(oracle, progressions, start=None,
         allow_init=allow_init)
         
     return (check.make_counterexample(model_str, progression_prop))
+
+
+def make_piecewise_chord_progression_tonic_free(
+        oracle, progressions, mode='major', start=None, include_rsfx=False,
+        silence_equivalence=False, allow_init=False, model_checker='nuxmv'):
+    """Return a path in `oracle` reaching the given `progressions` from `start`.
+
+    Tonic-free version: test for all 12 possibilities of instantiation of the
+    degrees following the choice of an arbitrary tonic.
+    The first existing path is returned.
+    
+    Keyword arguments:
+        oracle: vmo.VMO.VMO
+            The oracle on which to generate a path.
+        progressions: sequences of (str, (int, {int or str})); (str, int) or str
+            The piecewise chord progression to test for, of the form:
+            [PROG_1, PROG_2, ..., PROG_n].
+            Each PROG_i should be continously satisfied.
+            Arbitrary paths can be taken to connect each PROG_i though.
+            
+            Each PROG_i is a sequence of pairs of the form:
+                The name of the root note, e.g. 'C#' or 'D-'
+                The quarter-length duration for which the note should be held,
+                as an interval of acceptable durations.
+                    A single int means an exact duration is expected.
+                    A value of zero means the duration can be arbitrary.
+                    If no duration is given, a value of zero is assumed.
+                    If the second value is `'inf'`, the first value is
+                      taken a the minimum acceptable value and no constraint
+                      is set on the maximum value. 
+        mode: string, optional
+            The mode in which to generate the chord progression
+            (default 'major').
+        start: int, optional
+            The index of the start from which the generated path should start
+            (defaults to `oracle`'s initial state)
+        include_rsfx: bool, optional
+            Whether reverse suffix links should be included in the graph
+            extracted from `oracle` (default `False`)
+        silence_equivalence: bool, optional
+            Whether silence should be considered equivalent to any given pitch
+            (default False, since we then generates less uninteresting paths)
+        allow_init: bool, optional
+            Whether the initial state should be considered equivalent
+            to any given pitch
+            (default False, since we then generate less interesting paths)
+    """
+    if start is None:
+        start = oracle.initial_state
+    model, check, properties = _init_modules(model_checker)
+
+    result = None
+    
+    tonic = 0
+    model_str = model.print_oracle(oracle, init_state=start,
+                                   include_rsfx=include_rsfx)
+    while result is None and tonic < 12:
+        tonic_name = mus.pitch.Pitch(tonic).name
+        inst_progs = (lambda progression:
+            progression_from_tonic(tonic_name, progression=progression,
+                                   mode=mode)
+                                   )
+        progressions_inst = map(inst_progs, progressions)
+        progression_prop = properties.make_piecewise_chord_progression(
+            map(agglomerate_progression, progressions_inst),
+            exists=False,
+            silence_equivalence=silence_equivalence)
+        print(progression_prop)
+        tonic += 1
+        result = check.make_counterexample(model_str, progression_prop)
+        
+    return result
+
+
+if __name__ == "__main__":
+    import doctest
+    doctest.testmod()
