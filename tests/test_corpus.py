@@ -3,7 +3,7 @@ tests/test_corpus.py
 Variable Markov Oracle in python
 
 @copyright: 
-Copyright (C) 3.2015 Cheng-i Wang
+Copyright (C) 7.2015 Theis Bazin
 
 This file is part of vmo.
 
@@ -32,6 +32,7 @@ import vmo.VMO.oracle as voracle
 import vmo.generate as vgen
 import vmo.logics.model_checking as vmodel
 import vmo.utils.chromagram as vchroma
+import vmo.utils.music21_interface as vmusic
 
 import vmo.utils.nuxmv.model as nuxmv_model
 import vmo.utils.nuxmv.check as nuxmv_check
@@ -41,10 +42,10 @@ _BIG_INT = int(10000)
 
 def oracle_from_corpus(name, framesize=1.0, threshold=0, suffix_method='inc',
                        weights=None, dfunc='tonnetz', dfunc_handle=None):
-    # Unstable, can break depending on the structure of the piece extracted
-    # from the corpus (e.g. if it's grouped in staves), use smart
+    # Unstable, can break depending on the music21 structure of the piece
+    # extracted from the corpus (e.g. if it's grouped in staves), use smart
     stream = mus.corpus.parse(name).flat.notes
-    oracle = voracle.from_stream(stream, framesize=framesize,
+    oracle = vmusic.from_stream(stream, framesize=framesize,
                                  threshold=threshold,
                                  suffix_method=suffix_method,
                                  weights=weights,
@@ -82,8 +83,8 @@ def morph_streams(query, target, framesize=1.0, threshold=0,
             The material with which to generate music.
     """
     chord_progression = get_chord_progression(query)
-    oracle = voracle.from_stream(target)
-    path = vmodel.make_chord_progression(oracle, chord_progression)
+    oracle = vmusic.from_stream(target)
+    path = vmodel.make_piecewise_chord_progression(oracle, [chord_progression])
     return path
 
 def progression_from_tonic(tonic, progression='authentic', mode='major'):
@@ -198,12 +199,10 @@ def agglomerate_progression(progression):
         result.reverse()
         return result
     
-def make_chord_progression_tonic_free(oracle, progression, mode='major',
-                                      start=None, include_rsfx=False,
-                                      silence_equivalence=False,
-                                      allow_init=False,
-                                      model_checker='nuxmv'):
-    """Return a path in `oracle` reaching the given `progression` from `start`.
+def make_piecewise_chord_progression_tonic_free(
+        oracle, progressions, mode='major', start=None, include_rsfx=False,
+        silence_equivalence=False, allow_init=False, model_checker='nuxmv'):
+    """Return a path in `oracle` reaching the given `progressions` from `start`.
 
     Tonic-free version: test for all 12 possibilities of instantiation of the
     degrees following the choice of an arbitrary tonic.
@@ -212,9 +211,13 @@ def make_chord_progression_tonic_free(oracle, progression, mode='major',
     Keyword arguments:
         oracle: vmo.VMO.VMO
             The oracle on which to generate a path.
-        progression: (int, int) sequence
+        progressions: (int, int) sequences
             The chord progression to test for.
-            Each pair in the sequence consists of:
+            The path returned should be a connection of paths following each
+            of the chord progressions in order.
+            The states in the connections are not specified.
+
+            Each sequence is a sequence of pairs, where each pair consists of:
                 A pitch class.
                 The length for which the note should be held, in quarter length.
         mode: string, optional
@@ -246,12 +249,16 @@ def make_chord_progression_tonic_free(oracle, progression, mode='major',
                                    include_rsfx=include_rsfx)
     while result is None and tonic < 12:
         tonic_name = mus.pitch.Pitch(tonic).name
-        progression_inst = progression_from_tonic(
-            tonic_name, progression=progression, mode=mode)
-        progression_prop = properties.make_chord_progression(
-            agglomerate_progression(progression_inst),
+        inst_progs = (lambda progression:
+            progression_from_tonic(tonic_name, progression=progression,
+                                   mode=mode)
+                                   )
+        progressions_inst = map(inst_progs, progressions)
+        progression_prop = properties.make_piecewise_chord_progression(
+            map(agglomerate_progression, progressions_inst),
             exists=False,
             silence_equivalence=silence_equivalence)
+        print(progression_prop)
         tonic += 1
         result = check.make_counterexample(model_str, progression_prop)
         
