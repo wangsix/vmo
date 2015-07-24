@@ -94,7 +94,9 @@ def make_piecewise_chord_progression(progressions, exists=True,
                     A single int means an exact duration is expected.
                     A value of zero means the duration can be arbitrary.
                     If no duration is given, a value of zero is assumed.
-
+                    If the second value is `'inf'`, the first value is
+                      taken a the minimum acceptable value and no constraint
+                      is set on the maximum value. 
         exists: bool
             The truth value to test
             (default True, should be False for counter-example generation). 
@@ -163,10 +165,17 @@ def make_piecewise_chord_progression(progressions, exists=True,
                 interval_eq = "EBG {0} .. {1} ({2})".format(
                     0, min_dur - 1, equality_test)
 
-                # Enforce reachability of next interval
-                # between `min_dur` and `max_dur`
-                reachability_prop = "E [({0}) BU {1} .. {2} ({3})]".format(
-                    equality_test, min_dur, max_dur, next_prop)
+                if max_dur == 'inf':
+                    # Enforce reachability of next interval
+                    # within at least `min_dur` steps
+                    reachability_prop = "E [({0}) BU {1} .. {1} (EF {2})]"
+                    reachability_prop = reachability_prop.format(
+                        equality_test, min_dur, next_prop)
+                else:    
+                    # Enforce reachability of next interval
+                    # between `min_dur` and `max_dur`
+                    reachability_prop = "E [({0}) BU {1} .. {2} ({3})]".format(
+                        equality_test, min_dur, max_dur, next_prop)
 
                 # Combine interval constraint and reachability
                 prop = "({0}) & ({1})".format(interval_eq, reachability_prop)
