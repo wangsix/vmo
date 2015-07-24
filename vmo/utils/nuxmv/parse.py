@@ -3,7 +3,7 @@ utils/nuxmv/parse.py
 Variable Markov Oracle in python
 
 @copyright: 
-Copyright (C) 3.2015 Cheng-i Wang
+Copyright (C) 7.2015 Theis Bazin
 
 This file is part of vmo.
 
