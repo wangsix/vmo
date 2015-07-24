@@ -29,10 +29,8 @@ from functools import partial
 from scipy.stats import multivariate_normal
 import fuzzywuzzy.fuzz as fuzz
 
-import vmo
-import vmo.VMO
+import vmo.VMO.oracle as voracle
 import vmo.distances as vdists
-
 
 """Self-similarity matrix and transition matrix from an oracle"""
 
@@ -504,7 +502,7 @@ def create_pttr_vmo(oracle, pattern):
         _vmo_vec.append([])
         for sfx in p[0]:
             local_obs = oracle.feature[sfx-p[1]+1:sfx+1]
-            local_vmo = vmo.build_oracle(local_obs, flag='a', threshold=thresh)
+            local_vmo = voracle.build_oracle(local_obs, flag='a', threshold=thresh)
             _vmo_vec[-1].append(local_vmo)
 
         pttr_vmo = _vmo_vec[-1][0]
@@ -546,8 +544,8 @@ def create_pttr_vmo(oracle, pattern):
 
 def create_reverse_oracle(oracle):
     reverse_features = oracle.feature[-1:0:-1]
-    r_oracle = vmo.build_oracle(reverse_features, 'v',
-                                threshold=oracle.params['threshold'])
+    r_oracle = voracle.build_oracle(reverse_features, 'v',
+                                    threshold=oracle.params['threshold'])
     return r_oracle
 
 def _query_init(k, oracle, query, method='all', dfunc='euclidean'): 

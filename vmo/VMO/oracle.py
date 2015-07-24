@@ -26,11 +26,9 @@ along with vmo.  If not, see <http://www.gnu.org/licenses/>.
 
 import numpy as np
 
-import vmo.analysis as van
-import vmo.VMO.utility as utl
+import vmo.utility as vutl
 import vmo.distances as distances
-import vmo.utils.chromagram as chromagram
-        
+
 class FactorOracle(object):
     """The base class for the FO(factor oracle) and MO(variable markov oracle)
     
@@ -208,7 +206,7 @@ class FactorOracle(object):
             # grow too.
 
             # Note : a special case is required for state `0`, because
-            # allowing reverse suffix moves from `0` breaks all suffix
+            # allowing reverse suffix moves from `0` nullifies all suffix
             # structure (it makes the suffix links graph strongly connected)
             for s in self.suffix_class[suffix].copy():
                 if s != 0:
@@ -359,7 +357,7 @@ class FactorOracle(object):
         h1 = np.zeros(len(cw))
 
         for i in range(1, len(cw)):
-            h1[i] = utl.entropy(cw[0:i + 1])
+            h1[i] = vutl.entropy(cw[0:i + 1])
 
         ir = alpha * h0 - h1
 
@@ -896,9 +894,8 @@ def build_oracle(input_features, flag, threshold=0, suffix_method='inc',
         oracle = _create_oracle('a', threshold=threshold, dfunc=dfunc,
                                 dfunc_handle=dfunc_handle, dim=dim)
         oracle = _build_oracle(flag, oracle, input_features, suffix_method)
-
+    
     return oracle
-
 
 def find_threshold_sgd(input_features, r=(0, 1, 0.1), method='ir', flag='a',
                        suffix_method='inc', alpha=1.0, feature=None, ir_type='cum',
@@ -1009,6 +1006,7 @@ def find_threshold_ir(input_features, r=(0,1,0.1), flag='a', suffix_method='inc'
     else:
         return ir_thresh_pairs[0], pairs_return
 
+
 # def find_threshold_motif(input_features, r=(0, 1, 0.1), flag='a',
 #                          suffix_method='inc', alpha=1.0, feature=None,
 #                          dfunc='euclidean', dfunc_handle=None, dim=1,
@@ -1038,14 +1036,3 @@ def find_threshold_ir(input_features, r=(0,1,0.1), flag='a', suffix_method='inc'
 #             print '          avg_num:', avg_num[-1]
 #
 #     return avg_len, avg_occ, avg_num, thresholds
-
-def from_stream(stream, framesize=1.0, threshold=0,
-                suffix_method='inc', weights=None,
-                dfunc='tonnetz', dfunc_handle=None):
-    chroma = chromagram.from_stream(stream, framesize=framesize)
-    features = np.array(chroma).T
-    oracle = build_oracle(features, 'v', feature='chromagram',
-                          threshold=threshold, suffix_method=suffix_method,
-                          weights=weights,
-                          dfunc=dfunc, dfunc_handle=dfunc_handle)
-    return oracle
