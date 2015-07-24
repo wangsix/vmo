@@ -207,7 +207,9 @@ def make_piecewise_chord_progression_tonic_free(
 
     Tonic-free version: test for all 12 possibilities of instantiation of the
     degrees following the choice of an arbitrary tonic.
-    The first existing path is returned.
+    
+    Return: (dict sequence, str)
+        The first existing path and the associated tonic.
     
     Keyword arguments:
         oracle: vmo.VMO.VMO
@@ -245,6 +247,8 @@ def make_piecewise_chord_progression_tonic_free(
             to any given pitch
             (default False, since we then generate less interesting paths)
     """
+    import vmo.utils.music21_interface as vmusic
+
     if start is None:
         start = oracle.initial_state
     model, check, properties = _init_modules(model_checker)
@@ -257,19 +261,18 @@ def make_piecewise_chord_progression_tonic_free(
     while result is None and tonic < 12:
         tonic_name = mus.pitch.Pitch(tonic).name
         inst_progs = (lambda progression:
-            progression_from_tonic(tonic_name, progression=progression,
-                                   mode=mode)
-                                   )
+            vmusic.progression_from_tonic(tonic_name, progression=progression,
+                                          mode=mode)
+                                          )
         progressions_inst = map(inst_progs, progressions)
         progression_prop = properties.make_piecewise_chord_progression(
             map(agglomerate_progression, progressions_inst),
             exists=False,
             silence_equivalence=silence_equivalence)
-        print(progression_prop)
         tonic += 1
         result = check.make_counterexample(model_str, progression_prop)
         
-    return result
+    return (result, tonic_name)
 
 
 if __name__ == "__main__":
