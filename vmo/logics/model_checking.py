@@ -279,7 +279,8 @@ def make_piecewise_chord_progression_tonic_free(
         tonic_name = mus.pitch.Pitch(tonic).name
         inst_progs = (lambda progression:
             vmusic.progression_from_tonic(tonic_name, progression=progression,
-                                          mode=mode)
+                                          mode=mode,
+                                          enable_motions=enable_motions)
                                           )
         progressions_inst = map(inst_progs, progressions)
         progression_prop = properties.make_piecewise_chord_progression(
