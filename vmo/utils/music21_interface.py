@@ -136,7 +136,8 @@ def get_chord_progression(stream, framesize=1.0, overlap=0.0,
     root_names = map(get_name, chords)
     return root_names
 
-def progression_from_tonic(tonic, progression='authentic', mode='major'):
+def progression_from_tonic(tonic, progression='authentic',
+                           enable_motions=False, mode='major'):
     """Return the pitches for the chosen `progression` with given `tonic`.
     
     Keyword arguments:
@@ -156,42 +157,70 @@ def progression_from_tonic(tonic, progression='authentic', mode='major'):
     ['G', 'C']
     >>> progression_from_tonic('E', 'plagal')
     ['A', 'E']
-    >>> progression_from_tonic('D', [8, 4, 5, 1])
-    ['D', 'G', 'A', 'D']
+    >>> progression_from_tonic('D', [8, '4', 5, '+1'], enable_motions=True)
+    ['D', 'G', 'A', '+D']
     """
     p_tonic = mus.note.Note(tonic).pitchClass
     def make_degree(degree):
+        """Auxiliary degree instantiation function.
+
+        Return: (pitchClass, motion)
+            pitchClass: int
+                The pitch class relative to `degree` with given `p_tonic`.
+            motion: None or str
+                Eventual melodic motion if `degree` is prefixed by '+' or '-'. 
+        """
+        motion = None
+        if isinstance(degree, str):
+            if not enable_motions and degree[0] in ['+', '-']:
+                raise ValueError("Must set enable_motions to True" +
+                                 "to parse chord: {}".format(degree))
+            if degree[0] == '+':
+                motion = '+'
+                degree = int(degree[1:])
+            elif degree[0] == '-':
+                motion = '-'
+                degree = int(degree[1:])
+            else:
+                degree = int(degree)
         degree = ((degree - 1) % 7) + 1  # degree is now in range 1 .. 7
+
+        result = None
         
         if degree == 1:
-            return p_tonic
+            result = p_tonic
         elif degree == 2:
-            return (p_tonic + 2) % 12
+            result = (p_tonic + 2) % 12
         elif degree == 3:
             if mode == 'major':
-                return (p_tonic + 4) % 12
+                result = (p_tonic + 4) % 12
             elif mode == 'minor':
-                return (p_tonic + 3) % 12
+                result = (p_tonic + 3) % 12
         elif degree == 4:
-            return (p_tonic + 5) % 12
+            result = (p_tonic + 5) % 12
         elif degree == 5:
-            return (p_tonic + 7) % 12
+            result = (p_tonic + 7) % 12
         elif degree == 6:
             if mode == 'major':
-                return (p_tonic + 9) % 12
+                result = (p_tonic + 9) % 12
             elif mode == 'minor':
-                return (p_tonic + 8) % 12
+                result = (p_tonic + 8) % 12
         elif degree == 7:
-            return (p_tonic + 11) % 12
+            result = (p_tonic + 11) % 12
         else:
-            # degree is in the range 1 .. 7, so mode in unsupported
+            # degree is in the range 1 .. 7,
+            # so coming here  means `mode` in unsupported
             raise ValueError("Mode {} is unsupported".format(mode))
 
+        return result, motion
+
     if isinstance(progression, basestring):
+        tonic_motion = ((p_tonic, '-') if enable_motions
+                        else (p_tonic, None))
         if progression == 'authentic':
-            classes = [make_degree(5), p_tonic]
+            classes = [make_degree(5), tonic_motion]
         elif progression == 'plagal':
-            classes = [make_degree(4), p_tonic]
+            classes = [make_degree(4), tonic_motion]
         else:
             error_string = ("Cadence type {}".format(progression) +
                             "is unsupported (yet)")
@@ -201,8 +230,9 @@ def progression_from_tonic(tonic, progression='authentic', mode='major'):
     else:
         raise TypeError("Progression should be a string or a list of integers")
 
-    pitches = map(mus.pitch.Pitch, classes)
-    pitch_names = map(lambda pitch: pitch.name, pitches)
+    pitch_names = [motion + mus.pitch.Pitch(p_class).name if motion
+                   else mus.pitch.Pitch(p_class).name
+                   for (p_class, motion) in classes]
     return pitch_names
 
 
@@ -223,8 +253,28 @@ def extract_frame(stream, offset_start, framesize):
 def extract_frame_oracle(stream, oracle, state):
     framesize = oracle.framesize
     offset_start = framesize * (state - 1)
-    return extract_frame(stream, offset_start, framesize)
+    return extract_frame(stream.flat, offset_start, framesize)
 
+def is_ascending_motion(chord1, chord2):
+    """Return `True` if the motion from `chord1` to `chord2` is ascending.
+
+    ----
+    >>> cmaj4 = mus.chord.Chord(['C4', 'E4', 'G4', 'C5'])
+    >>> cmaj5 = mus.chord.Chord(['C5', 'E4', 'G4'])
+    >>> dmaj4 = mus.chord.Chord(['D4', 'F#4', 'A4', 'D5'])
+    >>> is_ascending_motion(cmaj4, cmaj5) 
+    True
+    >>> is_ascending_motion(cmaj4, dmaj4)
+    True
+    >>> is_ascending_motion(dmaj4, cmaj4) 
+    False
+    """
+    get_root = lambda chord: chord.sortAscending().root()
+    if not chord1.pitches or not chord2.pitches:
+        # If any of the chords is empty
+        return None
+    root1, root2 = map(get_root, (chord1, chord2))
+    return root1 <= root2
 
 if __name__ == "__main__":
     import doctest
