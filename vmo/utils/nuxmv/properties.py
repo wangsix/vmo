@@ -77,7 +77,8 @@ def make_piecewise_chord_progression(progressions, exists=True,
                                      silence_equivalence=False,
                                      allow_init=False,
                                      nuxmv_pitch_name='pitchRoot',
-                                     nuxmv_silence_name='p_Silence'):
+                                     nuxmv_silence_name='p_Silence',
+                                     nuxmv_motion_name='pitchMotion'):
     """Return a string stating the existence of a path following `progression`.
 
     Keyword arguments:
@@ -131,12 +132,19 @@ def make_piecewise_chord_progression(progressions, exists=True,
         else:
             # Enforce next step in the current progression
             progression = progressions[0]
-
+            motion = None
+            
             next_elem = progression.pop()
             if isinstance(next_elem, basestring):
                 (pitch, duration) = (next_elem, 0)
             else:
                 (pitch, duration) = next_elem
+            if pitch[0] == '+':
+                motion = 'ascending'
+                pitch = pitch[1:]
+            elif pitch[0] == '-':
+                motion = 'descending'
+                pitch = pitch[1:]
             root_name = model.make_root_name(pitch)
             next_prop = progressions_aux(progressions)
             equality_test = pitch_equal(
@@ -185,6 +193,13 @@ def make_piecewise_chord_progression(progressions, exists=True,
                     str(duration))
                 raise TypeError(error_str +
                                 " : no duration, int or int pair.")
+
+            if motion:
+                prop = "({0}={1}) & {2}".format(nuxmv_motion_name,
+                                                'm_asc' if motion=='ascending'
+                                                else 'm_desc',
+                                                prop)
+                                         
             
             return prop
     
