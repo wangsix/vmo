@@ -173,7 +173,7 @@ def progression_from_tonic(tonic, progression='authentic',
         motion = None
         if isinstance(degree, str):
             if not enable_motions and degree[0] in ['+', '-']:
-                raise ValueError("Must set enable_motions to True" +
+                raise ValueError("Must set enable_motions to True " +
                                  "to parse chord: {}".format(degree))
             if degree[0] == '+':
                 motion = '+'
