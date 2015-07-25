@@ -246,4 +246,3 @@ def make_counterexample(model_str, prop):
 if __name__ == "__main__":
     import doctest
     doctest.testmod()
-
