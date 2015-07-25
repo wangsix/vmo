@@ -146,7 +146,10 @@ def agglomerate_progression(progression):
         result.reverse()
         return result
     
-def make_piecewise_chord_progression(oracle, progressions, start=None,
+def make_piecewise_chord_progression(oracle, progressions,
+                                     enable_motions=False,
+                                     start=None,
+                                     original_stream=None,
                                      include_rsfx=False,
                                      silence_equivalence=False,
                                      allow_init=False,
@@ -171,7 +174,11 @@ def make_piecewise_chord_progression(oracle, progressions, start=None,
                     If no duration is given, a value of zero is assumed.
                     If the second value is `'inf'`, the first value is
                       taken a the minimum acceptable value and no constraint
-                      is set on the maximum value. 
+                      is set on the maximum value.
+        enable_motions: bool
+            Allow writing of chords as '+B' or '-F#' to specify melodic motion
+            used to reached chord (default `False`)
+            TODO: FIX: experimental, generates huge models, crashing nuXmv.
         start: int, optional
             The index of the state from which the generated path should start
             (defaults to `oracle`'s initial state)
@@ -191,7 +198,9 @@ def make_piecewise_chord_progression(oracle, progressions, start=None,
     model, check, properties = _init_modules(model_checker)
     
     model_str = model.print_oracle(oracle, include_rsfx=include_rsfx,
-                                   init_state=start)
+                                   enable_motions=enable_motions,
+                                   init_state=start,
+                                   original_stream=original_stream)
     progression_prop = properties.make_piecewise_chord_progression(
         progressions, exists=False,
         silence_equivalence=silence_equivalence,
@@ -201,8 +210,10 @@ def make_piecewise_chord_progression(oracle, progressions, start=None,
 
 
 def make_piecewise_chord_progression_tonic_free(
-        oracle, progressions, mode='major', start=None, include_rsfx=False,
-        silence_equivalence=False, allow_init=False, model_checker='nuxmv'):
+        oracle, progressions, original_stream=None, mode='major',
+        enable_motions=False, start=None,
+        include_rsfx=False, silence_equivalence=False, allow_init=False,
+        model_checker='nuxmv'):
     """Return a path in `oracle` reaching the given `progressions` from `start`.
 
     Tonic-free version: test for all 12 possibilities of instantiation of the
@@ -230,6 +241,10 @@ def make_piecewise_chord_progression_tonic_free(
                     If the second value is `'inf'`, the first value is
                       taken a the minimum acceptable value and no constraint
                       is set on the maximum value. 
+        enable_motions: bool
+            Allow writing of chords as '+B' or '-F#' to specify melodic motion
+            used to reached chord (default `False`)
+            TODO: FIX: experimental, generates huge models, crashing nuXmv.
         mode: string, optional
             The mode in which to generate the chord progression
             (default 'major').
@@ -256,8 +271,10 @@ def make_piecewise_chord_progression_tonic_free(
     result = None
     
     tonic = 0
-    model_str = model.print_oracle(oracle, init_state=start,
-                                   include_rsfx=include_rsfx)
+    model_str = model.print_oracle(oracle, enable_motions=enable_motions,
+                                   init_state=start,
+                                   include_rsfx=include_rsfx,
+                                   original_stream=original_stream)
     while result is None and tonic < 12:
         tonic_name = mus.pitch.Pitch(tonic).name
         inst_progs = (lambda progression:
