@@ -3,7 +3,7 @@ utils/nuxmv/model.py
 Variable Markov Oracle in python
 
 @copyright: 
-Copyright (C) 3.2015 Cheng-i Wang
+Copyright (C) 7.2015 Theis Bazin
 
 This file is part of vmo.
 
@@ -191,6 +191,58 @@ def print_module(adj_lists, nuxmv_state_name='s', init_state=0,
     
     return _bytes_concat([header, graph_str])
 
+def print_variable(name, values, initial_value, transitions):
+    """Generic formatted variable declaration.
+
+    Keyword arguments:
+        name: str
+            The variable's name.
+        values: str
+            The variable's type / range.
+        initial_value: str
+            The variable's initial value.
+        transitions: list of bytearrays
+            The list of all transitions for the variable.
+    ----
+    >>> name = 'var'
+    >>> values = '{a, b}'
+    >>> initial_value = 'a'
+    >>> transitions = map(bytearray,
+    ...                   ["var=a: b;",
+    ...                    "var=b: a;"])
+    >>> expected = (map(bytearray, [
+    ...      "VAR var : {a, b};",
+    ...      "ASSIGN init(var) := a;"]
+    ...      ),
+    ...      map(bytearray, [
+    ...      "next(var) :=",
+    ...      "case",
+    ...      "var=a: b;",
+    ...      "var=b: a;",
+    ...      "esac;"])
+    ...      )
+    >>> result = print_variable(name, values, initial_value,
+    ...                         transitions)
+    >>> result == expected
+    True
+    """
+    header = []
+    # Declare an unused variable, _PITCH_INIT, to make nuXmv aware of the
+    # type used to describe pitches
+    variable_decl = ("VAR {0} : {1};".format(name, values))
+    header.append(bytearray(variable_decl))
+    variable_init = "ASSIGN init({0}) := {1};".format(name, initial_value)
+    header.append(bytearray(variable_init))
+    
+    cases = []
+    cases.append(bytearray("next({0}) :=".format(name)))
+    cases.append(bytearray("case"))
+    cases += transitions
+    cases.append(bytearray("esac;"))
+
+    return header, cases
+
+
 """Harmonic printing"""
 
 """Prints a nuXmv mapping from oracle states to pitch-space."""
@@ -210,43 +262,121 @@ def print_pitch_state(oracle, state, nuxmv_state_name='s'):
     >>> o = vmo.VMO.oracle.build_oracle(chromagram.T, 'a',
     ...                                 feature='chromagram')
     >>> result = print_pitch_state(o, 1)
-    >>> expected = bytearray("s=1: p_C;")
+    >>> expected = bytearray("next(s)=1: p_C;")
     >>> result == expected
     True
     """
     chroma_array = oracle.feature[state]
     chord = chroma.to_chord(chroma_array)
     root_name = make_root_name(chord)
-    return bytearray("{0}={1}: {2};".format(nuxmv_state_name, state,
-                                           root_name))
+    return bytearray("next({0})={1}: {2};".format(nuxmv_state_name, state,
+                                                   root_name))
 
 def print_pitches(oracle, nuxmv_state_name='s'):
     # TODO : Add docstring.
-    header = []
-    # Declare an unused variable, _PITCH_INIT, to make nuXmv aware of the
-    # type used to describe pitches
-    pitch_decl = ("VAR _PITCH_TYPE : {p_Init, p_Silence, p_C, p_C#, p_D, p_E-, " +
-                  "p_E, p_F, p_F#, p_G, p_G#, p_A, p_B-, p_B};")
-    header.append(bytearray(pitch_decl))
-    pitch_init = "ASSIGN init(_PITCH_TYPE) := p_Init;"
-    pitch_conserve = "\tnext(_PITCH_TYPE) := p_Init;"
-    header.append(bytearray(pitch_init))
-    header.append(bytearray(pitch_conserve))
+    name = 'pitchRoot'
+    values = ("{p_Init, p_Silence, p_C, p_C#, p_D, p_E-, p_E, " +
+              "p_F, p_F#, p_G, p_G#, p_A, p_B-, p_B}")
+    initial_value = 'p_Init'
     
-    cases = []
-    cases.append(bytearray("DEFINE pitchRoot :="))
-    cases.append(bytearray("case"))
-    cases.append(bytearray("{}=0: p_Init;".format(nuxmv_state_name)))
-    for s in range(oracle.n_states)[1:]:
-        cases.append(print_pitch_state(oracle, s, nuxmv_state_name))
-    cases.append(bytearray("esac;"))
+    transitions = []
+    transitions.append(
+        bytearray("next({})=0: p_Init;".format(nuxmv_state_name)))
+    for s in range(1, oracle.n_states):
+        transitions.append(print_pitch_state(oracle, s, nuxmv_state_name))
 
-    return header, cases
+    return print_variable(name, values, initial_value, transitions)
 
+def print_motion_state(oracle, original_stream, state, nuxmv_state_name='s'):
+    """Return nuXmv assignation cases for motion for all successors of `state`.
+
+    Keyword arguments:
+        oracle: vmo.VMO.oracle
+            The oracle to model.
+        state: int
+            The state in the oracle to print.
+        original_stream: music21.stream.Stream
+            The music21 stream object used to create `oracle`.
+        nuxmv_state_name: str
+            The name of the state in the model representing the oracle state
+            (default 's').
+    ----
+    >>> import copy
+    >>> import music21
+    >>> import vmo.utils.music21_interface as vmusic
+    >>> c1 = music21.chord.Chord(['C4', 'E4', 'G4'], quarterLength=1)
+    >>> c2 = music21.chord.Chord(['E4', 'G4', 'B4'], quarterLength=1)
+    >>> s = music21.stream.Stream([c1])
+    >>> s.append(c2)
+    >>> s.append(copy.deepcopy(c1))
+    >>> o = vmusic.from_stream(s, threshold=0.01)
+    >>> result = print_motion_state(o, s, 1)
+    >>> expected = map(bytearray,
+    ...                ["s=1 & next(s)=1: m_asc;",  # via sfx link to init state
+    ...                 "s=1 & next(s)=2: m_asc;"])  # direct link to next state
+    >>> result == expected
+    True
+    >>> result = print_motion_state(o, s, 2)
+    >>> expected = bytearray("s=2 & next(s)=3: m_desc;")
+    >>> expected in result 
+    True
+    """
+    import vmo.utils.music21_interface as vmusic
+    
+    def get_frame_as_chord(state):
+        frame = vmusic.extract_frame_oracle(original_stream, oracle, state)
+        chord = mus.chord.Chord(frame.pitches)
+        return chord
+    
+    successors = oracle.forward_links_state(state)
+    frame_state = get_frame_as_chord(state)
+    
+    transitions = []
+    for successor in successors:
+        frame_succ = get_frame_as_chord(successor)
+        motion = vmusic.is_ascending_motion(frame_state, frame_succ)
+        if motion is None:
+            result = 'm_none'
+        else:    
+            result = ('m_asc' if motion else 'm_desc')
+        transition = "{0}={1} & next({0})={2}: {3};".format(
+            nuxmv_state_name, state, successor, result)
+        transitions.append(bytearray(transition))
+
+    return transitions
+
+def print_motions(oracle, original_stream, nuxmv_state_name='s'):
+    """Print transitions for the variable representing melodic motion.
+
+    Three possible values for variable `'pitchMotion'`:
+        `'m_asc'` if melodic motion from previous frame to current is ascendant
+        `'m_desc'` if melodic motion descendant
+        `'m_none`' at initialization and when encountering silent frames
+        
+    Keyword arguments:
+        oracle: vmo.VMO.oracle
+            The oracle to model.
+        original_stream: music21.stream.Stream
+            The music21 stream object used to create `oracle`.
+        nuxmv_state_name: str
+            The name of the state in the model representing the oracle state
+            (default 's').
+    """
+    states = range(oracle.n_states)
+    local_print_motion_state = (lambda state: print_motion_state(
+        oracle, original_stream, state, nuxmv_state_name))
+    transition_sets = map(local_print_motion_state, states)
+    transitions = [t for trs_set in transition_sets for t in trs_set]
+    transitions.append("TRUE: m_none;")  # Make the case-disjunt exhaustive. 
+    
+    return print_variable('pitchMotion', '{m_none, m_asc, m_desc}',
+                          'm_none', transitions)
+
+    
 """Print chromagram oracle"""
 
-def print_oracle(oracle, include_rsfx=False, init_state=None,
-                 nuxmv_state_name='s'):
+def print_oracle(oracle, enable_motions=False, include_rsfx=False,
+                 init_state=None, nuxmv_state_name='s', original_stream=None):
     """Return a bytearray describing `oracle`, with oracle states and pitches.
 
     Assumes the oracle has been created with a chromagram as feature.
@@ -260,7 +390,7 @@ def print_oracle(oracle, include_rsfx=False, init_state=None,
     >>> chromagram = chroma.from_stream(s)
     >>> o = vmo.VMO.oracle.build_oracle(chromagram.T, 'a',
     ...                                 feature='chromagram')
-    >>> result = print_oracle(o)
+    >>> result = print_oracle(o, enable_motions=False)
     >>> expected = bytearray(
     ...     "MODULE main()\\n" +
     ...     "VAR s: 0..2;\\n" +
@@ -271,20 +401,22 @@ def print_oracle(oracle, include_rsfx=False, init_state=None,
     ...     "\\ts=1: {1, 2};\\n" +
     ...     "\\ts=2: {1, 2};\\n" +
     ...     "\\tesac;\\n\\n" +
-    ...     "VAR _PITCH_TYPE : {p_Init, p_Silence, p_C, p_C#, p_D, p_E-, p_E, " +
+    ...     "VAR pitchRoot : {p_Init, p_Silence, p_C, p_C#, p_D, p_E-, p_E, " +
     ...     "p_F, p_F#, p_G, p_G#, p_A, p_B-, p_B};\\n" +
-    ...     "ASSIGN init(_PITCH_TYPE) := p_Init;\\n" +
-    ...     "\\tnext(_PITCH_TYPE) := p_Init;\\n" +
-    ...     "\\tDEFINE pitchRoot :=\\n" +
+    ...     "ASSIGN init(pitchRoot) := p_Init;\\n" +
+    ...     "\\tnext(pitchRoot) :=\\n" +
     ...     "\\tcase\\n" +
-    ...     "\\ts=0: p_Init;\\n" +
-    ...     "\\ts=1: p_C;\\n" +
-    ...     "\\ts=2: p_E;\\n" +
+    ...     "\\tnext(s)=0: p_Init;\\n" +
+    ...     "\\tnext(s)=1: p_C;\\n" +
+    ...     "\\tnext(s)=2: p_E;\\n" +
     ...     "\\tesac;\\n"
     ...     )
     >>> result == expected
     True
     """
+    if enable_motions and original_stream is None:
+        raise ValueError("Must provide original stream if motions are required")
+    
     if init_state is None:
         init_state = oracle.initial_state
     
@@ -293,14 +425,26 @@ def print_oracle(oracle, include_rsfx=False, init_state=None,
     base_model = print_module(adj_lists, nuxmv_state_name=nuxmv_state_name,
                               init_state=init_state)
 
-    pitches_header, pitches_cases = print_pitches(oracle, nuxmv_state_name)
-    pitches_header_str = indent_join_lines(pitches_header, tabulate_by=0)
-    pitches_cases_str = indent_join_lines(pitches_cases) 
+    def full_variable_printer(fun_output):
+        header, cases = fun_output
+        header_str = indent_join_lines(header, tabulate_by=0)
+        cases_str = indent_join_lines(cases)
+        
+        var_str = _bytes_concat([header_str, cases_str])
+        return var_str
 
-    pitches_str = _bytes_concat([pitches_header_str,
-                               pitches_cases_str])
-    
-    return _bytes_concat([base_model, bytearray("\n"), pitches_str])
+    pitches_str = full_variable_printer(print_pitches(oracle, nuxmv_state_name))
+    if enable_motions:
+        motions_str = full_variable_printer(
+            print_motions(oracle,
+                          original_stream=original_stream,
+                          nuxmv_state_name=nuxmv_state_name)
+            )
+    else:
+        motions_str = ""
+        
+    return _bytes_concat([base_model, bytearray("\n"),
+                          pitches_str, motions_str])
 
         
 """Auxiliary functions"""
@@ -341,7 +485,7 @@ def make_root_name(chord, nuxmv_silence_name='p_Silence'):
         chord: music21.chord.Chord input type
             The note or chord for which to extract a root.
     """
-    if isinstance(chord, str):
+    if isinstance(chord, basestring):
         chord = [chord] 
     chord = mus.chord.Chord(chord)
     if not chord.pitches:
@@ -349,7 +493,8 @@ def make_root_name(chord, nuxmv_silence_name='p_Silence'):
     else:
         root_name = ('p_' + chord.root().name)
         return root_name
-    
-if __name__ == "__main__":
-    import doctest
-    doctest.testmod()
+
+            
+# if __name__ == "__main__":
+#     import doctest
+#     doctest.testmod()
