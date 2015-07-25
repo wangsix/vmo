@@ -287,7 +287,7 @@ def print_pitches(oracle, nuxmv_state_name='s'):
 
     return print_variable(name, values, initial_value, transitions)
 
-def print_motion_state(oracle, original_stream, state, nuxmv_state_name='s'):
+def print_pitchspace_state(oracle, original_stream, state, nuxmv_state_name='s'):
     """Return nuXmv assignation cases for motion for all successors of `state`.
 
     Keyword arguments:
@@ -310,42 +310,55 @@ def print_motion_state(oracle, original_stream, state, nuxmv_state_name='s'):
     >>> s.append(c2)
     >>> s.append(copy.deepcopy(c1))
     >>> o = vmusic.from_stream(s, threshold=0.01)
-    >>> result = print_motion_state(o, s, 1)
-    >>> expected = map(bytearray,
-    ...                ["s=1 & next(s)=1: m_asc;",  # via sfx link to init state
-    ...                 "s=1 & next(s)=2: m_asc;"])  # direct link to next state
+    >>> result = print_pitchspace_state(o, s, 1)
+    >>> expected = bytearray("next(s)=1: {};".format(
+    ...                        c1.root().midi))
     >>> result == expected
     True
-    >>> result = print_motion_state(o, s, 2)
-    >>> expected = bytearray("s=2 & next(s)=3: m_desc;")
-    >>> expected in result 
+    >>> result = print_pitchspace_state(o, s, 2)
+    >>> expected = bytearray("next(s)=2: {};".format(
+    ...                        c2.root().midi))
+    >>> expected == result 
     True
     """
     import vmo.utils.music21_interface as vmusic
     
-    def get_frame_as_chord(state):
+    def get_ps_root_of_frame(state):
+        """Return an int representing the pitch space position of
+        the root of `state`'s content.
+
+        Return 0 if `state` holds a silent feature.
+        """
         frame = vmusic.extract_frame_oracle(original_stream, oracle, state)
         chord = mus.chord.Chord(frame.pitches)
-        return chord
+        return chord.root().midi if chord.pitches else -1
+
+    transition = "next({0})={1}: {2};".format(nuxmv_state_name,
+                                             state,
+                                             get_ps_root_of_frame(state))
+
+    return bytearray(transition)
+    # successors = oracle.forward_links_state(state)
     
-    successors = oracle.forward_links_state(state)
-    frame_state = get_frame_as_chord(state)
     
-    transitions = []
-    for successor in successors:
-        frame_succ = get_frame_as_chord(successor)
-        motion = vmusic.is_ascending_motion(frame_state, frame_succ)
-        if motion is None:
-            result = 'm_none'
-        else:    
-            result = ('m_asc' if motion else 'm_desc')
-        transition = "{0}={1} & next({0})={2}: {3};".format(
-            nuxmv_state_name, state, successor, result)
-        transitions.append(bytearray(transition))
+    # frame_state = get_ps_root_of_frame(state)
+    
+    # transitions = []
+    # for successor in successors:
+    #     frame_succ = get_ps_root_of_frame(successor)
+        # motion = vmusic.is_ascending_motion(frame_state, frame_succ)
+        # if motion is None:
+        #     result = 'm_none'
+        # else:    
+        #     result = ('m_asc' if motion else 'm_desc')
+        # transition = "{0}={1} & next({0})={2}: {3};".format(
+        #     nuxmv_state_name, state, successor, result)
+        # transitions.append(bytearray(transition))
 
     return transitions
 
-def print_motions(oracle, original_stream, nuxmv_state_name='s'):
+def print_pitchspaces(oracle, original_stream, nuxmv_state_name='s',
+                      nuxmv_pitchspace_name='pitchSpace'):
     """Print transitions for the variable representing melodic motion.
 
     Three possible values for variable `'pitchMotion'`:
@@ -362,21 +375,36 @@ def print_motions(oracle, original_stream, nuxmv_state_name='s'):
             The name of the state in the model representing the oracle state
             (default 's').
     """
-    states = range(oracle.n_states)
-    local_print_motion_state = (lambda state: print_motion_state(
+    states = range(1, oracle.n_states)
+    local_print_motion_state = (lambda state: print_pitchspace_state(
         oracle, original_stream, state, nuxmv_state_name))
-    transition_sets = map(local_print_motion_state, states)
-    transitions = [t for trs_set in transition_sets for t in trs_set]
-    transitions.append("TRUE: m_none;")  # Make the case-disjunt exhaustive. 
+    transitions = map(local_print_motion_state, states)
+    # transitions = [t for trs_set in transition_sets for t in trs_set]
+    transitions.append("TRUE: -1;")  # Make the case-disjunt exhaustive. 
     
-    return print_variable('pitchMotion', '{m_none, m_asc, m_desc}',
-                          'm_none', transitions)
+    return print_variable(nuxmv_pitchspace_name, '-1 .. 127',
+                          '-1', transitions)
 
+def print_motions_generic_define(nuxmv_motion_name='pitchMotion',
+                                 nuxmv_pitchspace_name='pitchSpace'):
+    output = bytearray(
+        "VAR {0} : {{m_none, m_desc, m_asc}};\n".format(nuxmv_motion_name) +
+        "ASSIGN init({}) := m_none;\n".format(nuxmv_motion_name) +
+        "\tnext({}) :=\n".format(nuxmv_motion_name) +
+        "\tcase\n" +
+        "\tnext({0})<0 | {0}<0: m_none;\n".format(nuxmv_pitchspace_name) +
+        "\tnext({0})>={0}: m_asc;\n".format(nuxmv_pitchspace_name) +
+        "\tTRUE: m_desc;\n" +
+        "\tesac;\n"        
+    )
+    return output
     
 """Print chromagram oracle"""
 
 def print_oracle(oracle, enable_motions=False, include_rsfx=False,
-                 init_state=None, nuxmv_state_name='s', original_stream=None):
+                 init_state=None, nuxmv_state_name='s', original_stream=None,
+                 nuxmv_motion_name='pitchMotion',
+                 nuxmv_pitchspace_name='pitchSpace'):
     """Return a bytearray describing `oracle`, with oracle states and pitches.
 
     Assumes the oracle has been created with a chromagram as feature.
@@ -436,10 +464,13 @@ def print_oracle(oracle, enable_motions=False, include_rsfx=False,
     pitches_str = full_variable_printer(print_pitches(oracle, nuxmv_state_name))
     if enable_motions:
         motions_str = full_variable_printer(
-            print_motions(oracle,
-                          original_stream=original_stream,
-                          nuxmv_state_name=nuxmv_state_name)
-            )
+            print_pitchspaces(oracle,
+                              original_stream=original_stream,
+                              nuxmv_state_name=nuxmv_state_name,
+                              nuxmv_pitchspace_name=nuxmv_pitchspace_name)
+            ) + print_motions_generic_define(
+                nuxmv_pitchspace_name=nuxmv_pitchspace_name,
+                nuxmv_motion_name=nuxmv_motion_name)
     else:
         motions_str = ""
         
@@ -495,6 +526,6 @@ def make_root_name(chord, nuxmv_silence_name='p_Silence'):
         return root_name
 
             
-# if __name__ == "__main__":
-#     import doctest
-#     doctest.testmod()
+if __name__ == "__main__":
+    import doctest
+    doctest.testmod()
