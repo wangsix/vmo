@@ -532,7 +532,6 @@ def segmentation(oracle, method='symbol_agglomerative', **kwargs):
 """Query-matching and gesture tracking algorithms"""
 
 
->>>>>>> cc1ea7446eec62f9449118fbab716b929a5b158f
 def query_complete(oracle, query, trn_type=1, smooth=False, weight=0.5):
     """ Return the closest path in target oracle given a query sequence
     
