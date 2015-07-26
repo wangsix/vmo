@@ -50,7 +50,7 @@ def save_segments(outfile, boundaries, beat_intervals, labels=None):
             f.write('%.3f\t%.3f\t%s\n' % (start, end, lab))
 
 
-def save_motives():
+def save_motifs():
     pass
 
 

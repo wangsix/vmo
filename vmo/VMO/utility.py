@@ -95,7 +95,9 @@ def normalized_edit_distance(u, v):
     return edit_distance(u, v)/np.max([len(u), len(v)])
 
 
-"""Adopted from Brian McFee`s spectral clustering for structural segmentation"""
+"""Adapted from Brian McFee`s spectral clustering algorithm for music structural segmentation
+https://github.com/bmcfee/laplacian_segmentation
+"""
 
 
 def clustering_by_entropy(eigen_vecs, k_min, width=9):
@@ -137,8 +139,6 @@ def clustering_by_entropy(eigen_vecs, k_min, width=9):
             y_best = y
 
 
-    # Did we fail to find anything with enough boundaries?
-    # Take the last one then
     if best_boundaries is None:
         best_boundaries = boundaries
         best_n_types = n_types
