@@ -39,9 +39,9 @@ def start_draw(_oracle, size=(900*4, 400*4)):
     current_state = 0
     image = Image.new('RGB', (width, height))
     oracle = _oracle 
-    return draw(oracle, current_state, width, height, image)
+    return draw(oracle, current_state, image, width, height)
 
-def draw(oracle, current_state, width, height, image):
+def draw(oracle, current_state, image, width=width, height=height):
     
     trn = oracle.trn
     sfx = oracle.sfx
@@ -61,7 +61,7 @@ def draw(oracle, current_state, width, height, image):
                 # draw forward transitions
                 next_x = (float(i + 1) / N_states * width) + 0.5 * 1.0 / N_states * width
                 current_x = x_pos + (0.25 / N_states * width)
-                draw.line((current_x, height/2, next_x, height/2), width=1,fill='white')
+                draw.line((current_x, height/2, next_x, height/2), width=1, fill='white')
             else:
                 if lrs[tran] >= lrs_threshold:
                     # forward transition to another state

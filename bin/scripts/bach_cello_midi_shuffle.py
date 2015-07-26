@@ -54,7 +54,7 @@ def main():
     bo.name = 'bach_cello_example'
     
     if len(sys.argv) == 1:
-        b, kend, ktrace = gen.generate(bo, len(note_obj_seq), 0.0, 0, LRS = 2, weight='weight')
+        b, kend, ktrace = gen.generate(bo, len(note_obj_seq), 0.0, 0, LRS=2, weight='weight')
     else:
         seq_len = int(sys.argv[1])
         if seq_len == 0:
@@ -63,7 +63,7 @@ def main():
         k = int(sys.argv[3])
         LRS = int(sys.argv[4])
         weight = sys.argv[5]
-        b, kend, ktrace = gen.generate(bo, seq_len, p, k, LRS = LRS, weight = weight)
+        b, kend, ktrace = gen.generate(bo, seq_len, p, k, LRS=LRS, weight=weight)
 
     stream1 = music21.stream.Stream()
     x = [bo.data[i] for i in b]
