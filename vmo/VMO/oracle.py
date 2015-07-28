@@ -259,7 +259,7 @@ class FactorOracle(object):
                            for i in range(len(dists))
                            if dists[i] < self.params['threshold']]
         dists_sorted = sorted(dists_decorated,
-                              key=lambda (_, dist): dist)
+                              key=lambda state_dist: state_dist[1])
         return dists_sorted
         
     def _len_common_suffix(self, p1, p2):
@@ -987,7 +987,7 @@ def find_threshold_ir(input_features, r=(0,1,0.1), flag='a', suffix_method='inc'
         h1_vec = []
     for t in thresholds:
         if verbose:
-            print 'Testing threshold:', t
+            print('Testing threshold: ' + str(t) + '\n')
         tmp_oracle = build_oracle(input_features, flag=flag, threshold=t,
                                   suffix_method=suffix_method, feature=feature,
                                   dfunc=dfunc, dfunc_handle=dfunc_handle, dim=dim)

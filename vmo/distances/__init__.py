@@ -21,7 +21,7 @@ along with vmo.  If not, see <http://www.gnu.org/licenses/>.
 """
 
 import scipy.spatial.distance as scidist
-import tonnetz
+import vmo.distances.tonnetz
 
 def cdist(XA, XB, dfunc='euclidean', **kwargs):
     """Compute distance between each pair of the two collections of inputs.

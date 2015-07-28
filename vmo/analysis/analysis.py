@@ -121,7 +121,7 @@ def _create_trn_mat_symbolic(oracle, method):
                 _j = sym_list.index(oracle.symbol[j])
                 mat[_i][_j] += 1
             else:
-                print "index " + str(j) + " is out of bounds."
+                print("index " + str(j) + " is out of bounds.")
             hist[_i] += 1
     mat = mat.transpose() / hist
     mat = mat.transpose()
@@ -210,7 +210,7 @@ def graph_adjacency_matrix(oracle, include_rsfx=False,
 
 def predict(oracle, context, ab=None, verbose=False):
     if verbose:
-        print "original context: ", context
+        print("original context: " + str(context))
     if ab is None:
         ab = oracle.get_alphabet()
 
@@ -228,8 +228,8 @@ def predict(oracle, context, ab=None, verbose=False):
             _b, _s = oracle.accept(context)
             _lrs = [oracle.lrs[k] for k in oracle.rsfx[_s]]
     if verbose:
-        print "final context: ", context
-        print "context_state: ", context_state
+        print("final context: " + str(context))
+        print("context_state: " + str(context_state))
     d_count = len(ab)
     hist = [1.0] * len(ab)  # initialize all histograms with 1s.
 
@@ -249,8 +249,7 @@ def log_loss(oracle, test_seq, alphabet=[], m_order=None, verbose=False):
     if not alphabet:
         alphabet = oracle.get_alphabet()
     if verbose:
-        print ' '
-
+        print(' ')
     logP = 0.0
     context = []
     increment = np.floor((len(test_seq) - 1) / 100)
