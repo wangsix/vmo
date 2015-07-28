@@ -227,8 +227,6 @@ def print_variable(name, values, initial_value, transitions):
     True
     """
     header = []
-    # Declare an unused variable, _PITCH_INIT, to make nuXmv aware of the
-    # type used to describe pitches
     variable_decl = ("VAR {0} : {1};".format(name, values))
     header.append(bytearray(variable_decl))
     variable_init = "ASSIGN init({0}) := {1};".format(name, initial_value)
@@ -273,7 +271,38 @@ def print_pitch_state(oracle, state, nuxmv_state_name='s'):
                                                    root_name))
 
 def print_pitches(oracle, nuxmv_state_name='s'):
-    # TODO : Add docstring.
+    """Return full nuXmv variable declaration for pitch in `oracle`.
+
+    ----
+    >>> import copy
+    >>> import music21
+    >>> import vmo.utils.music21_interface as vmusic
+    >>> c1 = music21.chord.Chord(['C4', 'E4', 'G4'], quarterLength=1)
+    >>> c2 = music21.chord.Chord(['E4', 'G4', 'B4'], quarterLength=1)
+    >>> s = music21.stream.Stream([c1])
+    >>> s.append(c2)
+    >>> s.append(copy.deepcopy(c1))
+    >>> s.append(music21.chord.Chord([], quarterLength=1))  # silent frame
+    >>> oracle = vmusic.from_stream(s)
+    >>> result = print_pitches(oracle)
+    >>> expected = (map(bytearray, [
+    ...                 "VAR pitchRoot : " +
+    ...                 "{p_Init, p_Silence, p_C, p_C#, p_D, p_E-, p_E, " +
+    ...                 "p_F, p_F#, p_G, p_G#, p_A, p_B-, p_B};",
+    ...                 "ASSIGN init(pitchRoot) := p_Init;"]),
+    ...             map(bytearray, [
+    ...                 "next(pitchRoot) :=",
+    ...                 "case",
+    ...                 "next(s)=0: p_Init;",
+    ...                 "next(s)=1: p_C;",
+    ...                 "next(s)=2: p_E;",
+    ...                 "next(s)=3: p_C;",
+    ...                 "next(s)=4: p_Silence;",
+    ...                 "esac;"])
+    ...                 )
+    >>> result == expected
+    True
+    """
     name = 'pitchRoot'
     values = ("{p_Init, p_Silence, p_C, p_C#, p_D, p_E-, p_E, " +
               "p_F, p_F#, p_G, p_G#, p_A, p_B-, p_B}")
@@ -288,7 +317,7 @@ def print_pitches(oracle, nuxmv_state_name='s'):
     return print_variable(name, values, initial_value, transitions)
 
 def print_pitchspace_state(oracle, original_stream, state, nuxmv_state_name='s'):
-    """Return nuXmv assignation cases for motion for all successors of `state`.
+    """Return a nuXmv assignation case for pitch space for `state`.
 
     Keyword arguments:
         oracle: vmo.VMO.oracle
@@ -338,28 +367,12 @@ def print_pitchspace_state(oracle, original_stream, state, nuxmv_state_name='s')
                                              get_ps_root_of_frame(state))
 
     return bytearray(transition)
-    # successors = oracle.forward_links_state(state)
-    
-    
-    # frame_state = get_ps_root_of_frame(state)
-    
-    # transitions = []
-    # for successor in successors:
-    #     frame_succ = get_ps_root_of_frame(successor)
-        # motion = vmusic.is_ascending_motion(frame_state, frame_succ)
-        # if motion is None:
-        #     result = 'm_none'
-        # else:    
-        #     result = ('m_asc' if motion else 'm_desc')
-        # transition = "{0}={1} & next({0})={2}: {3};".format(
-        #     nuxmv_state_name, state, successor, result)
-        # transitions.append(bytearray(transition))
 
     return transitions
 
 def print_pitchspaces(oracle, original_stream, nuxmv_state_name='s',
                       nuxmv_pitchspace_name='pitchSpace'):
-    """Print transitions for the variable representing melodic motion.
+    """Return full nuXmv variable declaration for pitch space in `oracle`.
 
     Three possible values for variable `'pitchMotion'`:
         `'m_asc'` if melodic motion from previous frame to current is ascendant
@@ -379,14 +392,17 @@ def print_pitchspaces(oracle, original_stream, nuxmv_state_name='s',
     local_print_motion_state = (lambda state: print_pitchspace_state(
         oracle, original_stream, state, nuxmv_state_name))
     transitions = map(local_print_motion_state, states)
-    # transitions = [t for trs_set in transition_sets for t in trs_set]
-    transitions.append("TRUE: -1;")  # Make the case-disjunt exhaustive. 
+    transitions.append("TRUE: -1;")  # To make the case-disjunt exhaustive. 
     
     return print_variable(nuxmv_pitchspace_name, '-1 .. 127',
                           '-1', transitions)
 
 def print_motions_generic_define(nuxmv_motion_name='pitchMotion',
                                  nuxmv_pitchspace_name='pitchSpace'):
+    """Return the generic variable declaration for melodic motion.
+    
+    The values of this variable depend only on the pitch space variable.
+    """                             
     output = bytearray(
         "VAR {0} : {{m_none, m_desc, m_asc}};\n".format(nuxmv_motion_name) +
         "ASSIGN init({}) := m_none;\n".format(nuxmv_motion_name) +

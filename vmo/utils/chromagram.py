@@ -182,8 +182,7 @@ def from_stream(stream, framesize=1.0, overlap=0.0,
         
     if smooth:
         if sigma is None:
-            # Arbitrary value, scalable with `framesize`
-            sigma = 4*framesize
+            sigma = 4*framesize  # Arbitrary value. In the scale of `framesize`
         for i in range(pitch_space_size):
             smoothed_row = gaussian(chroma_matrix[i,:], sigma=sigma)
             chroma_matrix[i,:] = smoothed_row

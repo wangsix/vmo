@@ -177,17 +177,16 @@ def make_piecewise_chord_progression(oracle, progressions,
                       is set on the maximum value.
         enable_motions: bool
             Allow writing of chords as '+B' or '-F#' to specify melodic motion
-            used to reached chord (default `False`)
-            TODO: FIX: experimental, generates huge models, crashing nuXmv.
+            used to reached chord (default `False`).
         start: int, optional
             The index of the state from which the generated path should start
-            (defaults to `oracle`'s initial state)
+            (defaults to `oracle`'s initial state).
         include_rsfx: bool, optional
             Whether reverse suffix links should be included in the graph
-            extracted from `oracle` (default `False`)
+            extracted from `oracle` (default `False`).
         silence_equivalence: bool, optional
             Whether silence should be considered equivalent to any given pitch
-            (default False, since we then generates less uninteresting paths)
+            (default False, since we then generates less uninteresting paths).
         allow_init: bool, optional
             Whether the initial state should be considered equivalent
             to any given pitch
@@ -243,8 +242,7 @@ def make_piecewise_chord_progression_tonic_free(
                       is set on the maximum value. 
         enable_motions: bool
             Allow writing of chords as '+B' or '-F#' to specify melodic motion
-            used to reached chord (default `False`)
-            TODO: FIX: experimental, generates huge models, crashing nuXmv.
+            used to reached chord (default `False`).
         mode: string, optional
             The mode in which to generate the chord progression
             (default 'major').
