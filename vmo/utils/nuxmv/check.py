@@ -27,9 +27,12 @@ along with vmo.  If not, see <http://www.gnu.org/licenses/>.
 import numpy as np
 from time import strftime
 import tempfile
-import subprocess32
 from distutils.spawn import find_executable
 import os.path
+
+from six import PY2
+if PY2:
+    import subprocess32 as subprocess
 
 import vmo.utils.nuxmv.model as model
 import vmo.utils.nuxmv.properties as props
@@ -40,11 +43,13 @@ import vmo.utils.nuxmv.parse as parser
 # Assumes the user has installed nuxmv as a shell command
 
 def get_nuxmv_path():
-    path = max(find_executable('nuXmv'),
-               find_executable('nuxmv'))
+    path = find_executable('nuXmv')
+    if path is None:
+        path = find_executable('nuxmv')
     if path is None:
         raise Exception("No command 'nuXmv' or 'nuxmv'" +
-                        "is available in the prompt")
+                        "is available in the prompt.\n" +
+                        "\t--> Please install and link nuXmv.")
     return path
 
 PATH_TO_NUXMV = get_nuxmv_path()
@@ -98,7 +103,7 @@ def _write_model_and_property(model, properties):
 #     model_description = _write_model(model_str)
 #     model_name = os.path.splitext(model_description.name)[0]
 
-#     subprocess32.call([PATH_TO_NUXMV,
+#     subprocess.call([PATH_TO_NUXMV,
 #                        model_description.name,
 #                        '-exportmodel', model_name+'.tra,sta'])
 #     model_description.close()
@@ -137,7 +142,7 @@ def _check_property_full(model_str, prop):
     model.write("\n\n" + prop + ";\n")
     model.flush()
             
-    output = subprocess32.check_output(
+    output = subprocess.check_output(
         [PATH_TO_NUXMV, # call nuXmv
          model.name])   # Input the model and property
     model.close()
@@ -222,7 +227,7 @@ def make_counterexample(model_str, prop):
     commands.flush()
 
     with open(os.devnull, 'w') as NULL:
-        subprocess32.call([PATH_TO_NUXMV,  # Call nuXmv
+        subprocess.call([PATH_TO_NUXMV,  # Call nuXmv
                            '-source', commands.name],  # Execute the commands
                            stdout=nuxmv_output,  # Redirect command-line output
                            stderr=NULL) 
