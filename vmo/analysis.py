@@ -272,7 +272,8 @@ def _seg_by_single_frame(oracle, cluster_method='agglomerative', connectivity='t
         return _seg_by_hc_single_frame(obs_len=obs_len, connectivity=connectivity, data=data, **kwargs)
     elif cluster_method is 'spectral':
         return _seg_by_spectral_single_frame(connectivity, **kwargs)
-
+    else:
+        return _seg_by_spectral_single_frame(connectivity, **kwargs)
 
 def _seg_by_hc_single_frame(obs_len, connectivity, data, **kwargs):
     _children, _n_c, _n_leaves, parents, distances = \
@@ -522,12 +523,18 @@ def _seg_by_hc_string_matching(oracle, data='symbol', connectivity=None, **kwarg
 
 
 def segmentation(oracle, method='symbol_agglomerative', **kwargs):
-    if method is 'symbol_agglomerative':
-        return _seg_by_single_frame(oracle, cluster_method='agglomerative', **kwargs)
-    elif method is 'symbol_spectral':
-        return _seg_by_single_frame(oracle, cluster_method='spectral', **kwargs)
-    elif method is 'string_agglomerative':
-        return _seg_by_hc_string_matching(oracle, **kwargs)
+
+    if oracle:
+        if method is 'symbol_agglomerative':
+            return _seg_by_single_frame(oracle, cluster_method='agglomerative', **kwargs)
+        elif method is 'string_agglomerative':
+            return _seg_by_hc_string_matching(oracle, **kwargs)
+        elif method is 'symbol_spectral':
+            return _seg_by_single_frame(oracle, cluster_method='spectral', **kwargs)
+        else:
+            return _seg_by_single_frame(oracle, cluster_method='spectral', **kwargs)
+    else:
+        raise TypeError('Oracle is None')
 
 """Query-matching and gesture tracking algorithms"""
 
