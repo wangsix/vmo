@@ -520,7 +520,6 @@ class MO(FactorOracle):
         self.data[0] = None
         self.latent = []
 
-
     def add_state(self, new_data, method='inc'):
         """Create new state and update related links and compressed state"""
         self.sfx.append(0)
@@ -544,16 +543,9 @@ class MO(FactorOracle):
             suffix_candidate = 0
         elif method == 'complete':
             suffix_candidate = []
+        else:
+            suffix_candidate = 0
 
-        '''
-        c = list(itertools.chain.from_iterable(
-            [self.latent[_c] for _c in list(self.con[self.data[k]])])
-            )        
-        if self.params['dfunc'] == 'euclidean':
-            a = np.array(f) - np.array([self.f_array[t] for t in c])
-            dvec = np.sqrt((a*a).sum(axis=1)) 
-        I = find(dvec < self.params['threshold'])
-        '''
         while k is not None:
             if self.params['dfunc'] == 'euclidean':
                 a = np.array(new_data) - np.array([self.f_array[t] for t in
@@ -579,6 +571,10 @@ class MO(FactorOracle):
                 elif method == 'complete':
                     suffix_candidate.append((self.trn[k][I[np.argmin(dvec[I])]],
                                              np.min(dvec)))
+                else:
+                    suffix_candidate = self.trn[k][I[np.argmin(dvec[I])]]
+                    break
+
             if method == 'complete':
                 k = self.sfx[k]
 
@@ -684,7 +680,7 @@ class VMO(FactorOracle):
                                           t in self.trn[k]])
 
             # if no transition from suffix
-            I = mlab.find(dvec < self.params['threshold'])
+            I = find(dvec < self.params['threshold'])
             if len(I) == 0:
                 self.trn[k].append(i)  # Create a new forward link to unvisited state
                 trn_list.append(k)
@@ -704,7 +700,7 @@ class VMO(FactorOracle):
             self.centroid.append(new_data)
             if i > 1:
                 self.con[self.data[i - 1]].add(self.data[i])
-                self.con.append(set([self.data[i]]))
+                self.con.append({self.data[i]})
             else:
                 self.con.append(set([]))
         else:

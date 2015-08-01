@@ -248,7 +248,7 @@ def _seg_by_single_frame(oracle, cluster_method='agglomerative', connectivity='t
                          median_filter_width=9, **kwargs):
     obs_len = oracle.n_states - 1
     median_filter_width = median_filter_width
-    if connectivity is 'temporal':
+    if connectivity == 'temporal':
         connectivity = np.zeros((obs_len, obs_len))
     else:
         connectivity = create_selfsim(oracle, method=connectivity)
@@ -262,18 +262,19 @@ def _seg_by_single_frame(oracle, cluster_method='agglomerative', connectivity='t
     connectivity[range(obs_len - 1), range(1, obs_len)] = 1.0
     connectivity[np.diag_indices(obs_len)] = 0
 
-    if data is 'raw':
+    if data == 'raw':
         data = np.array(oracle.f_array[1:])
     else:
         data = np.zeros((oracle.n_states - 1, oracle.num_clusters()))
         data[range(oracle.n_states - 1), oracle.data[1:]] = 1
 
-    if cluster_method is 'agglomerative':
+    if cluster_method == 'agglomerative':
         return _seg_by_hc_single_frame(obs_len=obs_len, connectivity=connectivity, data=data, **kwargs)
-    elif cluster_method is 'spectral':
-        return _seg_by_spectral_single_frame(connectivity, **kwargs)
+    elif cluster_method == 'spectral':
+        return _seg_by_spectral_single_frame(connectivity=connectivity, **kwargs)
     else:
-        return _seg_by_spectral_single_frame(connectivity, **kwargs)
+        return _seg_by_spectral_single_frame(connectivity=connectivity, **kwargs)
+
 
 def _seg_by_hc_single_frame(obs_len, connectivity, data, **kwargs):
     _children, _n_c, _n_leaves, parents, distances = \
@@ -374,6 +375,7 @@ def _seg_by_hc_string_matching(oracle, data='symbol', connectivity=None, **kwarg
     labels = utils.segment_labeling(data, boundaries, k=0.25)
 
     return boundaries, labels
+
 
 def segmentation(oracle, method='symbol_agglomerative', **kwargs):
 
