@@ -75,18 +75,19 @@ def _make_tonnetz_matrix():
 __TONNETZ_MATRIX = _make_tonnetz_matrix()
 
 def _to_tonnetz(chromagram):
-    """Project a chromagram on the tonnetz
+    """Project a chromagram on the tonnetz.
 
-    Return value is normalized to prevent numerical instabilities  
+    Returned value is normalized to prevent numerical instabilities.  
     """
+    if np.sum(np.abs(chromagram)) == 0.:
+        # The input is an empty chord, return zero. 
+        return np.zeros(6)
+    
     _tonnetz = np.dot(__TONNETZ_MATRIX, chromagram)
-    one_norm = np.sum(np.abs(chromagram))
-    if (one_norm != 0.):
-        _tonnetz = _tonnetz / one_norm # Normalize tonnetz vector
-    else:
-        _tonnetz = np.zeros(6) # Norm is zero, nullify vector
+    one_norm = np.sum(np.abs(_tonnetz))  # Non-zero value
+    _tonnetz = _tonnetz / float(one_norm) # Normalize tonnetz vector
     return _tonnetz
-
+    
 def distance(a, b):
     """Compute tonnetz-distance between two chromagrams.
     
