@@ -72,7 +72,7 @@ def normalized_graph_laplacian(mat):
     return laplacian
 
 
-def eigen_decomposition(mat, k=6):  # Changed from 11 to 8 then to 6(7/22)
+def eigen_decomposition(mat, k=11):  # Changed from 11 to 8 then to 6(7/22)
     vals, vecs = scipy.linalg.eig(mat)
     vals = vals.real
     vecs = vecs.real
@@ -100,59 +100,6 @@ https://github.com/bmcfee/laplacian_segmentation
 """
 
 
-def clustering_by_entropy(eigen_vecs, k_min, width=9):
-    best_score = -np.inf
-    best_boundaries = [0, eigen_vecs.shape[1]]
-    best_n_types = 1
-    y_best = eigen_vecs[:1].T
-
-    label_dict = {1: np.zeros(eigen_vecs.shape[1])}  # The trivial solution
-
-    for n_types in range(2, 1+len(eigen_vecs)):
-        y = librosa.util.normalize(eigen_vecs[:n_types].T, norm=2, axis=1)
-
-        # Try to label the data with n_types
-        c = sklearn.cluster.KMeans(n_clusters=n_types, n_init=100)
-        labels = c.fit_predict(y)
-        label_dict[n_types] = labels
-
-        # Find the label change-points
-        boundaries = find_boundaries(labels, width)
-
-        # boundaries now include start and end markers; n-1 is the number of segments
-        feasible = (len(boundaries) > k_min)
-
-        values = np.unique(labels)
-        hits = np.zeros(len(values))
-
-        for v in values:
-            hits[v] = np.sum(values == v)
-
-        hits = hits / hits.sum()
-
-        score = entropy(hits) / np.log2(n_types)
-
-        if score > best_score and feasible:
-            best_boundaries = boundaries
-            best_n_types = n_types
-            best_score = score
-            y_best = y
-
-
-    if best_boundaries is None:
-        best_boundaries = boundaries
-        best_n_types = n_types
-        y_best = librosa.util.normalize(eigen_vecs[:best_n_types].T, norm=2, axis=1)
-
-    # Classify each segment centroid
-
-    labels = segment_labeling(y_best, best_boundaries)
-
-    # intervals = zip(boundaries[:-1], boundaries[1:])
-    best_labels = labels
-
-    return best_boundaries, best_labels
-
 
 def segment_labeling(x, boundaries, k=0.05):
 
@@ -176,3 +123,40 @@ def find_boundaries(frame_labels, width=9):
     boundaries = 1 + np.asarray(np.where(frame_labels[:-1] != frame_labels[1:])).reshape((-1,))
     boundaries = np.unique(np.concatenate([[0], boundaries, [len(frame_labels)]]))
     return boundaries
+
+
+def boundaries_adjustment(oracle, boundaries, labels):
+
+    _tmp_boundary = np.insert(boundaries, 0, -8.0)
+    b_distance = np.diff(_tmp_boundary)
+    boundaries = boundaries[b_distance > 4]
+    labels = labels[np.diff(boundaries) > 4]
+
+    feature = oracle.f_array[1:]
+    new_boundaries = [boundaries[0]]
+    for b in boundaries[1:-1]:
+        if b < 8:
+            neighbor_feature = feature[:b+5]
+            adj = -(b-1)
+        elif len(feature)-b < 8:
+            neighbor_feature = feature[b-8:]
+            adj = -7
+        else:
+            neighbor_feature = feature[b-8:b+5]
+            adj = -7
+        offset = np.argmax(np.sum(np.square(np.diff(neighbor_feature, axis=0)), axis=1)) + adj
+        new_b = b + offset
+        new_boundaries.append(new_b)
+    new_boundaries.append(boundaries[-1])
+
+    new_boundaries = np.array(new_boundaries)
+    _tmp_boundary = np.insert(new_boundaries, 0, -8.0)
+    print _tmp_boundary
+    b_distance = np.diff(_tmp_boundary)
+    print b_distance
+    print new_boundaries
+    new_boundaries = new_boundaries[b_distance > 4]
+    labels = labels[np.diff(new_boundaries) > 4]
+
+    return new_boundaries, labels
+    # return boundaries, labels

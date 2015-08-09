@@ -355,7 +355,6 @@ class FactorOracle(object):
         ir[ir < 0] = 0  # Really a HACK here!!!!!
         return ir, h0, h1
 
-
     def _ir_cum3(self, alpha=1.0):
 
         h0 = np.log2(np.cumsum(
@@ -367,7 +366,6 @@ class FactorOracle(object):
         ir = alpha * h0 - h1
         ir[ir < 0] = 0  # Really a HACK here!!!!!
         return ir, h0, h1
-
 
     def IR(self, alpha=1.0, ir_type='cum'):
         if ir_type == 'cum':

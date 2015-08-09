@@ -27,7 +27,7 @@ import scipy.signal as sig
 import scipy.sparse as spa
 import sklearn.cluster as sklhc
 from functools import partial
-from scipy.stats import multivariate_normal
+# from scipy.stats import multivariate_normal
 import vmo.VMO
 import vmo.VMO.utility as utils
 
@@ -305,12 +305,11 @@ def _seg_by_hc_single_frame(obs_len, connectivity, data, **kwargs):
 def _seg_by_spectral_single_frame(connectivity, width=9):
     graph_lap = utils.normalized_graph_laplacian(connectivity)
     eigen_vecs = utils.eigen_decomposition(graph_lap)
-    boundaries, labels = utils.clustering_by_entropy(eigen_vecs, k_min=2, width=width)
+    boundaries, labels = clustering_by_entropy(eigen_vecs, k_min=2, width=width)
     return boundaries, labels
 
 
 def _seg_by_hc_string_matching(oracle, data='symbol', connectivity=None, **kwargs):
-
     if data is 'raw':
         data = np.array(oracle.f_array[1:])
     else:
@@ -339,18 +338,17 @@ def _seg_by_hc_string_matching(oracle, data='symbol', connectivity=None, **kwarg
     _frag = copy.copy(fragments)
 
     for k in range(frag_num, n_nodes):
-
         y = [utils.edit_distance(u, v) for (u, v) in zip(_frag[:-1], _frag[1:])]
 
         flat_ind = np.argmin(y)
         i = flat_ind
         j = flat_ind + 1
-        _frag[i] = _frag[i]+_frag[j]
+        _frag[i] = _frag[i] + _frag[j]
         _frag.pop(j)
         _children.append((frag_indices[i], frag_indices[j]))
         frag_indices[i] = k
         frag_indices.pop(j)
-        distances[k-frag_num] = y[flat_ind]
+        distances[k - frag_num] = y[flat_ind]
 
     reconstructed_z = np.zeros((frag_num - 1, 4))
     reconstructed_z[:, :2] = _children
@@ -369,7 +367,7 @@ def _seg_by_hc_string_matching(oracle, data='symbol', connectivity=None, **kwarg
     _label = scihc.fcluster(reconstructed_z, t=t, criterion=criterion)
     label = []
     for lab, frag in zip(_label, fragments):
-        label.extend([lab]*len(frag))
+        label.extend([lab] * len(frag))
 
     boundaries = utils.find_boundaries(label, **kwargs)
     labels = utils.segment_labeling(data, boundaries, k=0.25)
@@ -377,8 +375,72 @@ def _seg_by_hc_string_matching(oracle, data='symbol', connectivity=None, **kwarg
     return boundaries, labels
 
 
-def segmentation(oracle, method='symbol_agglomerative', **kwargs):
+def clustering_by_entropy(eigen_vecs, k_min, width=9):
+    best_score = -np.inf
+    best_boundaries = [0, eigen_vecs.shape[1]]
+    best_n_types = 1
+    y_best = eigen_vecs[:1].T
 
+    label_dict = {1: np.zeros(eigen_vecs.shape[1])}  # The trivial solution
+
+    for n_types in range(2, 1 + len(eigen_vecs)):
+        y = librosa.util.normalize(eigen_vecs[:n_types].T, norm=2, axis=1)
+
+        # Try to label the data with n_types
+        c = sklhc.KMeans(n_clusters=n_types, n_init=100)
+        labels = c.fit_predict(y)
+        label_dict[n_types] = labels
+
+        # Find the label change-points
+        boundaries = utils.find_boundaries(labels, width)
+
+        # boundaries now include start and end markers; n-1 is the number of segments
+        feasible = (len(boundaries) > k_min)
+
+        # values, counts = np.unique(labels, return_counts=True)
+        # values = labels[(labels[:-1]-labels[1:]) != 0]
+        # values = np.append(values, labels[-1])
+
+        values = np.unique(labels)
+        hits = np.zeros(len(values))
+        for v in values:
+            hits[v] = np.sum(values == v)
+
+        fo = vmo.build_oracle(labels, flag='f')
+        score, _h0, _h1 = fo.IR()
+        score = score.sum() - np.log2(eigen_vecs.shape[1])
+        score /= np.log2(n_types)
+        # runs = np.where(np.diff(labels) != 0)[0]+1
+        # runs = np.insert(runs, 0, 0)
+        # runs = np.append(runs, len(labels))
+        # runs = np.diff(runs)
+        #
+        # hits = runs / runs.sum(dtype=np.float)
+        # score = utils.entropy(hits) / np.log2(n_types)
+        # score = utils.entropy(hits)
+        print n_types, score
+        if score > best_score and feasible:
+            best_boundaries = boundaries
+            best_n_types = n_types
+            best_score = score
+            y_best = y
+
+    if best_boundaries is None:
+        best_boundaries = boundaries
+        best_n_types = n_types
+        y_best = librosa.util.normalize(eigen_vecs[:best_n_types].T, norm=2, axis=1)
+
+    # Classify each segment centroid
+
+    labels = utils.segment_labeling(y_best, best_boundaries)
+
+    # intervals = zip(boundaries[:-1], boundaries[1:])
+    best_labels = labels
+
+    return best_boundaries, best_labels
+
+
+def segmentation(oracle, method='symbol_agglomerative', **kwargs):
     if oracle:
         if method is 'symbol_agglomerative':
             return _seg_by_single_frame(oracle, cluster_method='agglomerative', **kwargs)
@@ -390,6 +452,7 @@ def segmentation(oracle, method='symbol_agglomerative', **kwargs):
             return _seg_by_single_frame(oracle, cluster_method='spectral', **kwargs)
     else:
         raise TypeError('Oracle is None')
+
 
 """Query-matching and gesture tracking algorithms"""
 
@@ -580,33 +643,33 @@ def create_pttr_vmo(oracle, pattern):
     return gesture_vmo_vec
 
 
-def query(oracle, query):
-    if oracle.kind == 'a':
-        mean = [np.mean([oracle.f_array[i] for i in la], axis=0) for la in oracle.latent]
-    elif oracle.kind == 'v':
-        mean = oracle.centroid[:]
-
-    tran_mat, hist = create_transition(oracle)
-    hist = hist / hist.sum()
-
-    N = len(query)
-    K = oracle.num_clusters()
-    covariance = [np.cov([oracle.f_array[i] for i in la], rowvar=0) for la in oracle.latent]
-    rv = [multivariate_normal(mean[i], covariance[i]) for i in range(K)]
-    C = np.zeros(K)
-    A = np.zeros((N, K))
-    L = np.zeros(N)
-    # Initialization
-    for k in range(K):
-        A[0][k] = hist[k] * rv[k].pdf(query[0])
-    L[0] = A[0].sum()
-    # Induction
-    for i in range(1, N):
-        for k in range(K):
-            A[i][k] = (A[i - 1] * tran_mat[k]).sum() * rv[k].pdf(query[i])
-        L[i] = A[i].sum()
-
-    return A, L
+# def query(oracle, query):
+#     if oracle.kind == 'a':
+#         mean = [np.mean([oracle.f_array[i] for i in la], axis=0) for la in oracle.latent]
+#     elif oracle.kind == 'v':
+#         mean = oracle.centroid[:]
+#
+#     tran_mat, hist = create_transition(oracle)
+#     hist = hist / hist.sum()
+#
+#     N = len(query)
+#     K = oracle.num_clusters()
+#     covariance = [np.cov([oracle.f_array[i] for i in la], rowvar=0) for la in oracle.latent]
+#     rv = [multivariate_normal(mean[i], covariance[i]) for i in range(K)]
+#     C = np.zeros(K)
+#     A = np.zeros((N, K))
+#     L = np.zeros(N)
+#     # Initialization
+#     for k in range(K):
+#         A[0][k] = hist[k] * rv[k].pdf(query[0])
+#     L[0] = A[0].sum()
+#     # Induction
+#     for i in range(1, N):
+#         for k in range(K):
+#             A[i][k] = (A[i - 1] * tran_mat[k]).sum() * rv[k].pdf(query[i])
+#         L[i] = A[i].sum()
+#
+#     return A, L
 
 
 def create_reverse_oracle(oracle):
