@@ -100,7 +100,6 @@ https://github.com/bmcfee/laplacian_segmentation
 """
 
 
-
 def segment_labeling(x, boundaries, k=0.05):
 
     x_sync = librosa.feature.sync(x.T, boundaries)
@@ -129,8 +128,8 @@ def boundaries_adjustment(oracle, boundaries, labels):
 
     _tmp_boundary = np.insert(boundaries, 0, -8.0)
     b_distance = np.diff(_tmp_boundary)
-    boundaries = boundaries[b_distance > 4]
-    labels = labels[np.diff(boundaries) > 4]
+    boundaries = boundaries[b_distance > 1]
+    labels = labels[np.diff(boundaries) > 1]
 
     feature = oracle.f_array[1:]
     new_boundaries = [boundaries[0]]
@@ -151,12 +150,8 @@ def boundaries_adjustment(oracle, boundaries, labels):
 
     new_boundaries = np.array(new_boundaries)
     _tmp_boundary = np.insert(new_boundaries, 0, -8.0)
-    print _tmp_boundary
     b_distance = np.diff(_tmp_boundary)
-    print b_distance
-    print new_boundaries
-    new_boundaries = new_boundaries[b_distance > 4]
-    labels = labels[np.diff(new_boundaries) > 4]
+    new_boundaries = new_boundaries[b_distance > 1]
+    labels = labels[np.diff(new_boundaries) > 1]
 
     return new_boundaries, labels
-    # return boundaries, labels

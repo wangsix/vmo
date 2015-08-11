@@ -24,8 +24,8 @@ import numpy as np
 import scipy.spatial.distance as dist
 import scipy.cluster.hierarchy as scihc
 import scipy.signal as sig
-import scipy.sparse as spa
 import sklearn.cluster as sklhc
+import sklearn.mixture as skmix
 from functools import partial
 # from scipy.stats import multivariate_normal
 import vmo.VMO
@@ -169,34 +169,34 @@ def predict(oracle, context, ab=None, verbose=False):
     return [hist[idx] / d_count for idx in range(len(hist))], context
 
 
-def logEval(oracle, testSequence, ab=[], m_order=None, VERBOSE=False):
+def log_loss(oracle, test_seq, ab=[], m_order=None, verbose=False):
     """ Evaluate the average log-loss of a sequence given an oracle """
 
     if not ab:
         ab = oracle.get_alphabet()
-    if VERBOSE:
+    if verbose:
         print ' '
 
     logP = 0.0
     context = []
-    increment = np.floor((len(testSequence) - 1) / 100)
+    increment = np.floor((len(test_seq) - 1) / 100)
     bar_count = -1
     maxContextLength = 0
     avgContext = 0
-    for i, t in enumerate(testSequence):
+    for i, t in enumerate(test_seq):
 
-        p, c = predict(oracle, context, ab, VERBOSE=False)
+        p, c = predict(oracle, context, ab, verbose=False)
         if len(c) < len(context):
             context = context[-len(c):]
         logP -= np.log2(p[ab[t]])
         context.append(t)
 
-        if m_order != None:
+        if m_order is not None:
             if len(context) > m_order:
                 context = context[-m_order:]
-        avgContext += float(len(context)) / len(testSequence)
+        avgContext += float(len(context)) / len(test_seq)
 
-        if VERBOSE:
+        if verbose:
             percentage = np.mod(i, increment)
             if percentage == 0:
                 bar_count += 1
@@ -206,10 +206,10 @@ def logEval(oracle, testSequence, ab=[], m_order=None, VERBOSE=False):
             sys.stdout.write("\r[" + "=" * bar_count +
                              " " * (100 - bar_count) + "] " +
                              str(bar_count) + "% " +
-                             str(i) + "/" + str(len(testSequence) - 1) + " Current max length: " + str(
+                             str(i) + "/" + str(len(test_seq) - 1) + " Current max length: " + str(
                 maxContextLength))
             sys.stdout.flush()
-    return logP / len(testSequence), avgContext
+    return logP / len(test_seq), avgContext
 
 
 def _test_context(oracle, context):
@@ -305,6 +305,17 @@ def _seg_by_hc_single_frame(obs_len, connectivity, data, **kwargs):
 def _seg_by_spectral_single_frame(connectivity, width=9):
     graph_lap = utils.normalized_graph_laplacian(connectivity)
     eigen_vecs = utils.eigen_decomposition(graph_lap)
+
+    # x = librosa.util.normalize(eigen_vecs.T, norm=2, axis=1)
+    # y = dist.pdist(x, metric = 'euclidean')
+    # z = scihc.linkage(eigen_vecs.T, method='ward')
+    #
+    # t = 0.7 * np.max(z[:, 2])
+    # label = scihc.fcluster(z, t=t, criterion='distance')
+    # k = len(np.unique(label))
+    # boundaries = utils.find_boundaries(label, width)
+    # labels = utils.segment_labeling(eigen_vecs[:k-3, :].T, boundaries)
+
     boundaries, labels = clustering_by_entropy(eigen_vecs, k_min=2, width=width)
     return boundaries, labels
 
@@ -384,11 +395,17 @@ def clustering_by_entropy(eigen_vecs, k_min, width=9):
     label_dict = {1: np.zeros(eigen_vecs.shape[1])}  # The trivial solution
 
     for n_types in range(2, 1 + len(eigen_vecs)):
-        y = librosa.util.normalize(eigen_vecs[:n_types].T, norm=2, axis=1)
+        y = librosa.util.normalize(eigen_vecs[:n_types, :].T, norm=2, axis=1)
+        # y = librosa.util.normalize(eigen_vecs.T, norm=2, axis=1)
 
         # Try to label the data with n_types
         c = sklhc.KMeans(n_clusters=n_types, n_init=100)
         labels = c.fit_predict(y)
+
+        # c = skmix.GMM(n_components=n_types)
+        # c.fit(y)
+        # labels = c.predict(y)
+
         label_dict[n_types] = labels
 
         # Find the label change-points
@@ -406,19 +423,19 @@ def clustering_by_entropy(eigen_vecs, k_min, width=9):
         for v in values:
             hits[v] = np.sum(values == v)
 
-        fo = vmo.build_oracle(labels, flag='f')
-        score, _h0, _h1 = fo.IR()
-        score = score.sum() - np.log2(eigen_vecs.shape[1])
-        score /= np.log2(n_types)
+        # fo = vmo.build_oracle(labels, flag='f')
+        # score, _h0, _h1 = fo.IR()
+        # score = score.sum() - np.log2(eigen_vecs.shape[1])
+        # score /= np.log2(n_types)
         # runs = np.where(np.diff(labels) != 0)[0]+1
         # runs = np.insert(runs, 0, 0)
         # runs = np.append(runs, len(labels))
         # runs = np.diff(runs)
-        #
+
         # hits = runs / runs.sum(dtype=np.float)
-        # score = utils.entropy(hits) / np.log2(n_types)
+        score = utils.entropy(hits) / np.log2(n_types)
         # score = utils.entropy(hits)
-        print n_types, score
+
         if score > best_score and feasible:
             best_boundaries = boundaries
             best_n_types = n_types
@@ -449,6 +466,7 @@ def segmentation(oracle, method='symbol_agglomerative', **kwargs):
         elif method is 'symbol_spectral':
             return _seg_by_single_frame(oracle, cluster_method='spectral', **kwargs)
         else:
+            print "Method unknown. Use spectral clustering."
             return _seg_by_single_frame(oracle, cluster_method='spectral', **kwargs)
     else:
         raise TypeError('Oracle is None')
