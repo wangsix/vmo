@@ -25,6 +25,7 @@ along with vmo.  If not, see <http://www.gnu.org/licenses/>.
 """
 
 import numpy as np
+import scipy.spatial.distance as dist
 import vmo.analysis as van
 import vmo.VMO.utility as utl
 from matplotlib.mlab import find
@@ -545,17 +546,21 @@ class MO(FactorOracle):
             suffix_candidate = 0
 
         while k is not None:
-            if self.params['dfunc'] == 'euclidean':
-                a = np.array(new_data) - np.array([self.f_array[t] for t in
-                                                   self.trn[k]])
-                if a.ndim > 1:
-                    dvec = np.sqrt((a * a).sum(axis=1))
-                else:
-                    dvec = np.sqrt((a * a))
-            elif self.params['dfunc'] == 'other':
-                dvec = self.dfunc_handle(new_data, [self.f_array[t] for t in
-                                                    self.trn[k]])
 
+            dvec = dist.cdist([new_data], np.array([self.f_array[t] for t in
+                                                   self.trn[k]]),
+                              metric=self.params['dfunc'])[0]
+
+            # if self.params['dfunc'] == 'euclidean':
+            #     a = np.array(new_data) - np.array([self.f_array[t] for t in
+            #                                        self.trn[k]])
+            #     if a.ndim > 1:
+            #         dvec = np.sqrt((a * a).sum(axis=1))
+            #     else:
+            #         dvec = np.sqrt((a * a))
+            # elif self.params['dfunc'] == 'other':
+            #     dvec = self.dfunc_handle(new_data, [self.f_array[t] for t in
+            #                                         self.trn[k]])
             I = find(dvec < self.params['threshold'])
             if len(I) == 0:            # if no transition from suffix
                 self.trn[k].append(i)  # Add new forward link to unvisited state
@@ -663,19 +668,24 @@ class VMO(FactorOracle):
 
         while k is not None:
             # NEW Implementation
-            if self.params['dfunc'] == 'euclidean':
-                a = (np.array(new_data) -
-                     np.array([self.centroid[self.data[t]] for
-                               t in self.trn[k]])
-                     )
-                if a.ndim > 1:
-                    dvec = np.sqrt((a * a).sum(axis=1))
-                else:
-                    dvec = np.sqrt((a * a))
-            elif self.params['dfunc'] == 'other':
-                dvec = self.dfunc_handle(new_data,
-                                         [self.centroid[self.data[t]] for
-                                          t in self.trn[k]])
+
+            dvec = dist.cdist([new_data], np.array([self.centroid[self.data[t]] for
+                                                    t in self.trn[k]]),
+                              metric=self.params['dfunc'])[0]
+
+            # if self.params['dfunc'] == 'euclidean':
+            #     a = (np.array(new_data) -
+            #          np.array([self.centroid[self.data[t]] for
+            #                    t in self.trn[k]])
+            #          )
+            #     if a.ndim > 1:
+            #         dvec = np.sqrt((a * a).sum(axis=1))
+            #     else:
+            #         dvec = np.sqrt((a * a))
+            # elif self.params['dfunc'] == 'other':
+            #     dvec = self.dfunc_handle(new_data,
+            #                              [self.centroid[self.data[t]] for
+            #                               t in self.trn[k]])
 
             # if no transition from suffix
             I = find(dvec < self.params['threshold'])
@@ -784,34 +794,34 @@ def build_oracle(input_data, flag,
 def find_threshold(input_data, r=(0, 1, 0.1), method='ir', flag='a',
                    suffix_method='inc', alpha=1.0, feature=None,
                    ir_type='cum', dfunc='euclidean', dfunc_handle=None,
-                   VERBOSE=False, ENT=False):
+                   verbose=False, entropy=False):
     if method == 'ir':
         return find_threshold_ir(input_data, r, flag, suffix_method, alpha,
                                  feature, ir_type, dfunc, dfunc_handle,
-                                 VERBOSE, ENT)
+                                 verbose, entropy)
     elif method == 'motif':
         return find_threshold_motif(input_data, r, flag, suffix_method, alpha,
-                                    feature, dfunc, dfunc_handle, VERBOSE)
+                                    feature, dfunc, dfunc_handle, verbose)
 
 
 def find_threshold_ir(input_data, r=(0, 1, 0.1), flag='a', suffix_method='inc',
                       alpha=1.0, feature=None, ir_type='cum',
-                      dfunc='euclidean', dfunc_handle=None, VERBOSE=False,
-                      ENT=False):
+                      dfunc='euclidean', dfunc_handle=None, verbose=False,
+                      entropy=False):
     thresholds = np.arange(r[0], r[1], r[2])
     irs = []
-    if ENT:
+    if entropy:
         h0_vec = []
         h1_vec = []
     for t in thresholds:
-        if VERBOSE:
+        if verbose:
             print 'Testing threshold:', t
         tmp_oracle = build_oracle(input_data, flag=flag, threshold=t,
                                   suffix_method=suffix_method, feature=feature,
                                   dfunc=dfunc, dfunc_handle=dfunc_handle)
         tmp_ir, h0, h1 = tmp_oracle.IR(ir_type=ir_type, alpha=alpha)
         irs.append(tmp_ir.sum())
-        if ENT:
+        if entropy:
             h0_vec.append(h0.sum())
             h1_vec.append(h1.sum())
     # now pair irs and thresholds in a vector, and sort by ir
@@ -819,7 +829,7 @@ def find_threshold_ir(input_data, r=(0, 1, 0.1), flag='a', suffix_method='inc',
     pairs_return = ir_thresh_pairs
     ir_thresh_pairs = sorted(ir_thresh_pairs, key=lambda x: x[0],
                              reverse=True)
-    if ENT:
+    if entropy:
         return ir_thresh_pairs[0], pairs_return, h0_vec, h1_vec
     else:
         return ir_thresh_pairs[0], pairs_return
@@ -827,7 +837,7 @@ def find_threshold_ir(input_data, r=(0, 1, 0.1), flag='a', suffix_method='inc',
 
 def find_threshold_motif(input_data, r=(0, 1, 0.1), flag='a',
                          suffix_method='inc', alpha=1.0, feature=None,
-                         dfunc='euclidean', dfunc_handle=None, VERBOSE=False):
+                         dfunc='euclidean', dfunc_handle=None, verbose=False):
     thresholds = np.arange(r[0], r[1], r[2])
     avg_len = []
     avg_occ = []
@@ -846,12 +856,10 @@ def find_threshold_motif(input_data, r=(0, 1, 0.1), flag='a',
             avg_len.append(0.0)
             avg_occ.append(0.0)
             avg_num.append(0.0)
-        if VERBOSE:
+        if verbose:
             print 'Testing threshold:', t
             print '          avg_len:', avg_len[-1]
             print '          avg_occ:', avg_occ[-1]
             print '          avg_num:', avg_num[-1]
-
-            #         motif_thresh_pairs = [(l,n,t) for l,n,t in zip(avg_len, avg_num, thresholds)]
 
     return avg_len, avg_occ, avg_num, thresholds

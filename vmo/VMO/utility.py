@@ -27,15 +27,13 @@ along with vmo.  If not, see <http://www.gnu.org/licenses/>.
 import numpy as np
 import scipy
 import librosa
-import sklearn.cluster
-import sklearn.mixture
 import scipy.stats as stats
 import scipy.cluster.hierarchy as scihc
 import editdistance as edit
 
 
 def entropy(x):
-    return scipy.stats.entropy(x, base=2)
+    return scipy.stats.entropy(x)
 
 
 def array_rotate(a, shift=1, step=None):
@@ -72,7 +70,7 @@ def normalized_graph_laplacian(mat):
     return laplacian
 
 
-def eigen_decomposition(mat, k=11):  # Changed from 11 to 8 then to 6(7/22)
+def eigen_decomposition(mat, k=8):  # Changed from 11 to 8 then to 6(7/22)
     vals, vecs = scipy.linalg.eig(mat)
     vals = vals.real
     vecs = vecs.real
@@ -100,16 +98,42 @@ https://github.com/bmcfee/laplacian_segmentation
 """
 
 
+def gaussian_cost(feature):
+    """Return the average log-likelihood of data under a standard normal
+    """
+
+    d, n = feature.shape
+
+    if n < 2:
+        return 0
+
+    sigma = np.var(feature, axis=1, ddof=1)
+
+    cost = -0.5 * d * n * np.log(2. * np.pi) - 0.5 * (n - 1.) * np.sum(sigma)
+    return cost
+
+
+def clustering_cost(feature, boundaries):
+
+    # Boundaries include beginning and end frames, so k is one less
+    k = len(boundaries) - 1
+
+    d, n = map(float, feature.shape)
+
+    # Compute the average log-likelihood of each cluster
+    cost = [gaussian_cost(feature[:, start:end]) for (start, end) in zip(boundaries[:-1],
+                                                                         boundaries[1:])]
+    cost = - 2 * np.sum(cost) / n + 2 * (d * k)
+
+    return cost
+
+
 def segment_labeling(x, boundaries, k=0.05):
 
     x_sync = librosa.feature.sync(x.T, boundaries)
-    # d = dist.pdist(x_sync)
     z = scihc.linkage(x_sync.T, method='ward')
     t = k * np.max(z[:, 2])
     seg_labels = scihc.fcluster(z, t=t, criterion='distance')
-
-    # c = sklearn.cluster.KMeans(n_clusters=k, tol=1e-8)
-    # seg_labels = c.fit_predict(x_sync.T)
 
     return seg_labels
 

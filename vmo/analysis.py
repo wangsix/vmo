@@ -272,6 +272,8 @@ def _seg_by_single_frame(oracle, cluster_method='agglomerative', connectivity='t
         return _seg_by_hc_single_frame(obs_len=obs_len, connectivity=connectivity, data=data, **kwargs)
     elif cluster_method == 'spectral':
         return _seg_by_spectral_single_frame(connectivity=connectivity, **kwargs)
+    elif cluster_method == 'spectral_agg':
+        return _seg_by_spectral_agg_single_frame(connectivity=connectivity, **kwargs)
     else:
         return _seg_by_spectral_single_frame(connectivity=connectivity, **kwargs)
 
@@ -305,18 +307,24 @@ def _seg_by_hc_single_frame(obs_len, connectivity, data, **kwargs):
 def _seg_by_spectral_single_frame(connectivity, width=9):
     graph_lap = utils.normalized_graph_laplacian(connectivity)
     eigen_vecs = utils.eigen_decomposition(graph_lap)
-
-    # x = librosa.util.normalize(eigen_vecs.T, norm=2, axis=1)
-    # y = dist.pdist(x, metric = 'euclidean')
-    # z = scihc.linkage(eigen_vecs.T, method='ward')
-    #
-    # t = 0.7 * np.max(z[:, 2])
-    # label = scihc.fcluster(z, t=t, criterion='distance')
-    # k = len(np.unique(label))
-    # boundaries = utils.find_boundaries(label, width)
-    # labels = utils.segment_labeling(eigen_vecs[:k-3, :].T, boundaries)
-
     boundaries, labels = clustering_by_entropy(eigen_vecs, k_min=2, width=width)
+    return boundaries, labels
+
+
+def _seg_by_spectral_agg_single_frame(connectivity, width=9):
+    graph_lap = utils.normalized_graph_laplacian(connectivity)
+    eigen_vecs = utils.eigen_decomposition(graph_lap)
+
+    x = librosa.util.normalize(eigen_vecs.T, norm=2, axis=1)
+    z = scihc.linkage(x, method='ward')
+
+    t = 0.7 * np.max(z[:, 2])
+    label = scihc.fcluster(z, t=t, criterion='distance')
+    k = len(np.unique(label))
+    x = librosa.util.normalize(x[:, :k], norm=2, axis=1)
+    boundaries = utils.find_boundaries(label, width)
+    labels = utils.segment_labeling(x, boundaries)
+
     return boundaries, labels
 
 
@@ -394,7 +402,7 @@ def clustering_by_entropy(eigen_vecs, k_min, width=9):
 
     label_dict = {1: np.zeros(eigen_vecs.shape[1])}  # The trivial solution
 
-    for n_types in range(2, 1 + len(eigen_vecs)):
+    for n_types in range(3, 1 + len(eigen_vecs)):
         y = librosa.util.normalize(eigen_vecs[:n_types, :].T, norm=2, axis=1)
         # y = librosa.util.normalize(eigen_vecs.T, norm=2, axis=1)
 
@@ -402,7 +410,7 @@ def clustering_by_entropy(eigen_vecs, k_min, width=9):
         c = sklhc.KMeans(n_clusters=n_types, n_init=100)
         labels = c.fit_predict(y)
 
-        # c = skmix.GMM(n_components=n_types)
+        # c = skmix.GMM(n_components=n_types, covariance_type='full')
         # c.fit(y)
         # labels = c.predict(y)
 
@@ -418,10 +426,15 @@ def clustering_by_entropy(eigen_vecs, k_min, width=9):
         # values = labels[(labels[:-1]-labels[1:]) != 0]
         # values = np.append(values, labels[-1])
 
+        # score = utils.clustering_cost(y.T, boundaries)
+
         values = np.unique(labels)
         hits = np.zeros(len(values))
+
         for v in values:
-            hits[v] = np.sum(values == v)
+            hits[v] = np.sum(labels == v)
+
+        hits = hits / hits.sum()
 
         # fo = vmo.build_oracle(labels, flag='f')
         # score, _h0, _h1 = fo.IR()
@@ -433,9 +446,10 @@ def clustering_by_entropy(eigen_vecs, k_min, width=9):
         # runs = np.diff(runs)
 
         # hits = runs / runs.sum(dtype=np.float)
-        score = utils.entropy(hits) / np.log2(n_types)
+        score = utils.entropy(hits) / np.log(n_types)
         # score = utils.entropy(hits)
-
+        # score = c.aic(y)
+        # print score
         if score > best_score and feasible:
             best_boundaries = boundaries
             best_n_types = n_types
@@ -448,6 +462,7 @@ def clustering_by_entropy(eigen_vecs, k_min, width=9):
         y_best = librosa.util.normalize(eigen_vecs[:best_n_types].T, norm=2, axis=1)
 
     # Classify each segment centroid
+    print best_n_types
 
     labels = utils.segment_labeling(y_best, best_boundaries)
 
@@ -465,6 +480,8 @@ def segmentation(oracle, method='symbol_agglomerative', **kwargs):
             return _seg_by_hc_string_matching(oracle, **kwargs)
         elif method is 'symbol_spectral':
             return _seg_by_single_frame(oracle, cluster_method='spectral', **kwargs)
+        elif method is 'symbol_spectral_agglomerative':
+            return _seg_by_single_frame(oracle, cluster_method='spectral_agg', **kwargs)
         else:
             print "Method unknown. Use spectral clustering."
             return _seg_by_single_frame(oracle, cluster_method='spectral', **kwargs)
