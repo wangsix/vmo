@@ -396,7 +396,7 @@ def print_motions_generic_define(nuxmv_motion_name='pitchMotion',
         "\tnext({0})<0 | {0}<0: m_none;\n".format(nuxmv_pitchspace_name) +
         "\tnext({0})>={0}: m_asc;\n".format(nuxmv_pitchspace_name) +
         "\tTRUE: m_desc;\n" +
-        "\tesac;\n"        
+        "\tesac;\n"
     )
     return output
     
@@ -411,24 +411,30 @@ def print_oracle(oracle, enable_motions=False, include_rsfx=False,
     Assumes the oracle has been created with a chromagram as feature.
     ----
     >>> import music21
-    >>> import vmo
+    >>> import copy
+    >>> import vmo.utils.music21_interface as vmusic
     >>> c1 = music21.chord.Chord(['C4', 'E4', 'G4'], quarterLength=1)
-    >>> c2 = music21.chord.Chord(['E4', 'G4', 'B4'], quarterLength=1)
+    >>> c2 = music21.chord.Chord(['E4', 'G#4', 'B4'], quarterLength=1)
+    >>> c3 = music21.chord.Chord(['D4', 'F#4', 'A4'], quarterLength=1)
     >>> s = music21.stream.Stream([c1])
     >>> s.append(c2)
-    >>> chromagram = chroma.from_stream(s)
-    >>> o = vmo.VMO.oracle.build_oracle(chromagram.T, 'a',
-    ...                                 feature='chromagram')
-    >>> result = print_oracle(o, enable_motions=False)
+    >>> s.append(copy.deepcopy(c1))
+    >>> s.append(c3)
+    >>> o = vmusic.from_stream(s, threshold=0.2)
+    >>> result = print_oracle(o, original_stream=s, enable_motions=True)
     >>> expected = (
     ...     "MODULE main()\\n" +
-    ...     "VAR s: 0..2;\\n" +
+    ...     "VAR s: 0..4;\\n" +
     ...     "ASSIGN init(s) := 0;\\n" +
     ...     "\\tnext(s) :=\\n" +
     ...     "\\tcase\\n" +
-    ...     "\\ts=0: {1, 2};\\n" +
+    ...     # Reverse suffix-links are forbidden from the initial state, so 0 only
+    ...     # links to the states for which it holds a forward link.
+    ...     "\\ts=0: {1, 2};\\n" + 
     ...     "\\ts=1: {1, 2};\\n" +
-    ...     "\\ts=2: {1, 2};\\n" +
+    ...     "\\ts=2: {1, 2, 3};\\n" +
+    ...     "\\ts=3: {1, 2, 4};\\n" +
+    ...     "\\ts=4: {1, 2};\\n" +
     ...     "\\tesac;\\n\\n" +
     ...     "VAR pitchRoot : {p_Init, p_Silence, p_C, p_C#, p_D, p_E-, p_E, " +
     ...     "p_F, p_F#, p_G, p_G#, p_A, p_B-, p_B};\\n" +
@@ -438,9 +444,14 @@ def print_oracle(oracle, enable_motions=False, include_rsfx=False,
     ...     "\\tnext(s)=0: p_Init;\\n" +
     ...     "\\tnext(s)=1: p_C;\\n" +
     ...     "\\tnext(s)=2: p_E;\\n" +
+    ...     "\\tnext(s)=3: p_C;\\n" +
+    ...     "\\tnext(s)=4: p_D;\\n" +
     ...     "\\tesac;\\n\\n" +
     ...     "-- Motions not enabled."
     ...    )
+    >>> print(o.suffix_class)
+    >>> print(o.sfx[3])
+    >>> print(result)
     >>> result == expected
     True
     """
@@ -451,7 +462,7 @@ def print_oracle(oracle, enable_motions=False, include_rsfx=False,
         init_state = oracle.initial_state
     
     adj_lists = van.graph_adjacency_lists(oracle, include_rsfx,
-                                          compress_to_forward_links=True)
+                                          compress_to_labeled_links=True)
     base_model = print_module(adj_lists, nuxmv_state_name=nuxmv_state_name,
                               init_state=init_state)
 
@@ -516,4 +527,5 @@ def make_root_name(chord, nuxmv_silence_name='p_Silence'):
             
 if __name__ == "__main__":
     import doctest
+    reload(van)
     doctest.testmod()

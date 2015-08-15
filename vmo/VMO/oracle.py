@@ -213,19 +213,26 @@ class FactorOracle(object):
                     self.suffix_class[s].add(state)
             
     
-    def forward_links_state(self, state):
-        """List the states reachable by a forward link from `state`.
+    def labeled_links_state(self, state):
+        """List the states reachable by a compressed labeled link from `state`.
 
-        Forward links are either a direct transition or
-        a sequence of (possibly reverse) suffix links and a final direct link.
+        Compressed labeled links are either a forward link or
+        a sequence of (possibly reverse) suffix links and a final forward link.
 
         Keyword arguments:
             state: int
-                The state for which to extract the forward links
+                The state for which to extract the compressed labeled links
         """
-        forward = set()
-        forward.update(*[self.trn[s] for s in self.suffix_class[state]])
-        return forward    
+        labeled = set()
+        if state == self.initial_state or self.sfx[state] == self.initial_state:
+            labeled.update(*[self.trn[s] for s in self.suffix_class[state]])
+        else:
+            # Don't allow not previously existing jumps from the initial state:
+            # this connects all states and nullifies the whole structure
+            # of the oracle
+            labeled.update(*[self.trn[s] for s in self.suffix_class[state]
+                             if s != self.initial_state])
+        return labeled
 
     
     def read_symbol_forward(self, state, symbol):

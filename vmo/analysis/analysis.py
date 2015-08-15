@@ -128,7 +128,7 @@ def _create_trn_mat_symbolic(oracle, method):
     return mat, hist, n
 
 def graph_adjacency_lists(oracle, include_rsfx=False,
-                          compress_to_forward_links=False):
+                          compress_to_labeled_links=False):
     """Return <oracle>'s underlying graph, using adjacency lists.
 
     Use all of the input material's states, not the oracle's clusters.
@@ -140,15 +140,15 @@ def graph_adjacency_lists(oracle, include_rsfx=False,
         include_rsfx: bool, optional
             Whether reverse suffix links should be included in the transitions
             (default False).
-        compress_to_forward_links: bool, optional
+        compress_to_labeled_links: bool, optional
             Whether suffix links paths should be compressed to only return
             links that are actually labeled by a symbol, by considering a
-            succession of suffix links and a final direct link to be a
-            single direct link (default False).
+            succession of suffix links and a final forward link to be a
+            single "compressed" labeled link (default False).
     """
     length = oracle.n_states
 
-    if not compress_to_forward_links:
+    if not compress_to_labeled_links:
         if include_rsfx:
             graph = [(oracle.trn[i]+oracle.rsfx[i]) for i in range(length)]
         else:
@@ -160,12 +160,12 @@ def graph_adjacency_lists(oracle, include_rsfx=False,
                 graph[i].append(sfx_trans)
         return graph
     else:
-        # Return all forward links
-        graph = [list(oracle.forward_links_state(s)) for s in range(length)]
+        # Return all compressed links
+        graph = [list(oracle.labeled_links_state(s)) for s in range(length)]
         return graph
 
 def graph_adjacency_matrix(oracle, include_rsfx=False,
-                           compress_to_forward_links=False):
+                           compress_to_labeled_links=False):
     """Return the adjacency matrix of <oracle>'s underlying graph.
 
     Use all of the input material's states, not the oracle's clusters.
@@ -177,16 +177,16 @@ def graph_adjacency_matrix(oracle, include_rsfx=False,
             The oracle to convert.
         include_rsfx: bool, optional
             Whether reverse suffix links should be included in the transitions.
-        compress_to_forward_links: bool, optional
+        compress_to_labeled_links: bool, optional
             Whether suffix links paths should be compressed to only return
             links that are actually labeled by a symbol, by considering a
-            succession of suffix links and a final direct link to be a
-            single direct link (default False).        
+            succession of suffix links and a final forward link to be a
+            single "compressed" labeled link (default False).
     """ 
     length = oracle.n_states
     graph = [[0 for i in range(length)] for j in range(length)]
 
-    if not compress_to_forward_links:
+    if not compress_to_labeled_links:
         if include_rsfx:
             transition_lists = [oracle.trn, oracle.rsfx]
         else:
@@ -200,7 +200,7 @@ def graph_adjacency_matrix(oracle, include_rsfx=False,
         return graph
     else:
         for i in range(length):
-            for j in oracle.forward_links_state(i):
+            for j in oracle.labeled_links_state(i):
                 graph[i][j] += 1
         return graph
 
