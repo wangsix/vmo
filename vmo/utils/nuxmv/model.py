@@ -278,8 +278,8 @@ def print_pitches(oracle, nuxmv_state_name='s'):
     >>> oracle = vmusic.from_stream(s)
     >>> result = print_pitches(oracle)
     >>> expected = (["VAR pitchRoot : " +
-    ...              "{p_Init, p_Silence, p_C, p_C#, p_D, p_E-, p_E, " +
-    ...              "p_F, p_F#, p_G, p_G#, p_A, p_B-, p_B};",
+    ...              "{p_Init, p_Silence, p_C, p_Cis, p_D, p_Ees, p_E, " +
+    ...              "p_F, p_Fis, p_G, p_Gis, p_A, p_Bes, p_B};",
     ...              "ASSIGN init(pitchRoot) := p_Init;"],
     ...             ["next(pitchRoot) :=",
     ...              "case",
@@ -292,9 +292,10 @@ def print_pitches(oracle, nuxmv_state_name='s'):
     >>> result == expected
     True
     """
+    comment = "-- Uses '-is' for sharp notes and '-es' for flat notes."
     name = 'pitchRoot'
-    values = ("{p_Init, p_Silence, p_C, p_C#, p_D, p_E-, p_E, " +
-              "p_F, p_F#, p_G, p_G#, p_A, p_B-, p_B}")
+    values = ("{p_Init, p_Silence, p_C, p_Cis, p_D, p_E-, p_E, " +
+              "p_F, p_Fis, p_G, p_Gis, p_A, p_B-, p_B}")
     initial_value = 'p_Init'
     
     transitions = []
@@ -303,7 +304,10 @@ def print_pitches(oracle, nuxmv_state_name='s'):
     for s in range(1, oracle.n_states):
         transitions.append(print_pitch_state(oracle, s, nuxmv_state_name))
 
-    return print_variable(name, values, initial_value, transitions)
+    header, declaration = print_variable(
+        name, values, initial_value, transitions)
+    
+    return [comment] + header, declaration
 
 def print_pitchspace_state(oracle, original_stream, state, nuxmv_state_name='s'):
     """Return a nuXmv assignation case for pitch space for `state`.
@@ -393,7 +397,7 @@ def print_motions_generic_define(nuxmv_motion_name='pitchMotion',
         "ASSIGN init({}) := m_none;\n".format(nuxmv_motion_name) +
         "\tnext({}) :=\n".format(nuxmv_motion_name) +
         "\tcase\n" +
-        "\tnext({0})<0 | {0}<0: m_none;\n".format(nuxmv_pitchspace_name) +
+        "\t{0}<0 | next({0})<0: m_none;\n".format(nuxmv_pitchspace_name) +
         "\tnext({0})>={0}: m_asc;\n".format(nuxmv_pitchspace_name) +
         "\tTRUE: m_desc;\n" +
         "\tesac;\n"
@@ -413,14 +417,16 @@ def print_oracle(oracle, enable_motions=False, include_rsfx=False,
     >>> import music21
     >>> import copy
     >>> import vmo.utils.music21_interface as vmusic
-    >>> c1 = music21.chord.Chord(['C4', 'E4', 'G4'], quarterLength=1)
-    >>> c2 = music21.chord.Chord(['E4', 'G#4', 'B4'], quarterLength=1)
-    >>> c3 = music21.chord.Chord(['D4', 'F#4', 'A4'], quarterLength=1)
+    >>> c1 = music21.chord.Chord(['C4', 'E4', 'G4'], quarterLength=4)
+    >>> c2 = music21.chord.Chord(['E4', 'G#4', 'B4'], quarterLength=4)
+    >>> c3 = music21.chord.Chord(['D4', 'F#4', 'A4'], quarterLength=4)
     >>> s = music21.stream.Stream([c1])
     >>> s.append(c2)
     >>> s.append(copy.deepcopy(c1))
     >>> s.append(c3)
-    >>> o = vmusic.from_stream(s, threshold=0.2)
+    >>> o = vmusic.from_stream(s, threshold=0.2, framesize=4.)
+    >>> print(o.trn)
+    >>> print(o.sfx)
     >>> result = print_oracle(o, original_stream=s, enable_motions=True)
     >>> expected = (
     ...     "MODULE main()\\n" +
@@ -436,8 +442,8 @@ def print_oracle(oracle, enable_motions=False, include_rsfx=False,
     ...     "\\ts=3: {1, 2, 4};\\n" +
     ...     "\\ts=4: {1, 2};\\n" +
     ...     "\\tesac;\\n\\n" +
-    ...     "VAR pitchRoot : {p_Init, p_Silence, p_C, p_C#, p_D, p_E-, p_E, " +
-    ...     "p_F, p_F#, p_G, p_G#, p_A, p_B-, p_B};\\n" +
+    ...     "VAR pitchRoot : {p_Init, p_Silence, p_C, p_Cis, p_D, p_E-," +
+    ...     "p_E, p_F, p_Fis, p_G, p_Gis, p_A, p_B-, p_B};\\n" +
     ...     "ASSIGN init(pitchRoot) := p_Init;\\n" +
     ...     "\\tnext(pitchRoot) :=\\n" +
     ...     "\\tcase\\n" +
@@ -499,7 +505,7 @@ def indent_join_lines(lines, tabulate_by=1, trailing='\n'):
         lines: list of strings
             The lines to concatenate
         tabulate_by: int
-            The number of tabulations to add at te beginning of every line
+            The number of tabulations to add at the beginning of every line
         trailing: str
             A string to append to all lines 
     """
@@ -510,6 +516,9 @@ def indent_join_lines(lines, tabulate_by=1, trailing='\n'):
 
 def make_root_name(chord, nuxmv_silence_name='p_Silence'):
     """Generic function to return a valid root name for a model.
+
+    Alteration symbols '#' and '-' are respectively replaced by 'is' and 'es',
+    following the notation from Lilypond, derived from germanic music notation.
 
     Keyword arguments:
         chord: music21.chord.Chord input type
@@ -522,6 +531,8 @@ def make_root_name(chord, nuxmv_silence_name='p_Silence'):
         return nuxmv_silence_name
     else:
         root_name = ('p_' + chord.root().name)
+        root_name = root_name.replace('#', 'is')
+        root_name = root_name.replace('-', 'es')
         return root_name
 
             
