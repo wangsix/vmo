@@ -546,10 +546,14 @@ class MO(FactorOracle):
             suffix_candidate = 0
 
         while k is not None:
-
-            dvec = dist.cdist([new_data], np.array([self.f_array[t] for t in
-                                                   self.trn[k]]),
-                              metric=self.params['dfunc'])[0]
+            
+            if self.params['dfunc'] == 'others':
+                dvec = self.dfunc_handle(new_data, [self.f_array[t] for t in
+                                                    self.trn[k]])
+            else:
+                dvec = dist.cdist([new_data], np.array([self.f_array[t] for t in
+                                                       self.trn[k]]),
+                                  metric=self.params['dfunc'])[0]
 
             # if self.params['dfunc'] == 'euclidean':
             #     a = np.array(new_data) - np.array([self.f_array[t] for t in
@@ -668,11 +672,15 @@ class VMO(FactorOracle):
 
         while k is not None:
             # NEW Implementation
-
-            dvec = dist.cdist([new_data], np.array([self.centroid[self.data[t]] for
-                                                    t in self.trn[k]]),
-                              metric=self.params['dfunc'])[0]
-
+            
+            if self.params['dfunc'] == 'others':
+                dvec = self.dfunc_handle(new_data,
+                                         [self.centroid[self.data[t]] for
+                                          t in self.trn[k]])
+            else:
+                dvec = dist.cdist([new_data], np.array([self.centroid[self.data[t]] for
+                                                        t in self.trn[k]]),
+                                  metric=self.params['dfunc'])[0]
             # if self.params['dfunc'] == 'euclidean':
             #     a = (np.array(new_data) -
             #          np.array([self.centroid[self.data[t]] for
