@@ -402,17 +402,13 @@ def clustering_by_entropy(eigen_vecs, k_min, width=9):
 
     label_dict = {1: np.zeros(eigen_vecs.shape[1])}  # The trivial solution
 
-    for n_types in range(3, 1 + len(eigen_vecs)):
+    for n_types in range(4, 1 + len(eigen_vecs)):
         y = librosa.util.normalize(eigen_vecs[:n_types, :].T, norm=2, axis=1)
         # y = librosa.util.normalize(eigen_vecs.T, norm=2, axis=1)
 
         # Try to label the data with n_types
         c = sklhc.KMeans(n_clusters=n_types, n_init=100)
         labels = c.fit_predict(y)
-
-        # c = skmix.GMM(n_components=n_types, covariance_type='full')
-        # c.fit(y)
-        # labels = c.predict(y)
 
         label_dict[n_types] = labels
 
@@ -462,9 +458,8 @@ def clustering_by_entropy(eigen_vecs, k_min, width=9):
         y_best = librosa.util.normalize(eigen_vecs[:best_n_types].T, norm=2, axis=1)
 
     # Classify each segment centroid
-    print best_n_types
 
-    labels = utils.segment_labeling(y_best, best_boundaries)
+    labels = utils.segment_labeling(y_best, best_boundaries, best_n_types)
 
     # intervals = zip(boundaries[:-1], boundaries[1:])
     best_labels = labels

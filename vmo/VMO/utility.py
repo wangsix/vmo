@@ -29,6 +29,7 @@ import scipy
 import librosa
 import scipy.stats as stats
 import scipy.cluster.hierarchy as scihc
+import sklearn.cluster as sklhc
 import editdistance as edit
 
 
@@ -128,12 +129,15 @@ def clustering_cost(feature, boundaries):
     return cost
 
 
-def segment_labeling(x, boundaries, k=0.05):
+def segment_labeling(x, boundaries, n_types=5, k=0.05):
 
     x_sync = librosa.feature.sync(x.T, boundaries)
-    z = scihc.linkage(x_sync.T, method='ward')
-    t = k * np.max(z[:, 2])
-    seg_labels = scihc.fcluster(z, t=t, criterion='distance')
+    # z = scihc.linkage(x_sync.T, method='ward')
+    # t = k * np.max(z[:, 2])
+    # seg_labels = scihc.fcluster(z, t=t, criterion='distance')
+
+    c = sklhc.KMeans(n_clusters=n_types, n_init=100)
+    seg_labels = c.fit_predict(x_sync.T)
 
     return seg_labels
 
