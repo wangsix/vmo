@@ -71,7 +71,7 @@ def normalized_graph_laplacian(mat):
     return laplacian
 
 
-def eigen_decomposition(mat, k=8):  # Changed from 11 to 8 then to 6(7/22)
+def eigen_decomposition(mat, k=10):  # Changed from 11 to 8 then to 6(7/22)
     vals, vecs = scipy.linalg.eig(mat)
     vals = vals.real
     vecs = vecs.real
@@ -156,8 +156,8 @@ def boundaries_adjustment(oracle, boundaries, labels):
 
     _tmp_boundary = np.insert(boundaries, 0, -8.0)
     b_distance = np.diff(_tmp_boundary)
-    boundaries = boundaries[b_distance > 1]
-    labels = labels[np.diff(boundaries) > 1]
+    boundaries = boundaries[b_distance > 4]
+    labels = labels[np.diff(boundaries) > 4]
 
     feature = oracle.f_array[1:]
     new_boundaries = [boundaries[0]]
@@ -166,11 +166,11 @@ def boundaries_adjustment(oracle, boundaries, labels):
             neighbor_feature = feature[:b+5]
             adj = -(b-1)
         elif len(feature)-b < 8:
-            neighbor_feature = feature[b-8:]
-            adj = -7
+            neighbor_feature = feature[b-4:]
+            adj = -3
         else:
-            neighbor_feature = feature[b-8:b+5]
-            adj = -7
+            neighbor_feature = feature[b-4:b+5]
+            adj = -3
         offset = np.argmax(np.sum(np.square(np.diff(neighbor_feature, axis=0)), axis=1)) + adj
         new_b = b + offset
         new_boundaries.append(new_b)
@@ -179,7 +179,7 @@ def boundaries_adjustment(oracle, boundaries, labels):
     new_boundaries = np.array(new_boundaries)
     _tmp_boundary = np.insert(new_boundaries, 0, -8.0)
     b_distance = np.diff(_tmp_boundary)
-    new_boundaries = new_boundaries[b_distance > 1]
-    labels = labels[np.diff(new_boundaries) > 1]
+    new_boundaries = new_boundaries[b_distance > 4]
+    labels = labels[np.diff(new_boundaries) > 4]
 
     return new_boundaries, labels

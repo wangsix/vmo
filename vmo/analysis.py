@@ -290,6 +290,7 @@ def _seg_by_hc_single_frame(obs_len, connectivity, data, **kwargs):
         t = kwargs['threshold']
     else:
         t = 0.7 * np.max(reconstructed_z[:, 2])
+        # t = 1.2*np.mean(reconstructed_z[:, 2])
 
     if 'criterion' in kwargs.keys():
         criterion = kwargs['criterion']
@@ -297,9 +298,9 @@ def _seg_by_hc_single_frame(obs_len, connectivity, data, **kwargs):
         criterion = 'distance'
 
     label = scihc.fcluster(reconstructed_z, t=t, criterion=criterion)
-
+    k = len(np.unique(label))
     boundaries = utils.find_boundaries(label, **kwargs)
-    labels = utils.segment_labeling(data, boundaries)
+    labels = utils.segment_labeling(data, boundaries, n_types=k)
 
     return boundaries, labels
 
@@ -318,12 +319,14 @@ def _seg_by_spectral_agg_single_frame(connectivity, width=9):
     x = librosa.util.normalize(eigen_vecs.T, norm=2, axis=1)
     z = scihc.linkage(x, method='ward')
 
-    t = 0.7 * np.max(z[:, 2])
+    t = 0.75 * np.max(z[:, 2])
     label = scihc.fcluster(z, t=t, criterion='distance')
+    # label = scihc.fcluster(z, t=1.19, criterion='inconsistent')
+
     k = len(np.unique(label))
     x = librosa.util.normalize(x[:, :k], norm=2, axis=1)
     boundaries = utils.find_boundaries(label, width)
-    labels = utils.segment_labeling(x, boundaries)
+    labels = utils.segment_labeling(x, boundaries, n_types=k)
 
     return boundaries, labels
 
@@ -402,9 +405,8 @@ def clustering_by_entropy(eigen_vecs, k_min, width=9):
 
     label_dict = {1: np.zeros(eigen_vecs.shape[1])}  # The trivial solution
 
-    for n_types in range(4, 1 + len(eigen_vecs)):
+    for n_types in range(3, 1 + len(eigen_vecs)):
         y = librosa.util.normalize(eigen_vecs[:n_types, :].T, norm=2, axis=1)
-        # y = librosa.util.normalize(eigen_vecs.T, norm=2, axis=1)
 
         # Try to label the data with n_types
         c = sklhc.KMeans(n_clusters=n_types, n_init=100)
@@ -418,12 +420,6 @@ def clustering_by_entropy(eigen_vecs, k_min, width=9):
         # boundaries now include start and end markers; n-1 is the number of segments
         feasible = (len(boundaries) > k_min)
 
-        # values, counts = np.unique(labels, return_counts=True)
-        # values = labels[(labels[:-1]-labels[1:]) != 0]
-        # values = np.append(values, labels[-1])
-
-        # score = utils.clustering_cost(y.T, boundaries)
-
         values = np.unique(labels)
         hits = np.zeros(len(values))
 
@@ -431,21 +427,8 @@ def clustering_by_entropy(eigen_vecs, k_min, width=9):
             hits[v] = np.sum(labels == v)
 
         hits = hits / hits.sum()
-
-        # fo = vmo.build_oracle(labels, flag='f')
-        # score, _h0, _h1 = fo.IR()
-        # score = score.sum() - np.log2(eigen_vecs.shape[1])
-        # score /= np.log2(n_types)
-        # runs = np.where(np.diff(labels) != 0)[0]+1
-        # runs = np.insert(runs, 0, 0)
-        # runs = np.append(runs, len(labels))
-        # runs = np.diff(runs)
-
-        # hits = runs / runs.sum(dtype=np.float)
         score = utils.entropy(hits) / np.log(n_types)
-        # score = utils.entropy(hits)
-        # score = c.aic(y)
-        # print score
+
         if score > best_score and feasible:
             best_boundaries = boundaries
             best_n_types = n_types
