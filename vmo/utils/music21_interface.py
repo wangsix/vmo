@@ -240,6 +240,7 @@ def progression_from_tonic(tonic, progression='authentic',
 
 
 def extract_frame(stream, offset_start, framesize):
+    """Wrapper for the music21 function getElementsByOffset."""
     result = stream.getElementsByOffset(
         offset_start,
         offsetEnd=offset_start+framesize,
@@ -250,10 +251,20 @@ def extract_frame(stream, offset_start, framesize):
         )
     return result
 
-def extract_frame_oracle(stream, oracle, state):
+def extract_frame_oracle(original_stream, oracle, state):
+    """Return a stream containing the frame in state `state` in oracle.
+
+    Keyword arguments:
+        original_stream: music21.stream.Stream
+            The stream used to build oracle.
+        oracle: vmo.VMO.FactorOracle
+            The oracle from which to extract the frame.
+        state: int
+            The state in the oracle for which to retrieve the frame.
+    """
     framesize = oracle.framesize
     offset_start = framesize * (state - 1)
-    return extract_frame(stream.flat, offset_start, framesize)
+    return extract_frame(original_stream.flat, offset_start, framesize)
 
 def is_ascending_motion(chord1, chord2):
     """Return `True` if the motion from `chord1` to `chord2` is ascending.
