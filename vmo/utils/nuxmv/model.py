@@ -277,7 +277,8 @@ def print_pitches(oracle, nuxmv_state_name='s'):
     >>> s.append(music21.chord.Chord([], quarterLength=1))  # silent frame
     >>> oracle = vmusic.from_stream(s)
     >>> result = print_pitches(oracle)
-    >>> expected = (["VAR pitchRoot : " +
+    >>> expected = (["-- Uses '-is' for sharp notes and '-es' for flat notes.",
+    ...              "VAR pitchRoot : " +
     ...              "{p_Init, p_Silence, p_C, p_Cis, p_D, p_Ees, p_E, " +
     ...              "p_F, p_Fis, p_G, p_Gis, p_A, p_Bes, p_B};",
     ...              "ASSIGN init(pitchRoot) := p_Init;"],
@@ -294,8 +295,8 @@ def print_pitches(oracle, nuxmv_state_name='s'):
     """
     comment = "-- Uses '-is' for sharp notes and '-es' for flat notes."
     name = 'pitchRoot'
-    values = ("{p_Init, p_Silence, p_C, p_Cis, p_D, p_E-, p_E, " +
-              "p_F, p_Fis, p_G, p_Gis, p_A, p_B-, p_B}")
+    values = ("{p_Init, p_Silence, p_C, p_Cis, p_D, p_Ees, p_E, " +
+              "p_F, p_Fis, p_G, p_Gis, p_A, p_Bes, p_B}")
     initial_value = 'p_Init'
     
     transitions = []
@@ -347,7 +348,7 @@ def print_pitchspace_state(oracle, original_stream, state, nuxmv_state_name='s')
         """Return an int representing the pitch space position of
         the root of `state`'s content.
 
-        Return 0 if `state` holds a silent feature.
+        Return `-1` if `state` holds a silent feature.
         """
         frame = vmusic.extract_frame_oracle(original_stream, oracle, state)
         chord = mus.chord.Chord(frame.pitches)
@@ -378,9 +379,9 @@ def print_pitchspaces(oracle, original_stream, nuxmv_state_name='s',
             (default 's').
     """
     states = range(1, oracle.n_states)
-    local_print_motion_state = (lambda state: print_pitchspace_state(
+    local_print_pitchspace_state = (lambda state: print_pitchspace_state(
         oracle, original_stream, state, nuxmv_state_name))
-    transitions = map(local_print_motion_state, states)
+    transitions = map(local_print_pitchspace_state, states)
     transitions.append("TRUE: -1;")  # To make the case-disjunt exhaustive. 
     
     return print_variable(nuxmv_pitchspace_name, '-1 .. 127',
@@ -403,6 +404,96 @@ def print_motions_generic_define(nuxmv_motion_name='pitchMotion',
         "\tesac;\n"
     )
     return output
+
+"""Rhythmic features"""
+
+def print_duration_state(oracle, original_stream, state, nuxmv_state_name='s'):
+    """Return a nuXmv assignation case for duration for `state`.
+
+    The duration associated is the 
+
+    Keyword arguments:
+        oracle: vmo.VMO.oracle
+            The oracle to model.
+        state: int
+            The state in the oracle to print.
+        original_stream: music21.stream.Stream
+            The music21 stream object used to create `oracle`.
+        nuxmv_state_name: str
+            The name of the state in the model representing the oracle state
+            (default 's').
+    ----
+    >>> import copy
+    >>> import music21
+    >>> import vmo.utils.music21_interface as vmusic
+    >>> c1 = music21.chord.Chord(['C4', 'E4', 'G4'], quarterLength=2)
+    >>> c2 = music21.chord.Chord(['E4', 'G4', 'B4'], quarterLength=2)
+    >>> c3 = music21.chord.Chord(['C4', 'E4', 'G4'], quarterLength=4)
+    >>> stream = music21.stream.Stream([c1])
+    >>> stream.append(c2)
+    >>> stream.append(c3)
+    >>> oracle = vmusic.from_stream(stream, threshold=0.01, framesize=2)
+    >>> result = print_duration_state(oracle, stream, 1)
+    >>> expected = "next(s)=1: 8;"
+    >>> result == expected
+    True
+    >>> result = print_duration_state(oracle, stream, 2)
+    >>> expected = "next(s)=2: 8;"
+    >>> expected == result 
+    True
+    >>> result = print_duration_state(oracle, stream, 3)
+    >>> expected = "next(s)=3: 16;"
+    >>> expected == result
+    True
+    """
+    import vmo.utils.music21_interface as vmusic
+    import math
+    
+    def get_duration_of_frame_root(state):
+        """Return the length of the root in `state`'s frame, in number of
+        sixteenth notes, rounded to the largest previous integer.
+
+        Return `-1` if `state` holds a silent feature.
+        """
+        frame = vmusic.extract_frame_oracle(original_stream, oracle, state)
+        chord = mus.chord.Chord(frame.pitches)
+        if chord.pitches:
+            root = chord.root()
+            durations = [
+                note.quarterLength for elem in frame.flat.notes
+                for note in mus.chord.Chord(elem)
+                if note.pitch == root]
+            return int(math.ceil(max(durations) * 4.))
+        else:
+            return -1
+
+    transition = "next({0})={1}: {2};".format(nuxmv_state_name,
+                                              state,
+                                              get_duration_of_frame_root(state))
+
+    return transition
+
+def print_durations(oracle, original_stream, nuxmv_state_name='s',
+                      nuxmv_duration_name='duration'):
+    """Return full nuXmv variable declaration for root durations in `oracle`.
+        
+    Keyword arguments:
+        oracle: vmo.VMO.oracle
+            The oracle to model.
+        original_stream: music21.stream.Stream
+            The music21 stream object used to create `oracle`.
+        nuxmv_state_name: str
+            The name of the state in the model representing the oracle state
+            (default 's').
+    """
+    states = range(1, oracle.n_states)
+    local_print_duration_state = (lambda state: print_duration_state(
+        oracle, original_stream, state, nuxmv_state_name))
+    transitions = map(local_print_duration_state, states)
+    transitions.append("TRUE: -1;")  # To make the case-disjunt exhaustive.
+    
+    return print_variable(nuxmv_duration_name, '-1 .. 127',
+                          '-1', transitions)
     
 """Print chromagram oracle"""
 
@@ -425,9 +516,7 @@ def print_oracle(oracle, enable_motions=False, include_rsfx=False,
     >>> s.append(copy.deepcopy(c1))
     >>> s.append(c3)
     >>> o = vmusic.from_stream(s, threshold=0.2, framesize=4.)
-    >>> print(o.trn)
-    >>> print(o.sfx)
-    >>> result = print_oracle(o, original_stream=s, enable_motions=True)
+    >>> result = print_oracle(o, original_stream=s, enable_motions=False)
     >>> expected = (
     ...     "MODULE main()\\n" +
     ...     "VAR s: 0..4;\\n" +
@@ -436,14 +525,15 @@ def print_oracle(oracle, enable_motions=False, include_rsfx=False,
     ...     "\\tcase\\n" +
     ...     # Reverse suffix-links are forbidden from the initial state, so 0 only
     ...     # links to the states for which it holds a forward link.
-    ...     "\\ts=0: {1, 2};\\n" + 
-    ...     "\\ts=1: {1, 2};\\n" +
-    ...     "\\ts=2: {1, 2, 3};\\n" +
-    ...     "\\ts=3: {1, 2, 4};\\n" +
-    ...     "\\ts=4: {1, 2};\\n" +
+    ...     "\\ts=0: {1, 2, 4};\\n" + 
+    ...     "\\ts=1: {1, 2, 4};\\n" +
+    ...     "\\ts=2: {1, 2, 3, 4};\\n" +
+    ...     "\\ts=3: {2, 4};\\n" +
+    ...     "\\ts=4: {1, 2, 4};\\n" +
     ...     "\\tesac;\\n\\n" +
-    ...     "VAR pitchRoot : {p_Init, p_Silence, p_C, p_Cis, p_D, p_E-," +
-    ...     "p_E, p_F, p_Fis, p_G, p_Gis, p_A, p_B-, p_B};\\n" +
+    ...     "-- Uses '-is' for sharp notes and '-es' for flat notes.\\n" +
+    ...     "VAR pitchRoot : {p_Init, p_Silence, p_C, p_Cis, p_D, p_Ees, " +
+    ...     "p_E, p_F, p_Fis, p_G, p_Gis, p_A, p_Bes, p_B};\\n" +
     ...     "ASSIGN init(pitchRoot) := p_Init;\\n" +
     ...     "\\tnext(pitchRoot) :=\\n" +
     ...     "\\tcase\\n" +
@@ -455,9 +545,6 @@ def print_oracle(oracle, enable_motions=False, include_rsfx=False,
     ...     "\\tesac;\\n\\n" +
     ...     "-- Motions not enabled."
     ...    )
-    >>> print(o.suffix_class)
-    >>> print(o.sfx[3])
-    >>> print(result)
     >>> result == expected
     True
     """
