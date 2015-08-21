@@ -405,7 +405,7 @@ def clustering_by_entropy(eigen_vecs, k_min, width=9):
 
     label_dict = {1: np.zeros(eigen_vecs.shape[1])}  # The trivial solution
 
-    for n_types in range(3, 1 + len(eigen_vecs)):
+    for n_types in range(4, 1 + len(eigen_vecs)):
         y = librosa.util.normalize(eigen_vecs[:n_types, :].T, norm=2, axis=1)
 
         # Try to label the data with n_types

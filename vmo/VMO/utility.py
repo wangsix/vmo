@@ -71,7 +71,7 @@ def normalized_graph_laplacian(mat):
     return laplacian
 
 
-def eigen_decomposition(mat, k=10):  # Changed from 11 to 8 then to 6(7/22)
+def eigen_decomposition(mat, k=8):  # Changed from 11 to 8 then to 6(7/22)
     vals, vecs = scipy.linalg.eig(mat)
     vals = vals.real
     vecs = vecs.real
