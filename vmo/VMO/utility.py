@@ -99,45 +99,20 @@ https://github.com/bmcfee/laplacian_segmentation
 """
 
 
-def gaussian_cost(feature):
-    """Return the average log-likelihood of data under a standard normal
-    """
-
-    d, n = feature.shape
-
-    if n < 2:
-        return 0
-
-    sigma = np.var(feature, axis=1, ddof=1)
-
-    cost = -0.5 * d * n * np.log(2. * np.pi) - 0.5 * (n - 1.) * np.sum(sigma)
-    return cost
-
-
-def clustering_cost(feature, boundaries):
-
-    # Boundaries include beginning and end frames, so k is one less
-    k = len(boundaries) - 1
-
-    d, n = map(float, feature.shape)
-
-    # Compute the average log-likelihood of each cluster
-    cost = [gaussian_cost(feature[:, start:end]) for (start, end) in zip(boundaries[:-1],
-                                                                         boundaries[1:])]
-    cost = - 2 * np.sum(cost) / n + 2 * (d * k)
-
-    return cost
-
-
-def segment_labeling(x, boundaries, n_types=5, k=0.05):
+def segment_labeling(x, boundaries, c_method = 'kmeans', k=5):
 
     x_sync = librosa.feature.sync(x.T, boundaries)
-    # z = scihc.linkage(x_sync.T, method='ward')
-    # t = k * np.max(z[:, 2])
-    # seg_labels = scihc.fcluster(z, t=t, criterion='distance')
 
-    c = sklhc.KMeans(n_clusters=n_types, n_init=100)
-    seg_labels = c.fit_predict(x_sync.T)
+    if c_method == 'kmeans':
+        c = sklhc.KMeans(n_clusters=k, n_init=100)
+        seg_labels = c.fit_predict(x_sync.T)
+    elif c_method == 'agglomerative':
+        z = scihc.linkage(x_sync.T, method='ward')
+        t = k * np.max(z[:, 2])
+        seg_labels = scihc.fcluster(z, t=t, criterion='distance')
+    else:
+        c = sklhc.KMeans(n_clusters=k, n_init=100)
+        seg_labels = c.fit_predict(x_sync.T)
 
     return seg_labels
 

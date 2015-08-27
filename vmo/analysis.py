@@ -325,7 +325,7 @@ def _agg_segment(z, t, criterion, width, data):
     while len(boundaries) < k+1 and width > 0:
         width -= 3
         boundaries = utils.find_boundaries(label, width=width-3)
-    labels = utils.segment_labeling(data, boundaries, n_types=k)
+    labels = utils.segment_labeling(data, boundaries, c_method='kmeans', k=k)
     return boundaries, labels
 
 
@@ -410,7 +410,7 @@ def _seg_by_hc_string_matching(oracle, data='symbol', connectivity=None, **kwarg
         label.extend([lab] * len(frag))
 
     boundaries = utils.find_boundaries(label, **kwargs)
-    labels = utils.segment_labeling(data, boundaries, k=0.25)
+    labels = utils.segment_labeling(data, boundaries, c_method='agglomerative', k=0.05)
 
     return boundaries, labels
 
@@ -418,10 +418,8 @@ def _seg_by_hc_string_matching(oracle, data='symbol', connectivity=None, **kwarg
 def clustering_by_entropy(eigen_vecs, k_min, width=9, hier=False):
     best_score = -np.inf
     best_boundaries = [0, eigen_vecs.shape[1]]
-    best_n_types = 1
     y_best = eigen_vecs[:1].T
 
-    # label_dict = {1: np.zeros(eigen_vecs.shape[1])}  # The trivial solution
     if hier:
         label_dict = OrderedDict()
         boundary_dict = OrderedDict()
@@ -456,7 +454,7 @@ def clustering_by_entropy(eigen_vecs, k_min, width=9, hier=False):
             y_best = y
 
         if hier:
-            labels = utils.segment_labeling(y, boundaries, n_types)
+            labels = utils.segment_labeling(y, boundaries, c_method='kmeans' , k=n_types)
             label_dict[n_types] = labels
             boundary_dict[n_types] = boundaries
 
@@ -467,9 +465,7 @@ def clustering_by_entropy(eigen_vecs, k_min, width=9, hier=False):
 
     # Classify each segment centroid
 
-    labels = utils.segment_labeling(y_best, best_boundaries, best_n_types)
-
-    # intervals = zip(boundaries[:-1], boundaries[1:])
+    labels = utils.segment_labeling(y_best, best_boundaries, c_method='kmeans', k=n_types)
     best_labels = labels
 
     if hier:
