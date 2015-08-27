@@ -30,6 +30,7 @@ from functools import partial
 # from scipy.stats import multivariate_normal
 import vmo.VMO
 import vmo.VMO.utility as utils
+from collections import OrderedDict
 
 '''Self-similarity matrix and transition matrix from an oracle
 '''
@@ -301,14 +302,16 @@ def _seg_by_hc_single_frame(obs_len, connectivity, data, width=9, hier=False, **
         criterion = 'distance'
 
     if hier:
-        t_list = np.arange(0.5, 1.0, 0.2) * np.max(reconstructed_z[:, 2])
-        boundary_dict = {}
-        label_dict = {}
+        t_list = range(2, 11)
+
+        label_dict = OrderedDict()
+        boundary_dict = OrderedDict()
+        criterion = 'maxclust'
         for t in t_list:
             boundaries, labels = _agg_segment(reconstructed_z, t, criterion, width, data)
 
-            label_dict[t] = labels
-            boundary_dict[t] = boundaries
+            label_dict[np.max(labels)+1] = labels
+            boundary_dict[np.max(labels)+1] = boundaries
         return boundary_dict, label_dict
     else:
         t = 0.7 * np.max(reconstructed_z[:, 2])
@@ -319,14 +322,19 @@ def _agg_segment(z, t, criterion, width, data):
     label = scihc.fcluster(z, t=t, criterion=criterion)
     k = len(np.unique(label))
     boundaries = utils.find_boundaries(label, width=width)
+    while len(boundaries) < k+1 and width > 0:
+        width -= 3
+        boundaries = utils.find_boundaries(label, width=width-3)
     labels = utils.segment_labeling(data, boundaries, n_types=k)
     return boundaries, labels
 
 
-def _seg_by_spectral_single_frame(connectivity, width=9, hier=False):
+def _seg_by_spectral_single_frame(connectivity, width=9, hier=False, k_max=6):
     graph_lap = utils.normalized_graph_laplacian(connectivity)
-    eigen_vecs = utils.eigen_decomposition(graph_lap)
-    boundaries, labels = clustering_by_entropy(eigen_vecs, k_min=2, width=width, hier=hier)
+    if hier:
+        k_max = 10
+    eigen_vecs = utils.eigen_decomposition(graph_lap, k=k_max)
+    boundaries, labels = clustering_by_entropy(eigen_vecs, k_min=4, width=width, hier=hier)
     return boundaries, labels
 
 
@@ -415,17 +423,16 @@ def clustering_by_entropy(eigen_vecs, k_min, width=9, hier=False):
 
     # label_dict = {1: np.zeros(eigen_vecs.shape[1])}  # The trivial solution
     if hier:
-        label_dict = {}
-        boundary_dict = {}
-    for n_types in range(4, 1 + len(eigen_vecs)):
+        label_dict = OrderedDict()
+        boundary_dict = OrderedDict()
+        k_min = 2
+
+    for n_types in range(k_min, 1 + len(eigen_vecs)):
         y = librosa.util.normalize(eigen_vecs[:n_types, :].T, norm=2, axis=1)
 
         # Try to label the data with n_types
         c = sklhc.KMeans(n_clusters=n_types, n_init=100)
         labels = c.fit_predict(y)
-
-
-
 
         # Find the label change-points
         boundaries = utils.find_boundaries(labels, width)

@@ -150,36 +150,3 @@ def find_boundaries(frame_labels, width=9):
     boundaries = 1 + np.asarray(np.where(frame_labels[:-1] != frame_labels[1:])).reshape((-1,))
     boundaries = np.unique(np.concatenate([[0], boundaries, [len(frame_labels)]]))
     return boundaries
-
-
-def boundaries_adjustment(feature, boundaries, labels):
-
-    _tmp_boundary = np.insert(boundaries, 0, -8.0)
-    b_distance = np.diff(_tmp_boundary)
-    boundaries = boundaries[b_distance > 4]
-    labels = labels[np.diff(boundaries) > 4]
-
-    # feature = oracle.f_array[1:]
-    new_boundaries = [boundaries[0]]
-    for b in boundaries[1:-1]:
-        if b < 8:
-            neighbor_feature = feature[:b+5]
-            adj = -(b-1)
-        elif len(feature)-b < 8:
-            neighbor_feature = feature[b-4:]
-            adj = -3
-        else:
-            neighbor_feature = feature[b-4:b+5]
-            adj = -3
-        offset = np.argmax(np.sum(np.square(np.diff(neighbor_feature, axis=0)), axis=1)) + adj
-        new_b = b + offset
-        new_boundaries.append(new_b)
-    new_boundaries.append(boundaries[-1])
-
-    new_boundaries = np.array(new_boundaries)
-    _tmp_boundary = np.insert(new_boundaries, 0, -8.0)
-    b_distance = np.diff(_tmp_boundary)
-    new_boundaries = new_boundaries[b_distance > 4]
-    labels = labels[np.diff(new_boundaries) > 4]
-
-    return new_boundaries, labels
