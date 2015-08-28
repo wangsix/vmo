@@ -436,7 +436,8 @@ def clustering_by_entropy(eigen_vecs, k_min, width=9, hier=False):
         boundaries = utils.find_boundaries(labels, width)
 
         # boundaries now include start and end markers; n-1 is the number of segments
-        feasible = (len(boundaries) > k_min)
+        if len(boundaries) < n_types + 1:
+            n_types = len(boundaries)-1
 
         values = np.unique(labels)
         hits = np.zeros(len(values))
@@ -447,25 +448,25 @@ def clustering_by_entropy(eigen_vecs, k_min, width=9, hier=False):
         hits = hits / hits.sum()
         score = utils.entropy(hits) / np.log(n_types)
 
-        if score > best_score and feasible:
+        if score > best_score:
             best_boundaries = boundaries
             best_n_types = n_types
             best_score = score
             y_best = y
 
         if hier:
-            labels = utils.segment_labeling(y, boundaries, c_method='kmeans' , k=n_types)
+            labels = utils.segment_labeling(y, boundaries, c_method='kmeans', k=n_types)
             label_dict[n_types] = labels
             boundary_dict[n_types] = boundaries
 
     if best_boundaries is None:
         best_boundaries = boundaries
-        best_n_types = n_types
+        best_n_types = k_min
         y_best = librosa.util.normalize(eigen_vecs[:best_n_types, :].T, norm=2, axis=1)
 
     # Classify each segment centroid
 
-    labels = utils.segment_labeling(y_best, best_boundaries, c_method='kmeans', k=n_types)
+    labels = utils.segment_labeling(y_best, best_boundaries, c_method='kmeans', k=best_n_types)
     best_labels = labels
 
     if hier:
