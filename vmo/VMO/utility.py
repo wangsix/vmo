@@ -99,7 +99,7 @@ https://github.com/bmcfee/laplacian_segmentation
 """
 
 
-def segment_labeling(x, boundaries, c_method = 'kmeans', k=5):
+def segment_labeling(x, boundaries, c_method='kmeans', k=5):
 
     x_sync = librosa.feature.sync(x.T, boundaries)
 
