@@ -461,7 +461,7 @@ def clustering_by_entropy(eigen_vecs, k_min, width=9, hier=False):
     if best_boundaries is None:
         best_boundaries = boundaries
         best_n_types = n_types
-        y_best = librosa.util.normalize(eigen_vecs[:best_n_types].T, norm=2, axis=1)
+        y_best = librosa.util.normalize(eigen_vecs[:best_n_types, :].T, norm=2, axis=1)
 
     # Classify each segment centroid
 
@@ -476,13 +476,13 @@ def clustering_by_entropy(eigen_vecs, k_min, width=9, hier=False):
 
 def segmentation(oracle, method='symbol_agglomerative', **kwargs):
     if oracle:
-        if method is 'symbol_agglomerative':
+        if method == 'symbol_agglomerative':
             return _seg_by_single_frame(oracle, cluster_method='agglomerative', **kwargs)
-        elif method is 'string_agglomerative':
+        elif method == 'string_agglomerative':
             return _seg_by_hc_string_matching(oracle, **kwargs)
-        elif method is 'symbol_spectral':
+        elif method == 'symbol_spectral':
             return _seg_by_single_frame(oracle, cluster_method='spectral', **kwargs)
-        elif method is 'symbol_spectral_agglomerative':
+        elif method == 'symbol_spectral_agglomerative':
             return _seg_by_single_frame(oracle, cluster_method='spectral_agg', **kwargs)
         else:
             print "Method unknown. Use spectral clustering."
