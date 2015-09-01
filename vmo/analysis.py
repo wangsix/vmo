@@ -459,10 +459,10 @@ def clustering_by_entropy(eigen_vecs, k_min, width=9, hier=False):
             label_dict[n_types] = labels
             boundary_dict[n_types] = boundaries
 
-    if best_boundaries is None:
-        best_boundaries = boundaries
-        best_n_types = k_min
-        y_best = librosa.util.normalize(eigen_vecs[:best_n_types, :].T, norm=2, axis=1)
+    # if best_boundaries is None:
+    #     best_boundaries = boundaries
+    #     best_n_types = n_types
+    #     y_best = librosa.util.normalize(eigen_vecs[:best_n_types, :].T, norm=2, axis=1)
 
     # Classify each segment centroid
 
