@@ -1,8 +1,8 @@
 from distutils.core import setup
 
 setup(name="vmo",
-      packages = ['vmo','vmo.VMO'],
-      version="0.2",
+      packages=['vmo', 'vmo.VMO'],
+      version="0.21",
       description="vmo - Variable Markov Oracle in Python",
       author="Cheng-i Wang",
       author_email='chw160@ucsd.edu',
