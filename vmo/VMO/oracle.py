@@ -246,7 +246,6 @@ class FactorOracle(object):
             j = i
         return self.seg
 
-
     def _ir(self, alpha=1.0):
         code, _ = self.encode()
         cw = np.zeros(len(code))  # Number of code words
@@ -264,7 +263,6 @@ class FactorOracle(object):
         ir = alpha * h0 - h1
 
         return ir, h0, h1
-
 
     def _ir_fixed(self, alpha=1.0):
         code, _ = self.encode()
@@ -319,7 +317,6 @@ class FactorOracle(object):
         ir[ir < 0] = 0
 
         return ir, h0, h1
-
 
     def _ir_cum2(self, alpha=1.0):
         code, _ = self.encode()
@@ -508,6 +505,7 @@ class MO(FactorOracle):
         super(MO, self).__init__(**kwargs)
         self.kind = 'a'
         self.f_array = [0]
+        # self.f_array = None
         self.data[0] = None
         self.latent = []
 
@@ -516,6 +514,7 @@ class MO(FactorOracle):
 
         self.kind = 'a'
         self.f_array = [0]
+        # self.f_array = None
         self.data[0] = None
         self.latent = []
 
@@ -526,8 +525,14 @@ class MO(FactorOracle):
         self.trn.append([])
         self.lrs.append(0)
 
-        # Experiment with pointer-based  
+        # Experiment with pointer-based
         self.f_array.append(new_data)
+
+        # if self.n_states:
+        #     self.f_array.append(new_data)
+        # else:
+        #     self.f_array = np.zeros(new_data.shape)
+        #     self.
 
         self.n_states += 1
         i = self.n_states - 1
@@ -551,21 +556,11 @@ class MO(FactorOracle):
                 dvec = self.dfunc_handle(new_data, [self.f_array[t] for t in
                                                     self.trn[k]])
             else:
-                dvec = dist.cdist([new_data], np.array([self.f_array[t] for t in
-                                                       self.trn[k]]),
+                dvec = dist.cdist([new_data], np.array([self.f_array[t] for t in self.trn[k]]),
                                   metric=self.params['dfunc'])[0]
 
-            # if self.params['dfunc'] == 'euclidean':
-            #     a = np.array(new_data) - np.array([self.f_array[t] for t in
-            #                                        self.trn[k]])
-            #     if a.ndim > 1:
-            #         dvec = np.sqrt((a * a).sum(axis=1))
-            #     else:
-            #         dvec = np.sqrt((a * a))
-            # elif self.params['dfunc'] == 'other':
-            #     dvec = self.dfunc_handle(new_data, [self.f_array[t] for t in
-            #                                         self.trn[k]])
-            I = find(dvec < self.params['threshold'])
+            I = np.where(dvec < self.params['threshold'])[0]
+            # I = [i for i in range(len(dvec)) if dvec[i] < self.params['threshold']]
             if len(I) == 0:            # if no transition from suffix
                 self.trn[k].append(i)  # Add new forward link to unvisited state
                 pi_1 = k
@@ -766,11 +761,13 @@ def _build_oracle(flag, oracle, input_data, suffix_method='inc'):
         input_data = np.array(input_data)
 
     if flag == 'a':
-        for obs in input_data:
-            oracle.add_state(obs, suffix_method)
+        [oracle.add_state(obs, suffix_method) for obs in input_data]
+        # for obs in input_data:
+        #     oracle.add_state(obs, suffix_method)
     else:
-        for obs in input_data:
-            oracle.add_state(obs)
+        [oracle.add_state(obs) for obs in input_data]
+        # for obs in input_data:
+        #     oracle.add_state(obs)
     return oracle
 
 
