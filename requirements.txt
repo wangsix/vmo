@@ -1,7 +1,7 @@
-vmo
 numpy
 scipy
 matplotlib
 scikit-learn
 librosa
 editdistance
+fuzzywuzzy
