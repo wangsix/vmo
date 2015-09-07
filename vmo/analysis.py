@@ -824,8 +824,10 @@ def find_repeated_patterns(oracle, lower=1):
         sfx = oracle.sfx[i]
         rsfx = oracle.rsfx[i]
         pattern_found = False
+        # if (sfx != 0  # not pointing to zeroth state
+        #     and i - oracle.lrs[i] + 1 > sfx and oracle.lrs[i] > lower):  # constraint on length of patterns
         if (sfx != 0  # not pointing to zeroth state
-            and i - oracle.lrs[i] + 1 > sfx and oracle.lrs[i] > lower):  # constraint on length of patterns
+            and oracle.lrs[i] > lower):  # constraint on length of patterns
             for p in pattern_list:  # for existing pattern
                 if not [_p for _p in p[0] if _p - p[1] < i < _p]:
                     if sfx in p[0]:
@@ -841,10 +843,15 @@ def find_repeated_patterns(oracle, lower=1):
                 if _rsfx:
                     _rsfx.extend([i, sfx])
                     _len = np.array(oracle.lrs)[_rsfx[:-1]].min()
+                    if i - _len + 1 < sfx:
+                        _len = i-sfx
                     if _len > lower:
                         pattern_list.append([_rsfx, _len])
                 else:
-                    pattern_list.append([[i, sfx], oracle.lrs[i]])
+                    if i - oracle.lrs[i] + 1 < sfx:
+                        pattern_list.append([[i, sfx], i-sfx])
+                    else:
+                        pattern_list.append([[i, sfx], oracle.lrs[i]])
             prev_sfx = sfx
         else:
             prev_sfx = -1
