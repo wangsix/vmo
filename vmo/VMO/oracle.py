@@ -504,7 +504,6 @@ class MO(FactorOracle):
     def __init__(self, **kwargs):
         super(MO, self).__init__(**kwargs)
         self.kind = 'a'
-        # self.f_array = [0]
         self.f_array = feature_array(self.params['dim'])
         self.f_array.add(np.zeros(self.params['dim'], ))
         self.data[0] = None
@@ -554,10 +553,10 @@ class MO(FactorOracle):
 
         while k is not None:
 
-            if self.params['dfunc'] == 'others':
+            if self.params['dfunc'] == 'other':
                 # dvec = self.dfunc_handle(new_data, [self.f_array[t] for t in
                 #                                     self.trn[k]])
-                dvec = self.dfunc_handle(new_data, self.f_array[self.trn[k]])[0]
+                dvec = self.dfunc_handle(new_data, self.f_array[self.trn[k]])
             else:
                 # dvec = dist.cdist([new_data], np.array([self.f_array[t] for t in self.trn[k]]),
                 #                   metric=self.params['dfunc'])[0]
@@ -572,7 +571,11 @@ class MO(FactorOracle):
                     k = self.sfx[k]
             else:
                 if method == 'inc':
-                    suffix_candidate = self.trn[k][I[np.argmin(dvec[I])]]
+                    if I.shape[0] == 1:
+                        # print self.trn[k], I, self.n_states, k, dvec, dvec.shape, I.shape
+                        suffix_candidate = self.trn[k][I[0]]
+                    else:
+                        suffix_candidate = self.trn[k][I[np.argmin(dvec[I])]]
                     break
                 elif method == 'complete':
                     suffix_candidate.append((self.trn[k][I[np.argmin(dvec[I])]],
