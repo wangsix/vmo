@@ -40,7 +40,7 @@ def save_segments(outfile, boundaries, beat_intervals, labels=None):
     if labels is None:
         labels = [('Seg#%03d' % idx) for idx in range(1, len(boundaries))]
 
-    times = [beat_intervals[interval, 0] for interval in boundaries[:-1]]
+    times = [beat_intervals[beat, 0] for beat in boundaries[:-1]]
     times.append(beat_intervals[-1, -1])
 
     with open(outfile, 'w') as f:

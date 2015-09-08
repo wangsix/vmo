@@ -221,7 +221,7 @@ def _test_context(oracle, context):
     return _b, _s, context
 
 
-def _rsfx_count(oracle, s, count, hist, ab, VERBOSE=False):
+def _rsfx_count(oracle, s, count, hist, ab):
     """ Accumulate counts for context """
 
     trn_data = [oracle.data[n] for n in oracle.trn[s]]
@@ -309,7 +309,6 @@ def _seg_by_hc_single_frame(obs_len, connectivity, data, width=9, hier=False, **
         criterion = 'maxclust'
         for t in t_list:
             boundaries, labels = _agg_segment(reconstructed_z, t, criterion, width, data)
-
             label_dict[np.max(labels)+1] = labels
             boundary_dict[np.max(labels)+1] = boundaries
         return boundary_dict, label_dict
@@ -329,12 +328,12 @@ def _agg_segment(z, t, criterion, width, data):
     return boundaries, labels
 
 
-def _seg_by_spectral_single_frame(connectivity, width=9, hier=False, k_max=6):
+def _seg_by_spectral_single_frame(connectivity, width=9, hier=False, k_min=4, k_max=6):
     graph_lap = utils.normalized_graph_laplacian(connectivity)
     if hier:
         k_max = 10
     eigen_vecs = utils.eigen_decomposition(graph_lap, k=k_max)
-    boundaries, labels = clustering_by_entropy(eigen_vecs, k_min=4, width=width, hier=hier)
+    boundaries, labels = clustering_by_entropy(eigen_vecs, k_min=k_min, width=width, hier=hier)
     return boundaries, labels
 
 
@@ -458,11 +457,6 @@ def clustering_by_entropy(eigen_vecs, k_min, width=9, hier=False):
             labels = utils.segment_labeling(y, boundaries, c_method='kmeans', k=n_types)
             label_dict[n_types] = labels
             boundary_dict[n_types] = boundaries
-
-    # if best_boundaries is None:
-    #     best_boundaries = boundaries
-    #     best_n_types = n_types
-    #     y_best = librosa.util.normalize(eigen_vecs[:best_n_types, :].T, norm=2, axis=1)
 
     # Classify each segment centroid
 
@@ -824,8 +818,10 @@ def find_repeated_patterns(oracle, lower=1):
         sfx = oracle.sfx[i]
         rsfx = oracle.rsfx[i]
         pattern_found = False
+        # if (sfx != 0  # not pointing to zeroth state
+        #     and i - oracle.lrs[i] + 1 > sfx and oracle.lrs[i] > lower):  # constraint on length of patterns
         if (sfx != 0  # not pointing to zeroth state
-            and i - oracle.lrs[i] + 1 > sfx and oracle.lrs[i] > lower):  # constraint on length of patterns
+            and oracle.lrs[i] > lower):  # constraint on length of patterns
             for p in pattern_list:  # for existing pattern
                 if not [_p for _p in p[0] if _p - p[1] < i < _p]:
                     if sfx in p[0]:
@@ -841,10 +837,15 @@ def find_repeated_patterns(oracle, lower=1):
                 if _rsfx:
                     _rsfx.extend([i, sfx])
                     _len = np.array(oracle.lrs)[_rsfx[:-1]].min()
+                    if i - _len + 1 < sfx:
+                        _len = i-sfx
                     if _len > lower:
                         pattern_list.append([_rsfx, _len])
                 else:
-                    pattern_list.append([[i, sfx], oracle.lrs[i]])
+                    if i - oracle.lrs[i] + 1 < sfx:
+                        pattern_list.append([[i, sfx], i-sfx])
+                    else:
+                        pattern_list.append([[i, sfx], oracle.lrs[i]])
             prev_sfx = sfx
         else:
             prev_sfx = -1
