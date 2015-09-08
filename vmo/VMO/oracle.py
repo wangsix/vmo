@@ -530,21 +530,15 @@ class MO(FactorOracle):
         # Experiment with pointer-based
         self.f_array.add(new_data)
 
-        # if self.n_states:
-        #     self.f_array.append(new_data)
-        # else:
-        #     self.f_array = np.zeros(new_data.shape)
-        #     self.
-
         self.n_states += 1
         i = self.n_states - 1
+
         # assign new transition from state i-1 to i
         self.trn[i - 1].append(i)
         k = self.sfx[i - 1]
         pi_1 = i - 1
 
         # iteratively backtrack suffixes from state i-1
-        # dvec = []
         if method == 'inc':
             suffix_candidate = 0
         elif method == 'complete':
@@ -555,16 +549,11 @@ class MO(FactorOracle):
         while k is not None:
 
             if self.params['dfunc'] == 'others':
-                # dvec = self.dfunc_handle(new_data, [self.f_array[t] for t in
-                #                                     self.trn[k]])
                 dvec = self.dfunc_handle(new_data, self.f_array[self.trn[k]])[0]
             else:
-                # dvec = dist.cdist([new_data], np.array([self.f_array[t] for t in self.trn[k]]),
-                #                   metric=self.params['dfunc'])[0]
                 dvec = dist.cdist([new_data], self.f_array[self.trn[k]], metric=self.params['dfunc'])[0]
 
             I = np.where(dvec < self.params['threshold'])[0]
-            # I = [i for i in range(len(dvec)) if dvec[i] < self.params['threshold']]
             if len(I) == 0:  # if no transition from suffix
                 self.trn[k].append(i)  # Add new forward link to unvisited state
                 pi_1 = k
