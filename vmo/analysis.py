@@ -279,6 +279,8 @@ def _seg_by_single_frame(oracle, cluster_method='agglomerative', connectivity='t
 
     if connectivity == 'temporal':
         connectivity = np.zeros((obs_len, obs_len))
+    elif type(connectivity) == np.ndarray:
+        connectivity = connectivity
     else:
         connectivity = create_selfsim(oracle, method=connectivity)
 
@@ -416,7 +418,7 @@ def _seg_by_hc_string_matching(oracle, data='symbol', connectivity=None, **kwarg
 
 def clustering_by_entropy(eigen_vecs, k_min, width=9, hier=False):
     best_score = -np.inf
-    best_boundaries = [0, eigen_vecs.shape[1]]
+    best_boundaries = [0, eigen_vecs.shape[1]-1]
     y_best = eigen_vecs[:1].T
 
     if hier:
