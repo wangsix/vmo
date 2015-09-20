@@ -19,7 +19,8 @@ You should have received a copy of the GNU General Public License
 along with vmo.  If not, see <http://www.gnu.org/licenses/>.
 """
 
-import vmo.VMO, sys, itertools, librosa, copy
+import sys, itertools, librosa, copy
+from vmo import build_oracle
 import numpy as np
 import scipy.spatial.distance as dist
 import scipy.cluster.hierarchy as scihc
@@ -664,7 +665,7 @@ def create_pttr_vmo(oracle, pattern):
         _vmo_vec.append([])
         for sfx in p[0]:
             local_obs = oracle.f_array[sfx - p[1] + 1:sfx + 1]
-            local_vmo = vmo.VMO.build_oracle(local_obs, flag='a', threshold=thresh)
+            local_vmo = build_oracle(local_obs, flag='a', threshold=thresh)
             _vmo_vec[-1].append(local_vmo)
 
         pttr_vmo = _vmo_vec[-1][0]
@@ -707,7 +708,7 @@ def create_pttr_vmo(oracle, pattern):
 
 def create_reverse_oracle(oracle):
     reverse_data = oracle.f_array[-1:0:-1]
-    r_oracle = vmo.VMO.build_oracle(reverse_data, 'v', threshold=oracle.params['threshold'])
+    r_oracle = build_oracle(reverse_data, 'v', threshold=oracle.params['threshold'])
     return r_oracle
 
 
