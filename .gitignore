@@ -60,6 +60,7 @@ target/
 # Emacs temp files
 *~
 *#
+.idea/
 .idea/.name
 
 .idea/dictionaries/chwang.xml
