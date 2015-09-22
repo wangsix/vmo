@@ -3,7 +3,7 @@ import copy
 import scipy
 import scipy.linalg as linalg
 import scipy.stats as stats
-import scipy.sigal as sig
+import scipy.signal as sig
 import numpy as np
 import sklearn.cluster as sklhc
 import scipy.cluster.hierarchy as scihc
@@ -40,8 +40,11 @@ def segment_by_connectivity(connectivity, median_filter_width, cluster_method, *
 def _seg_by_structure_feature(oracle):
     connectivity = create_selfsim(oracle, method='rsfx')
     connectivity = librosa.segment.recurrence_to_lag(connectivity, pad=False)
-    connectivity = scipy.ndimage.filters.gaussian_filter(connectivity, [2, 9], 0, mode='reflect')
-    connectivity = librosa.segment.lag_to_recurrence(connectivity)
+    sf = scipy.ndimage.filters.gaussian_filter(connectivity, [1, 9], 0, mode='reflect')
+    novelty_curve = np.sqrt(np.mean(np.diff(sf, axis=1)**2, axis=0))
+    novelty_curve = novelty_curve-np.min(novelty_curve)
+    novelty_curve = novelty_curve/np.max(novelty_curve)
+
 
 
     pass
