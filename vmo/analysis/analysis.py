@@ -20,8 +20,8 @@ along with vmo.  If not, see <http://www.gnu.org/licenses/>.
 """
 
 import sys, itertools, librosa, copy
-# from vmo import build_oracle
-from vmo.VMO.oracle import build_oracle
+from vmo import build_oracle
+# from vmo.VMO.oracle import build_oracle
 import numpy as np
 import scipy.spatial.distance as dist
 import scipy.cluster.hierarchy as scihc
