@@ -26,7 +26,7 @@ along with vmo.  If not, see <http://www.gnu.org/licenses/>.
 
 import numpy as np
 import scipy.spatial.distance as dist
-import vmo.analysis.analysis as van
+# import vmo.analysis.analysis as van
 import vmo.VMO.utility as utl
 from matplotlib.mlab import find
 
@@ -916,32 +916,32 @@ def find_threshold_ir(input_data, r=(0, 1, 0.1), flag='a', suffix_method='inc',
         return ir_thresh_pairs[0], pairs_return
 
 
-def find_threshold_motif(input_data, r=(0, 1, 0.1), flag='a',
-                         suffix_method='inc', alpha=1.0, feature=None,
-                         dfunc='euclidean', dfunc_handle=None, dim=1,
-                         verbose=False):
-    thresholds = np.arange(r[0], r[1], r[2])
-    avg_len = []
-    avg_occ = []
-    avg_num = []
-
-    for t in thresholds:
-        tmp_oracle = build_oracle(input_data, flag=flag, threshold=t,
-                                  suffix_method=suffix_method, feature=feature,
-                                  dfunc=dfunc, dfunc_handle=dfunc_handle, dim=dim)
-        pttr = van.find_repeated_patterns(tmp_oracle, alpha)
-        if not pttr:
-            avg_len.append(np.mean([float(p[1]) for p in pttr]))
-            avg_occ.append(np.mean([float(len(p[0])) for p in pttr]))
-            avg_num.append(len(pttr))
-        else:
-            avg_len.append(0.0)
-            avg_occ.append(0.0)
-            avg_num.append(0.0)
-        if verbose:
-            print 'Testing threshold:', t
-            print '          avg_len:', avg_len[-1]
-            print '          avg_occ:', avg_occ[-1]
-            print '          avg_num:', avg_num[-1]
-
-    return avg_len, avg_occ, avg_num, thresholds
+# def find_threshold_motif(input_data, r=(0, 1, 0.1), flag='a',
+#                          suffix_method='inc', alpha=1.0, feature=None,
+#                          dfunc='euclidean', dfunc_handle=None, dim=1,
+#                          verbose=False):
+#     thresholds = np.arange(r[0], r[1], r[2])
+#     avg_len = []
+#     avg_occ = []
+#     avg_num = []
+#
+#     for t in thresholds:
+#         tmp_oracle = build_oracle(input_data, flag=flag, threshold=t,
+#                                   suffix_method=suffix_method, feature=feature,
+#                                   dfunc=dfunc, dfunc_handle=dfunc_handle, dim=dim)
+#         pttr = van.find_repeated_patterns(tmp_oracle, alpha)
+#         if not pttr:
+#             avg_len.append(np.mean([float(p[1]) for p in pttr]))
+#             avg_occ.append(np.mean([float(len(p[0])) for p in pttr]))
+#             avg_num.append(len(pttr))
+#         else:
+#             avg_len.append(0.0)
+#             avg_occ.append(0.0)
+#             avg_num.append(0.0)
+#         if verbose:
+#             print 'Testing threshold:', t
+#             print '          avg_len:', avg_len[-1]
+#             print '          avg_occ:', avg_occ[-1]
+#             print '          avg_num:', avg_num[-1]
+#
+#     return avg_len, avg_occ, avg_num, thresholds

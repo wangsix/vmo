@@ -20,8 +20,7 @@ along with vmo.  If not, see <http://www.gnu.org/licenses/>.
 """
 
 import sys, itertools, librosa, copy
-from vmo import build_oracle
-# from vmo.VMO.oracle import build_oracle
+from vmo.VMO.oracle import build_oracle
 import numpy as np
 import scipy.spatial.distance as dist
 import scipy.cluster.hierarchy as scihc
@@ -666,7 +665,7 @@ def create_pttr_vmo(oracle, pattern):
         _vmo_vec.append([])
         for sfx in p[0]:
             local_obs = oracle.f_array[sfx - p[1] + 1:sfx + 1]
-            local_vmo = build_oracle(local_obs, flag='a', threshold=thresh)
+            local_vmo = vmo.VMObuild_oracle(local_obs, flag='a', threshold=thresh)
             _vmo_vec[-1].append(local_vmo)
 
         pttr_vmo = _vmo_vec[-1][0]
