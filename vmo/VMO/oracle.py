@@ -26,7 +26,7 @@ along with vmo.  If not, see <http://www.gnu.org/licenses/>.
 
 import numpy as np
 import scipy.spatial.distance as dist
-import vmo.analysis as van
+import vmo.analysis.analysis as van
 import vmo.VMO.utility as utl
 from matplotlib.mlab import find
 
