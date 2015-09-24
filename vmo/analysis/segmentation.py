@@ -11,13 +11,11 @@ from ..VMO.utility import entropy, edit_distance
 from collections import OrderedDict
 from .analysis import create_selfsim, find_fragments
 
-
 """Segmentation algorithms
 """
 
 
 def segment_by_connectivity(connectivity, median_filter_width, cluster_method, **kwargs):
-
     obs_len = connectivity.shape[0]
     connectivity = librosa.segment.recurrence_to_lag(connectivity, pad=False)
     connectivity = np.pad(connectivity, [(0, 0), [median_filter_width, median_filter_width]], mode='reflect')
@@ -37,17 +35,73 @@ def segment_by_connectivity(connectivity, median_filter_width, cluster_method, *
         return _seg_by_spectral_single_frame(connectivity=connectivity, **kwargs)
 
 
-def _seg_by_structure_feature(oracle):
-    connectivity = create_selfsim(oracle, method='rsfx')
-    connectivity = librosa.segment.recurrence_to_lag(connectivity, pad=False)
-    sf = scipy.ndimage.filters.gaussian_filter(connectivity, [1, 9], 0, mode='reflect')
-    novelty_curve = np.sqrt(np.mean(np.diff(sf, axis=1)**2, axis=0))
-    novelty_curve = novelty_curve-np.min(novelty_curve)
-    novelty_curve = novelty_curve/np.max(novelty_curve)
+def _seg_by_structure_feature(oracle, delta=0.05, width=9, hier=False, connectivity='rsfx'):
+    self_sim = create_selfsim(oracle, method=connectivity)
+    connectivity = librosa.segment.recurrence_to_lag(self_sim, pad=False)
+    sf = scipy.ndimage.filters.gaussian_filter(connectivity, [0.5, 17], 0, mode='reflect')
+    novelty_curve = np.sqrt(np.mean(np.diff(sf, axis=1) ** 2, axis=0))
+    novelty_curve -= np.min(novelty_curve)
+    novelty_curve /= np.max(novelty_curve)
+
+    offset = int((width - 1) / 2)
+    tmp_novelty = np.pad(novelty_curve, [offset], mode='reflect')
+    boundaries = [0]
+    for i in range(len(novelty_curve)):
+        if (np.greater(tmp_novelty[i + offset], tmp_novelty[i:i + offset]).all() and
+                np.greater(tmp_novelty[i + offset], tmp_novelty[i + offset + 1:i + width]).all() and
+                    tmp_novelty[i + offset] > delta):
+            boundaries.append(i)
+    boundaries.append(len(novelty_curve))
+
+    seg_sim_mat = np.zeros((len(boundaries) - 1, len(boundaries) - 1))
+    intervals = zip(boundaries[:-1], boundaries[1:])
+    self_sim[self_sim > 1.0] = 1.0
+    for i in range(len(boundaries) - 1):
+        for j in range(len(boundaries) - 1):
+            seg_sim_mat[i, j] = _segment_sim(self_sim[intervals[i][0]:intervals[i][1],
+                                             intervals[j][0]:intervals[j][1]])
+
+    seg_sim_mat = (seg_sim_mat + seg_sim_mat.T) / 2
+    seg_sim_mat[seg_sim_mat < (np.mean(seg_sim_mat) + np.std(seg_sim_mat))] = 0.0
+
+    new_seg_mat = seg_sim_mat
+    while True:
+        new_seg_mat = np.dot(new_seg_mat, new_seg_mat)
+        thresh_seg_mat = new_seg_mat
+        new_seg_mat[new_seg_mat < 1.0] = 0.0
+        new_seg_mat[new_seg_mat >= 1.0] = 1.0
+        if np.array_equal(new_seg_mat, thresh_seg_mat):
+            break
+
+    labels = np.zeros(len(boundaries) - 1)
+    for i in range(thresh_seg_mat.shape[0]):
+        ind = np.nonzero(thresh_seg_mat[i, :])
+        label_ind = 0
+        for idx in ind[0]:
+            if labels[idx]:
+                if label_ind:
+                    labels[idx] = label_ind
+                else:
+                    label_ind = labels[idx]
+            else:
+                if label_ind:
+                    labels[idx] = label_ind
+                else:
+                    labels[idx] = i + 1
+                    label_ind = i + 1
+    return np.array(boundaries), labels
 
 
-
-    pass
+def _segment_sim(mat):
+    u, v = mat.shape
+    qmat = np.zeros((u, v))
+    for i in range(u):
+        for j in range(v):
+            if i < 1 or j < 1:
+                qmat[i, j] = mat[i, j]
+            else:
+                qmat[i, j] = np.max([qmat[i - 1, j - 1], qmat[i - 2, j - 1], qmat[i - 1, j - 2]]) + mat[i, j]
+    return np.max(qmat) / np.min([u, v])
 
 
 def _seg_by_single_frame(oracle, cluster_method='agglomerative', connectivity='temporal', data='symbol',
@@ -95,8 +149,8 @@ def _seg_by_hc_single_frame(obs_len, connectivity, data, width=9, hier=False, **
         criterion = 'maxclust'
         for t in t_list:
             boundaries, labels = _agg_segment(reconstructed_z, t, criterion, width, data)
-            label_dict[np.max(labels)+1] = labels
-            boundary_dict[np.max(labels)+1] = boundaries
+            label_dict[np.max(labels) + 1] = labels
+            boundary_dict[np.max(labels) + 1] = boundaries
         return boundary_dict, label_dict
     else:
         t = 0.7 * np.max(reconstructed_z[:, 2])
@@ -107,9 +161,9 @@ def _agg_segment(z, t, criterion, width, data):
     label = scihc.fcluster(z, t=t, criterion=criterion)
     k = len(np.unique(label))
     boundaries = find_boundaries(label, width=width)
-    while len(boundaries) < k+1 and width > 0:
+    while len(boundaries) < k + 1 and width > 0:
         width -= 3
-        boundaries = find_boundaries(label, width=width-3)
+        boundaries = find_boundaries(label, width=width - 3)
     labels = segment_labeling(data, boundaries, c_method='kmeans', k=k)
     return boundaries, labels
 
@@ -202,7 +256,7 @@ def _seg_by_hc_string_matching(oracle, data='symbol', connectivity=None, **kwarg
 
 def clustering_by_entropy(eigen_vecs, k_min, width=9, hier=False):
     best_score = -np.inf
-    best_boundaries = [0, eigen_vecs.shape[1]-1]
+    best_boundaries = [0, eigen_vecs.shape[1] - 1]
     best_n_types = 1
     y_best = eigen_vecs[:1].T
 
@@ -223,7 +277,7 @@ def clustering_by_entropy(eigen_vecs, k_min, width=9, hier=False):
 
         # boundaries now include start and end markers; n-1 is the number of segments
         if len(boundaries) < n_types + 1:
-            n_types = len(boundaries)-1
+            n_types = len(boundaries) - 1
 
         values = np.unique(labels)
         hits = np.zeros(len(values))
@@ -266,6 +320,8 @@ def segmentation(oracle, method='symbol_agglomerative', **kwargs):
             return _seg_by_single_frame(oracle, cluster_method='spectral', **kwargs)
         elif method == 'symbol_spectral_agglomerative':
             return _seg_by_single_frame(oracle, cluster_method='spectral_agg', **kwargs)
+        elif method == 'structure_feature':
+            return _seg_by_structure_feature(oracle, **kwargs)
         else:
             print "Method unknown. Use spectral clustering."
             return _seg_by_single_frame(oracle, cluster_method='spectral', **kwargs)
@@ -279,7 +335,6 @@ https://github.com/bmcfee/laplacian_segmentation
 
 
 def segment_labeling(x, boundaries, c_method='kmeans', k=5):
-
     x_sync = librosa.feature.sync(x.T, boundaries)
 
     if c_method == 'kmeans':
@@ -297,9 +352,9 @@ def segment_labeling(x, boundaries, c_method='kmeans', k=5):
 
 
 def find_boundaries(frame_labels, width=9):
-    frame_labels = np.pad(frame_labels, (width/2, width/2+1), mode='reflect')
+    frame_labels = np.pad(frame_labels, (width / 2, width / 2 + 1), mode='reflect')
     frame_labels = np.array([stats.mode(frame_labels[i:j])[0][0]
-                             for (i, j) in zip(range(0, len(frame_labels)-width),
+                             for (i, j) in zip(range(0, len(frame_labels) - width),
                                                range(width, len(frame_labels)))])
     boundaries = 1 + np.asarray(np.where(frame_labels[:-1] != frame_labels[1:])).reshape((-1,))
     boundaries = np.unique(np.concatenate([[0], boundaries, [len(frame_labels)]]))
