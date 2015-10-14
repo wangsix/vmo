@@ -37,21 +37,23 @@ def segment_by_connectivity(connectivity, median_filter_width, cluster_method, *
 
 def _seg_by_structure_feature(oracle, delta=0.05, width=9, hier=False, connectivity='rsfx'):
     self_sim = create_selfsim(oracle, method=connectivity)
-    connectivity = librosa.segment.recurrence_to_lag(self_sim, pad=False)
-    sf = scipy.ndimage.filters.gaussian_filter(connectivity, [0.5, 17], 0, mode='reflect')
+    lag_sim = librosa.segment.recurrence_to_lag(self_sim, pad=False)
+    sf = scipy.ndimage.filters.gaussian_filter(lag_sim, [0.5, width], 0, mode='reflect')
     novelty_curve = np.sqrt(np.mean(np.diff(sf, axis=1) ** 2, axis=0))
     novelty_curve -= np.min(novelty_curve)
     novelty_curve /= np.max(novelty_curve)
+    novelty_curve = np.insert(novelty_curve,0,0)
 
-    offset = int((width - 1) / 2)
+    bound_width=9
+    offset = int((bound_width - 1) / 2)
     tmp_novelty = np.pad(novelty_curve, [offset], mode='reflect')
     boundaries = [0]
     for i in range(len(novelty_curve)):
         if (np.greater(tmp_novelty[i + offset], tmp_novelty[i:i + offset]).all() and
-                np.greater(tmp_novelty[i + offset], tmp_novelty[i + offset + 1:i + width]).all() and
+                np.greater(tmp_novelty[i + offset], tmp_novelty[i + offset + 1:i + bound_width]).all() and
                     tmp_novelty[i + offset] > delta):
             boundaries.append(i)
-    boundaries.append(len(novelty_curve))
+    boundaries.append(oracle.n_states-1)
 
     seg_sim_mat = np.zeros((len(boundaries) - 1, len(boundaries) - 1))
     intervals = zip(boundaries[:-1], boundaries[1:])
