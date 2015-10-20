@@ -87,10 +87,10 @@ def path_to_stream(original, path, framesize=1.0, model_checker_state='s'):
             The stream on which to follow the path.
         path: int sequence or dict sequence
             The path given either:
-                As a sequence of states within the oracle.
-                As a sequence of dictionaries as output by model_checking,
-                  in that case the key used to retrieve the sequence of states
-                  in the oracle is `model_checker_state`.
+                * As a sequence of states within the oracle.
+                * As a sequence of dictionaries as output by model_checking,
+                    in that case the key used to retrieve the sequence of states
+                    in the oracle is `model_checker_state`.
         framesize: float, optional
             The duration of each frame in the sequence.
         model_checker_state: str
@@ -136,8 +136,8 @@ def get_chord_progression(stream, framesize=1.0, overlap=0.0,
     root_names = map(get_name, chords)
     return root_names
 
-def progression_from_tonic(tonic, progression='authentic',
-                           enable_motions=False, mode='major'):
+def instantiate_degree_progression(tonic, progression='authentic',
+                                   enable_motions=False, mode='major'):
     """Return the pitches for the chosen `progression` with given `tonic`.
     
     Keyword arguments:
@@ -145,19 +145,19 @@ def progression_from_tonic(tonic, progression='authentic',
             The first degree of the scale in which to generate the progression.
         progression: string or int list, optional
             The type of chord progression, supported parameters are:
-                'authentic': V-I cadence
-                'plagal': IV-I cadence
-                a list of degrees for an arbitrary progression
+                * 'authentic': V-I cadence
+                * 'plagal': IV-I cadence
+                * OR a list of degrees for an arbitrary progression
                 (default 'authentic').
         mode: string, optional
             The mode in which to generate the chord progression
             (default 'major').
     ----
-    >>> progression_from_tonic('C', 'authentic')
+    >>> instantiate_degree_progression('C', 'authentic')
     ['G', 'C']
-    >>> progression_from_tonic('E', 'plagal')
+    >>> instantiate_degree_progression('E', 'plagal')
     ['A', 'E']
-    >>> progression_from_tonic('D', [8, '4', 5, '+1'], enable_motions=True)
+    >>> instantiate_degree_progression('D', [8, '4', 5, '+1'], enable_motions=True)
     ['D', 'G', 'A', '+D']
     """
     p_tonic = mus.note.Note(tonic).pitchClass
@@ -215,12 +215,12 @@ def progression_from_tonic(tonic, progression='authentic',
         return result, motion
 
     if isinstance(progression, basestring):
-        tonic_motion = ((p_tonic, '-') if enable_motions
+        tonic_with_desc_motion = ((p_tonic, '-') if enable_motions
                         else (p_tonic, None))
         if progression == 'authentic':
-            classes = [make_degree(5), tonic_motion]
+            classes = [make_degree(5), tonic_with_desc_motion]
         elif progression == 'plagal':
-            classes = [make_degree(4), tonic_motion]
+            classes = [make_degree(4), tonic_with_desc_motion]
         else:
             error_string = ("Cadence type {}".format(progression) +
                             "is unsupported (yet)")
@@ -269,6 +269,7 @@ def extract_frame_oracle(original_stream, oracle, state):
 def is_ascending_motion(chord1, chord2):
     """Return `True` if the motion from `chord1` to `chord2` is ascending.
 
+    Extract the root of each chord and compare those. 
     ----
     >>> cmaj4 = mus.chord.Chord(['C4', 'E4', 'G4', 'C5'])
     >>> cmaj5 = mus.chord.Chord(['C5', 'E4', 'G4'])
