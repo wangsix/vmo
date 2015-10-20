@@ -73,16 +73,15 @@ def pitch_equal(pitch, silence_equivalence=False, allow_init=False,
                                                nuxmv_empty_name)
     return equality_test
 
-def make_piecewise_chord_progression(progressions, exists=True,
-                                     silence_equivalence=False,
-                                     allow_init=False,
-                                     nuxmv_pitch_name='pitchRoot',
-                                     nuxmv_silence_name='p_Silence',
-                                     nuxmv_motion_name='pitchMotion'):
-    """Return a string stating the existence of a path following `progression`.
+def make_progression(progressions, exists=True,
+                     silence_equivalence=False,
+                     allow_init=False, nuxmv_pitch_name='pitchRoot',
+                     nuxmv_silence_name='p_Silence',
+                     nuxmv_motion_name='pitchMotion'):
+    """Return a string stating the existence of a path following `progressions`.
 
     Keyword arguments:
-        progressions: {(string, (int, int)); (string, int) or string} sequences
+        progressions: {(string, (int, int))} sequences
             The piecewise chord progression to test for, of the form:
             [PROG_1, PROG_2, ..., PROG_n].
             Each PROG_i should be continously satisfied.
@@ -91,13 +90,9 @@ def make_piecewise_chord_progression(progressions, exists=True,
             Each PROG_i is a sequence of pairs of the form:
                 The name of the root note, e.g. 'C#' or 'D-'
                 The quarter-length duration for which the note should be held,
-                as an interval of acceptable durations.
-                    A single int means an exact duration is expected.
-                    A value of zero means the duration can be arbitrary.
-                    If no duration is given, a value of zero is assumed.
-                    If the second value is `'inf'`, the first value is
-                      taken a the minimum acceptable value and no constraint
-                      is set on the maximum value. 
+                as an interval `(minimum, maximum)` of acceptable durations.
+                    `minimum` and `maximum` can be either `int`s or `None`.
+            
         exists: bool
             The truth value to test
             (default True, should be False for counter-example generation). 
@@ -125,8 +120,8 @@ def make_piecewise_chord_progression(progressions, exists=True,
             # Empty progression, existence is trivial
             return 'TRUE'
         elif not progressions[0]:
-            # Existence of the sequence depends only on the following
-            # progressions in `progressions`
+            # The current progression is empty, existence of the sequence
+            # depends only on the next progressions in `progressions`
             next_progressions = progressions_aux(progressions[1:])
             return "EF ({})".format(next_progressions)
         else:
@@ -135,10 +130,7 @@ def make_piecewise_chord_progression(progressions, exists=True,
             motion = None
             
             next_elem = progression.pop()
-            if isinstance(next_elem, basestring):
-                (pitch, duration) = (next_elem, 0)
-            else:
-                (pitch, duration) = next_elem
+            (pitch, (min_dur, max_dur)) = next_elem
             if pitch[0] == '+':
                 motion = 'ascending'
                 pitch = pitch[1:]
@@ -152,48 +144,32 @@ def make_piecewise_chord_progression(progressions, exists=True,
                 silence_equivalence=silence_equivalence,
                 nuxmv_pitch_name=nuxmv_pitch_name,
                 nuxmv_silence_name=nuxmv_silence_name)
-            if duration == 0:
+
+            if min_dur == None:
+                min_dur = 1
+            if min_dur == None and max_dur == None:
                 prop = "({0}) & E [({0}) U ({1})]".format(equality_test,
                                                           next_prop)
-            elif isinstance(duration, int):
-                # Enforce equality for `duration` steps
-                interval_eq = "EBG {0} .. {1} ({2})".format(
-                    0, duration - 1, equality_test)
+            
+            # Enforce equality for at least `min_dur` steps
+            interval_eq = "EBG {0} .. {1} ({2})".format(
+                0, min_dur - 1, equality_test)
+    
+            if max_dur == None:
+                # Enforce reachability of next interval
+                # within at least `min_dur` steps
+                reachability_prop = "E [({0}) BU {1} .. {1} (EF {2})]"
+                reachability_prop = reachability_prop.format(
+                    equality_test, min_dur, next_prop)
+            else:    
+                # Enforce reachability of next interval
+                # between `min_dur` and `max_dur`
+                reachability_prop = "E [({0}) BU {1} .. {2} ({3})]".format(
+                    equality_test, min_dur, max_dur, next_prop)
 
-                # Enforce reachability of next interval in exactly `duration`
-                reachability_prop = "EBF {0} .. {0} ({1})".format(
-                    duration, next_prop)
-
-                # Combine interval constraint and reachability
-                prop = "({0}) & ({1})".format(interval_eq, reachability_prop)
-            elif isinstance(duration, tuple) and len(duration) == 2:
-                min_dur, max_dur = duration
-
-                # Enforce equality for at least `min_dur` steps
-                interval_eq = "EBG {0} .. {1} ({2})".format(
-                    0, min_dur - 1, equality_test)
-
-                if max_dur == 'inf':
-                    # Enforce reachability of next interval
-                    # within at least `min_dur` steps
-                    reachability_prop = "E [({0}) BU {1} .. {1} (EF {2})]"
-                    reachability_prop = reachability_prop.format(
-                        equality_test, min_dur, next_prop)
-                else:    
-                    # Enforce reachability of next interval
-                    # between `min_dur` and `max_dur`
-                    reachability_prop = "E [({0}) BU {1} .. {2} ({3})]".format(
-                        equality_test, min_dur, max_dur, next_prop)
-
-                # Combine interval constraint and reachability
-                prop = "({0}) & ({1})".format(interval_eq, reachability_prop)
-                
-            else:
-                error_str = "Duration {} is not of the expected type".format(
-                    str(duration))
-                raise TypeError(error_str +
-                                " : no duration, int or int pair.")
-
+            # Combine interval constraint and reachability
+            prop = "({0}) & ({1})".format(interval_eq, reachability_prop)
+            
             if motion:
                 prop = "({0}={1}) & {2}".format(nuxmv_motion_name,
                                                 'm_asc' if motion=='ascending'
