@@ -98,68 +98,61 @@ def make_counter_example(oracle, prop, start=None, include_rsfx=False,
 
 """Chord progressions"""
 
-INFINITY = 'inf'
-
 def agglomerate_progression(progression):
     """Sequence of notes with durations from a sequence of single notes.
 
+    Return a sequence of (str, (int, int)) pairs.
+    Each pair has the form (`note`, (`min_dur`, `max_dur`)), where
+    `min_dur` is the number of successive occurrences of `note`
+    in the original sequence. 
     ----
-    >>> agglomerate_progression(['C', 'D', 'E', 'E', 'E', 'D', 'C', 'C', 'F#'])
-    ['C', 'D', ('E', (3, 'inf')), 'D', ('C', (2, 'inf')), 'F#']
+    >>> result = agglomerate_progression(['C', 'D', 'E', 'E',
+    ...                                   'E', 'D', 'C', 'C', 'F#'])
+    >>> expected = [('C', (1, None)), ('D', (1, None)), ('E', (3, None)),
+    ... ('D', (1, None)), ('C', (2, None)), ('F#', (1, None))]
+    >>> result == expected
+    True
     """
-    def get_note(elem):
-        if isinstance(elem, basestring):
-            return elem
+    def aux(l, acc):
+        if not l:
+            note, minimum_duration = acc
+            maximum_duration = None
+            l.append((note, (minimum_duration, maximum_duration)))
+            return l
         else:
-            name, _ = elem
-            return name
-    
+            next_note = l[0]
+            previous_note = acc[0]
+            if next_note == previous_note:
+                acc = (acc[0], acc[1] + 1)
+                return aux(l[1:], acc)
+            else:
+                previous_note, minimum_duration = acc
+                maximum_duration = None
+                new_acc = (next_note, 1)
+
+                result = aux(l[1:], new_acc)
+                result.append((previous_note,
+                               (minimum_duration, maximum_duration)))
+                return result
+        
     if not progression:
-        return progression
+        return []
     else:
         acc = (progression[0], 1)
-        def aux(l, acc):
-            if not l:
-                note, start = acc
-                if start > 1:
-                    l.append((note, (start, INFINITY)))
-                    return l
-                else:
-                    l.append(note)
-                    return l
-            else:
-                if l[0] == acc[0]:
-                    acc = (acc[0], acc[1] + 1)
-                    return aux(l[1:], acc)
-                else:
-                    new_acc = (l[0], 1)
-                    note, start = acc
-                    if start > 1:
-                        result = aux(l[1:], new_acc)
-                        result.append((note, (start, INFINITY)))
-                        return result
-                    else:
-                        result = aux(l[1:], new_acc)
-                        result.append(note)
-                        return result
         result = aux(progression[1:], acc)
         result.reverse()
         return result
     
-def make_piecewise_chord_progression(oracle, progressions,
-                                     enable_motions=False,
-                                     start=None,
-                                     original_stream=None,
-                                     include_rsfx=False,
-                                     silence_equivalence=False,
-                                     allow_init=False,
-                                     model_checker='nuxmv'):
+def make_progression(oracle, progressions, enable_motions=False, start=None,
+                     original_stream=None, include_rsfx=False,
+                     silence_equivalence=False, allow_init=False,
+                     model_checker='nuxmv'):
     """Return a path in `oracle` reaching the given `progression` from `start`.
 
     Keyword arguments:
         oracle: vmo.VMO.VMO
             The oracle on which to generate a path.
-        progressions: sequences of (str, (int, {int or str})); (str, int) or str
+        progressions: sequences of (str, (int, int))
             The piecewise chord progression to test for, of the form:
             [PROG_1, PROG_2, ..., PROG_n].
             Each PROG_i should be continously satisfied.
@@ -168,13 +161,9 @@ def make_piecewise_chord_progression(oracle, progressions,
             Each PROG_i is a sequence of pairs of the form:
                 The name of the root note, e.g. 'C#' or 'D-'
                 The quarter-length duration for which the note should be held,
-                as an interval of acceptable durations.
-                    A single int means an exact duration is expected.
-                    A value of zero means the duration can be arbitrary.
-                    If no duration is given, a value of zero is assumed.
-                    If the second value is `'inf'`, the first value is
-                      taken a the minimum acceptable value and no constraint
-                      is set on the maximum value.
+                as an interval `(min_dur, max_dur)` of acceptable durations.
+                    `min_dur` and `max_dur` can be either `int`s or `None`.
+
         enable_motions: bool
             Allow writing of chords as '+B' or '-F#' to specify melodic motion
             used to reached chord (default `False`).
@@ -200,7 +189,7 @@ def make_piecewise_chord_progression(oracle, progressions,
                                    enable_motions=enable_motions,
                                    init_state=start,
                                    original_stream=original_stream)
-    progression_prop = properties.make_piecewise_chord_progression(
+    progression_prop = properties.makepprogression(
         progressions, exists=False,
         silence_equivalence=silence_equivalence,
         allow_init=allow_init)
@@ -208,40 +197,38 @@ def make_piecewise_chord_progression(oracle, progressions,
     return (check.make_counterexample(model_str, progression_prop))
 
 
-def make_piecewise_chord_progression_tonic_free(
-        oracle, progressions, original_stream=None, mode='major',
-        enable_motions=False, start=None,
-        include_rsfx=False, silence_equivalence=False, allow_init=False,
-        model_checker='nuxmv'):
+def make_progression_from_degrees(oracle, progressions, original_stream=None,
+                                  mode='major', enable_motions=False,
+                                  start=None, include_rsfx=False,
+                                  silence_equivalence=False, allow_init=False,
+                                  model_checker='nuxmv'):
     """Return a path in `oracle` reaching the given `progressions` from `start`.
 
-    Tonic-free version: test for all 12 possibilities of instantiation of the
-    degrees following the choice of an arbitrary tonic.
+    Lifted, degree-based version of `make_progression`:
+    Test for all 12 possibilities of instantiation of the degrees following the
+    choice of an arbitrary tonic.
     
     Return: (dict sequence, str)
-        The first existing path and the associated tonic.
+        The first existing path and the associated tonic, cf. `make_progression`
+        for the return dict's syntax.
     
     Keyword arguments:
         oracle: vmo.VMO.VMO
             The oracle on which to generate a path.
-        progressions: sequences of (str, (int, {int or str})); (str, int) or str
+        progressions: sequences of (int, (int, int))
             The piecewise chord progression to test for, of the form:
             [PROG_1, PROG_2, ..., PROG_n].
             Each PROG_i should be continously satisfied.
             Arbitrary paths can be taken to connect each PROG_i though.
             
             Each PROG_i is a sequence of pairs of the form:
-                The name of the root note, e.g. 'C#' or 'D-'
+                The degree of the root note, an int between 1 and 12.
                 The quarter-length duration for which the note should be held,
-                as an interval of acceptable durations.
-                    A single int means an exact duration is expected.
-                    A value of zero means the duration can be arbitrary.
-                    If no duration is given, a value of zero is assumed.
-                    If the second value is `'inf'`, the first value is
-                      taken a the minimum acceptable value and no constraint
-                      is set on the maximum value. 
+                as an interval `(min_dur, max_dur)` of acceptable durations.
+                    `min_dur` and `max_dur` can be either `int`s or `None`.
+
         enable_motions: bool
-            Allow writing of chords as '+B' or '-F#' to specify melodic motion
+            Allow writing of degrees as '+1' or '-2' to specify melodic motion
             used to reached chord (default `False`).
         mode: string, optional
             The mode in which to generate the chord progression
@@ -276,12 +263,12 @@ def make_piecewise_chord_progression_tonic_free(
     while result is None and tonic < 12:
         tonic_name = mus.pitch.Pitch(tonic).name
         inst_progs = (lambda progression:
-            vmusic.progression_from_tonic(tonic_name, progression=progression,
+            vmusic.instantiate_degree_progression(tonic_name, progression=progression,
                                           mode=mode,
                                           enable_motions=enable_motions)
                                           )
         progressions_inst = map(inst_progs, progressions)
-        progression_prop = properties.make_piecewise_chord_progression(
+        progression_prop = properties.make_progression(
             map(agglomerate_progression, progressions_inst),
             exists=False,
             silence_equivalence=silence_equivalence)
