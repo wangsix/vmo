@@ -382,7 +382,7 @@ def print_pitchspaces(oracle, original_stream, nuxmv_state_name='s',
     local_print_pitchspace_state = (lambda state: print_pitchspace_state(
         oracle, original_stream, state, nuxmv_state_name))
     transitions = map(local_print_pitchspace_state, states)
-    transitions.append("TRUE: -1;")  # To make the case-disjunt exhaustive. 
+    transitions.append("TRUE: -1;")  # To make the case-disjunct exhaustive. 
     
     return print_variable(nuxmv_pitchspace_name, '-1 .. 127',
                           '-1', transitions)
