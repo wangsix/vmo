@@ -1,5 +1,5 @@
 import librosa
-import copy
+# import copy
 import scipy
 import scipy.linalg as linalg
 import scipy.stats as stats
@@ -7,7 +7,7 @@ import scipy.signal as sig
 import numpy as np
 import sklearn.cluster as sklhc
 import scipy.cluster.hierarchy as scihc
-from ..VMO.utility import entropy, edit_distance
+# from ..VMO.utility import entropy, edit_distance
 from collections import OrderedDict
 from .analysis import create_selfsim, find_fragments
 
@@ -190,70 +190,70 @@ def _seg_by_spectral_agg_single_frame(connectivity, width=9):
     return _agg_segment(z, t, criterion='distance', width=width, data=x)
 
 
-def _seg_by_hc_string_matching(oracle, data='symbol', connectivity=None, **kwargs):
-    if data is 'raw':
-        data = np.array(oracle.f_array[1:])
-    else:
-        data = np.zeros((oracle.n_states - 1, oracle.num_clusters()))
-        data[range(oracle.n_states - 1), oracle.data[1:]] = 1
-
-    frag_pos, _frag_rsfx = find_fragments(oracle)
-    frag_num = len(frag_pos)
-    frag_connectivity = np.zeros((frag_num, frag_num))
-
-    fragments = []
-    for i, (f, r) in enumerate(zip(frag_pos, _frag_rsfx)):  # f[0]-> pos, f[1]->lrs
-        if f[0] == oracle.n_states - 1:
-            fragments.append(oracle.data[f[0] - f[1] + 1:])
-        else:
-            fragments.append(oracle.data[f[0] - f[1] + 1:f[0] + 1])
-            if r > 0:
-                frag_connectivity[i, r] = 1.0
-    frag_connectivity[range(frag_num - 1), range(1, frag_num)] = 1.0
-
-    n_nodes = 2 * frag_num - 1
-
-    _children = []
-    distances = np.empty(n_nodes - frag_num)
-    frag_indices = range(frag_num)
-    _frag = copy.copy(fragments)
-
-    for k in range(frag_num, n_nodes):
-        y = [edit_distance(u, v) for (u, v) in zip(_frag[:-1], _frag[1:])]
-
-        flat_ind = np.argmin(y)
-        i = flat_ind
-        j = flat_ind + 1
-        _frag[i] = _frag[i] + _frag[j]
-        _frag.pop(j)
-        _children.append((frag_indices[i], frag_indices[j]))
-        frag_indices[i] = k
-        frag_indices.pop(j)
-        distances[k - frag_num] = y[flat_ind]
-
-    reconstructed_z = np.zeros((frag_num - 1, 4))
-    reconstructed_z[:, :2] = _children
-    reconstructed_z[:, 2] = distances
-
-    if 'threshold' in kwargs.keys():
-        t = kwargs['threshold']
-    else:
-        t = 0.1 * np.max(reconstructed_z[:, 2])
-
-    if 'criterion' in kwargs.keys():
-        criterion = kwargs['criterion']
-    else:
-        criterion = 'distance'
-
-    _label = scihc.fcluster(reconstructed_z, t=t, criterion=criterion)
-    label = []
-    for lab, frag in zip(_label, fragments):
-        label.extend([lab] * len(frag))
-
-    boundaries = find_boundaries(label, **kwargs)
-    labels = segment_labeling(data, boundaries, c_method='agglomerative', k=0.05)
-
-    return boundaries, labels
+# def _seg_by_hc_string_matching(oracle, data='symbol', connectivity=None, **kwargs):
+#     if data is 'raw':
+#         data = np.array(oracle.f_array[1:])
+#     else:
+#         data = np.zeros((oracle.n_states - 1, oracle.num_clusters()))
+#         data[range(oracle.n_states - 1), oracle.data[1:]] = 1
+#
+#     frag_pos, _frag_rsfx = find_fragments(oracle)
+#     frag_num = len(frag_pos)
+#     frag_connectivity = np.zeros((frag_num, frag_num))
+#
+#     fragments = []
+#     for i, (f, r) in enumerate(zip(frag_pos, _frag_rsfx)):  # f[0]-> pos, f[1]->lrs
+#         if f[0] == oracle.n_states - 1:
+#             fragments.append(oracle.data[f[0] - f[1] + 1:])
+#         else:
+#             fragments.append(oracle.data[f[0] - f[1] + 1:f[0] + 1])
+#             if r > 0:
+#                 frag_connectivity[i, r] = 1.0
+#     frag_connectivity[range(frag_num - 1), range(1, frag_num)] = 1.0
+#
+#     n_nodes = 2 * frag_num - 1
+#
+#     _children = []
+#     distances = np.empty(n_nodes - frag_num)
+#     frag_indices = range(frag_num)
+#     _frag = copy.copy(fragments)
+#
+#     for k in range(frag_num, n_nodes):
+#         y = [edit_distance(u, v) for (u, v) in zip(_frag[:-1], _frag[1:])]
+#
+#         flat_ind = np.argmin(y)
+#         i = flat_ind
+#         j = flat_ind + 1
+#         _frag[i] = _frag[i] + _frag[j]
+#         _frag.pop(j)
+#         _children.append((frag_indices[i], frag_indices[j]))
+#         frag_indices[i] = k
+#         frag_indices.pop(j)
+#         distances[k - frag_num] = y[flat_ind]
+#
+#     reconstructed_z = np.zeros((frag_num - 1, 4))
+#     reconstructed_z[:, :2] = _children
+#     reconstructed_z[:, 2] = distances
+#
+#     if 'threshold' in kwargs.keys():
+#         t = kwargs['threshold']
+#     else:
+#         t = 0.1 * np.max(reconstructed_z[:, 2])
+#
+#     if 'criterion' in kwargs.keys():
+#         criterion = kwargs['criterion']
+#     else:
+#         criterion = 'distance'
+#
+#     _label = scihc.fcluster(reconstructed_z, t=t, criterion=criterion)
+#     label = []
+#     for lab, frag in zip(_label, fragments):
+#         label.extend([lab] * len(frag))
+#
+#     boundaries = find_boundaries(label, **kwargs)
+#     labels = segment_labeling(data, boundaries, c_method='agglomerative', k=0.05)
+#
+#     return boundaries, labels
 
 
 def clustering_by_entropy(eigen_vecs, k_min, width=9, hier=False):

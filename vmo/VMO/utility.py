@@ -26,7 +26,8 @@ along with vmo.  If not, see <http://www.gnu.org/licenses/>.
 
 import numpy as np
 import scipy.stats as stats
-import editdistance as edit
+# import editdistance as edit
+
 
 def entropy(x):
     return stats.entropy(x)
@@ -57,10 +58,10 @@ def transpose_inv(a, b_vec, shift=1, step=None):
     return np.array(d_vec)
 
 
-def edit_distance(u, v):
-    return float(edit.eval(u, v))
-
-
-def normalized_edit_distance(u, v):
-    return edit_distance(u, v)/np.max([len(u), len(v)])
+# def edit_distance(u, v):
+#     return float(edit.eval(u, v))
+#
+#
+# def normalized_edit_distance(u, v):
+#     return edit_distance(u, v)/np.max([len(u), len(v)])
 

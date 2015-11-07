@@ -19,18 +19,12 @@ You should have received a copy of the GNU General Public License
 along with vmo.  If not, see <http://www.gnu.org/licenses/>.
 """
 
-import sys, itertools, copy
+import sys, itertools
 from vmo.VMO.oracle import build_oracle
 import numpy as np
 import scipy.spatial.distance as dist
-import scipy.cluster.hierarchy as scihc
-import scipy.signal as sig
-import sklearn.cluster as sklhc
-import sklearn.mixture as skmix
 from functools import partial
-# from scipy.stats import multivariate_normal
-import vmo.VMO.utility as utils
-from collections import OrderedDict
+
 
 '''Self-similarity matrix and transition matrix from an oracle
 '''
