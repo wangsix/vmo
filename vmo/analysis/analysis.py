@@ -411,7 +411,7 @@ def create_pttr_vmo(oracle, pattern):
         _vmo_vec.append([])
         for sfx in p[0]:
             local_obs = oracle.f_array[sfx - p[1] + 1:sfx + 1]
-            local_vmo = vmo.VMObuild_oracle(local_obs, flag='a', threshold=thresh)
+            local_vmo = build_oracle(local_obs, flag='a', threshold=thresh)
             _vmo_vec[-1].append(local_vmo)
 
         pttr_vmo = _vmo_vec[-1][0]

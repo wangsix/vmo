@@ -316,8 +316,8 @@ def segmentation(oracle, method='symbol_agglomerative', **kwargs):
     if oracle:
         if method == 'symbol_agglomerative':
             return _seg_by_single_frame(oracle, cluster_method='agglomerative', **kwargs)
-        elif method == 'string_agglomerative':
-            return _seg_by_hc_string_matching(oracle, **kwargs)
+        # elif method == 'string_agglomerative':
+        #     return _seg_by_hc_string_matching(oracle, **kwargs)
         elif method == 'symbol_spectral':
             return _seg_by_single_frame(oracle, cluster_method='spectral', **kwargs)
         elif method == 'symbol_spectral_agglomerative':
