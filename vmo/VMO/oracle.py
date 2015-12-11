@@ -28,24 +28,25 @@ import numpy as np
 import scipy.spatial.distance as dist
 import vmo.VMO.utility as utl
 
-'''
+
 class data(object):
     """A helper class to encapsulate objects for symbolic comparison
-    
-    By default, the first entry of the list or tuple is used as the feature to 
-    test for equality between different data object. 
-    
+
+    By default, the first entry of the list or tuple is used as the feature to
+    test for equality between different data object.
+
     Attributes:
         content: a list or tuple
-        idx: the index of the list or tuple to be tested for equality 
+        idx: the index of the list or tuple to be tested for equality
     """
+
     def __init__(self, data_item, index=0):
         self.content = data_item
         self.idx = index
-        
+
     def __repr__(self):
         return str(self.content)
-        
+
     def __eq__(self, other):
         if type(other) == data:
             if self.content[self.idx] == other.content[self.idx]:
@@ -54,10 +55,9 @@ class data(object):
                 return False
         else:
             return False
-    
+
     def __ne__(self, other):
         return not (self == other)
-'''
 
 
 class FactorOracle(object):
@@ -767,6 +767,9 @@ def _build_oracle(flag, oracle, input_data, suffix_method='inc'):
     if type(input_data) != np.ndarray or type(input_data[0]) != np.ndarray:
         input_data = np.array(input_data)
 
+    if input_data.ndim != 2:
+        input_data = np.expand_dims(input_data, axis=1)
+
     if flag == 'a':
         [oracle.add_state(obs, suffix_method) for obs in input_data]
         # for obs in input_data:
@@ -824,33 +827,33 @@ def find_threshold_sgd(input_data, r=(0, 1, 0.1), method='ir', flag='a',
 def find_threshold_nt(input_data, r=(0, 1, 0.1), method='ir', flag='a',
                       suffix_method='inc', alpha=1.0, feature=None, ir_type='cum',
                       dfunc='euclidean', dfunc_handle=None, dim=1):
-    t = r[1]/2.0
+    t = r[1] / 2.0
     tmp_oracle = build_oracle(input_data, flag=flag, threshold=t,
                               suffix_method=suffix_method, feature=feature,
                               dfunc=dfunc, dfunc_handle=dfunc_handle, dim=dim)
     tmp_ir, h0, h1 = tmp_oracle.IR(ir_type=ir_type, alpha=alpha)
     ir = tmp_ir.sum()
 
-    t_tmp = t+r[2]
+    t_tmp = t + r[2]
     tmp_oracle = build_oracle(input_data, flag=flag, threshold=t_tmp,
                               suffix_method=suffix_method, feature=feature,
                               dfunc=dfunc, dfunc_handle=dfunc_handle, dim=dim)
     tmp_ir, h0, h1 = tmp_oracle.IR(ir_type=ir_type, alpha=alpha)
     ir_tmp = tmp_ir.sum()
 
-    if ir_tmp>ir:
+    if ir_tmp > ir:
         while ir_tmp > ir:
             t = t_tmp
             ir = ir_tmp
 
-            t_tmp = t+r[2]
+            t_tmp = t + r[2]
             tmp_oracle = build_oracle(input_data, flag=flag, threshold=t_tmp,
                                       suffix_method=suffix_method, feature=feature,
                                       dfunc=dfunc, dfunc_handle=dfunc_handle, dim=dim)
             tmp_ir, h0, h1 = tmp_oracle.IR(ir_type=ir_type, alpha=alpha)
             ir_tmp = tmp_ir.sum()
     else:
-        t_tmp = t-r[2]
+        t_tmp = t - r[2]
         tmp_oracle = build_oracle(input_data, flag=flag, threshold=t_tmp,
                                   suffix_method=suffix_method, feature=feature,
                                   dfunc=dfunc, dfunc_handle=dfunc_handle, dim=dim)
@@ -861,7 +864,7 @@ def find_threshold_nt(input_data, r=(0, 1, 0.1), method='ir', flag='a',
             t = t_tmp
             ir = ir_tmp
 
-            t_tmp = t-r[2]
+            t_tmp = t - r[2]
             tmp_oracle = build_oracle(input_data, flag=flag, threshold=t_tmp,
                                       suffix_method=suffix_method, feature=feature,
                                       dfunc=dfunc, dfunc_handle=dfunc_handle, dim=dim)
@@ -878,9 +881,9 @@ def find_threshold(input_data, r=(0, 1, 0.1), method='ir', flag='a',
         return find_threshold_ir(input_data, r, flag, suffix_method, alpha,
                                  feature, ir_type, dfunc, dfunc_handle, dim,
                                  verbose, entropy)
-    elif method == 'motif':
-        return find_threshold_motif(input_data, r, flag, suffix_method, alpha,
-                                    feature, dfunc, dfunc_handle, dim, verbose)
+    # elif method == 'motif':
+    #     return find_threshold_motif(input_data, r, flag, suffix_method, alpha,
+    #                                 feature, dfunc, dfunc_handle, dim, verbose)
 
 
 def find_threshold_ir(input_data, r=(0, 1, 0.1), flag='a', suffix_method='inc',
@@ -912,7 +915,6 @@ def find_threshold_ir(input_data, r=(0, 1, 0.1), flag='a', suffix_method='inc',
         return ir_thresh_pairs[0], pairs_return, h0_vec, h1_vec
     else:
         return ir_thresh_pairs[0], pairs_return
-
 
 # def find_threshold_motif(input_data, r=(0, 1, 0.1), flag='a',
 #                          suffix_method='inc', alpha=1.0, feature=None,
