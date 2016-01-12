@@ -8,7 +8,7 @@ import sklearn.cluster as sklhc
 import scipy.cluster.hierarchy as scihc
 from collections import OrderedDict
 from .analysis import create_selfsim, find_fragments
-
+from ..VMO.utility import entropy
 """Segmentation algorithms
 """
 

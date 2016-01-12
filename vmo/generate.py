@@ -23,51 +23,54 @@ import random, itertools
 import numpy as np
 from scipy.io import wavfile
 
+
 def improvise_step(oracle, i, LRS=0, weight=None):
     """Incremental improvisation function given an oracle and a state"""
-    
-    trn_link = [s+1 for s in oracle.latent[oracle.data[i]] if
-                (oracle.lrs[s] >= LRS and (s+1) < oracle.n_states)]
+
+    trn_link = [s + 1 for s in oracle.latent[oracle.data[i]] if
+                (oracle.lrs[s] >= LRS and (s + 1) < oracle.n_states)]
     if trn_link == []:
-        if i == oracle.n_states-1:
+        if i == oracle.n_states - 1:
             n = 1
         else:
-            n = i+1
+            n = i + 1
     else:
         if weight == 'lrs':
             lrs_link = [oracle.lrs[s] for s in
                         oracle.latent[oracle.data[i]] if
-                        (oracle.lrs[s] >= LRS and (s+1) < oracle.n_states)]
+                        (oracle.lrs[s] >= LRS and (s + 1) < oracle.n_states)]
             lrs_pop = list(itertools.chain.from_iterable(
-                [[[i]*_x for (i,_x) in zip(trn_link,lrs_link)]]))
+                    [[[i] * _x for (i, _x) in zip(trn_link, lrs_link)]]))
             n = random.choice(lrs_pop)[0]
         else:
-            n = trn_link[int(np.floor(random.random()*len(trn_link)))]
+            n = trn_link[int(np.floor(random.random() * len(trn_link)))]
     return n
+
 
 def improvise(oracle, seq_len, k=1, LRS=0, weight=None, continuity=None):
     """Improvisation wrapper"""
-    
+
     s = []
     if k + continuity < oracle.n_states - 1:
-        s.extend(range(k,k+continuity))
+        s.extend(range(k, k + continuity))
         k = s[-1]
         seq_len -= continuity
-    
+
     while seq_len > 0:
         s.append(improvise_step(oracle, k, LRS, weight))
         k = s[-1]
-        if k+1 < oracle.n_states-1:
+        if k + 1 < oracle.n_states - 1:
             k += 1
         else:
             k = 1
         if k + continuity < oracle.n_states - 1:
-            s.extend(range(k,k+continuity))
+            s.extend(range(k, k + continuity))
             seq_len -= continuity
         k = s[-1]
         seq_len -= 1
-        
+
     return s
+
 
 def generate(oracle, seq_len, p=0.5, k=1, LRS=0, weight=None):
     """ Generate a sequence based on traversing an oracle.
@@ -104,74 +107,75 @@ def generate(oracle, seq_len, p=0.5, k=1, LRS=0, weight=None):
         # generate each state
         if sfx[k] != 0 and sfx[k] is not None:
             if (random.random() < p):
-                #copy forward according to transitions
+                # copy forward according to transitions
                 I = trn[k]
                 if len(I) == 0:
                     # if last state, choose a suffix
                     k = sfx[k]
                     ktrace.append(k)
                     I = trn[k]
-                sym = I[int(np.floor(random.random()*len(I)))]
-                s.append(sym) #Why (sym-1) before?
+                sym = I[int(np.floor(random.random() * len(I)))]
+                s.append(sym)  # Why (sym-1) before?
                 k = sym
                 ktrace.append(k)
             else:
                 # copy any of the next symbols
                 ktrace.append(k)
                 _k = k
-                k_vec = [] 
+                k_vec = []
                 k_vec = _find_links(k_vec, sfx, rsfx, _k)
-                k_vec = [_i for _i in k_vec if lrs[_i] >= LRS] 
+                k_vec = [_i for _i in k_vec if lrs[_i] >= LRS]
                 lrs_vec = [lrs[_i] for _i in k_vec]
-                if len(k_vec) > 0: # if a possibility found, len(I)
+                if len(k_vec) > 0:  # if a possibility found, len(I)
                     if weight == 'weight':
                         max_lrs = np.amax(lrs_vec)
                         query_lrs = max_lrs - np.floor(random.expovariate(1))
-                        
+
                         if query_lrs in lrs_vec:
                             _tmp = np.where(lrs_vec == query_lrs)[0]
                             _tmp = _tmp[int(
-                                np.floor(random.random()*len(_tmp)))]
+                                    np.floor(random.random() * len(_tmp)))]
                             sym = k_vec[_tmp]
                         else:
                             _tmp = np.argmin(abs(
-                                np.subtract(lrs_vec, query_lrs)))
+                                    np.subtract(lrs_vec, query_lrs)))
                             sym = k_vec[_tmp]
                     elif weight == 'max':
                         sym = k_vec[np.argmax([lrs[_i] for _i in k_vec])]
                     else:
-                        sym = k_vec[int(np.floor(random.random()*len(k_vec)))]
-                    
-                    if sym == len(sfx)-1:
-                        sym = sfx[sym] + 1                        
-                    else:                        
+                        sym = k_vec[int(np.floor(random.random() * len(k_vec)))]
+
+                    if sym == len(sfx) - 1:
+                        sym = sfx[sym] + 1
+                    else:
                         s.append(sym + 1)
                     k = sym + 1
                     ktrace.append(k)
-                else: # otherwise continue
+                else:  # otherwise continue
                     if k < len(sfx) - 1:
                         sym = k + 1
                     else:
                         sym = sfx[k] + 1
                     s.append(sym)
                     k = sym
-                    ktrace.append(k)                    
+                    ktrace.append(k)
         else:
             if k < len(sfx) - 1:
-                s.append(k+1)
-                k = k+1
+                s.append(k + 1)
+                k = k + 1
                 ktrace.append(k)
             else:
                 sym = sfx[k] + 1
                 s.append(sym)
                 k = sym
                 ktrace.append(k)
-        if k >= len(sfx) -1:
+        if k >= len(sfx) - 1:
             k = 0
     kend = k
     return s, kend, ktrace
 
-def _find_links(k_vec ,sfx, rsfx, k):
+
+def _find_links(k_vec, sfx, rsfx, k):
     """Find sfx/rsfx recursively."""
     k_vec.sort()
     if 0 in k_vec:
@@ -187,6 +191,7 @@ def _find_links(k_vec ,sfx, rsfx, k):
             if 0 in k_vec:
                 break
         return k_vec
+
 
 def _make_win(n, mono=False):
     """ Generate a window for a given length.
@@ -205,51 +210,61 @@ def _make_win(n, mono=False):
     win = np.transpose(win)
     return win
 
-def audio_synthesis(ifilename, ofilename, s, buffer_size, hop):
+
+def audio_synthesis(ifilename, ofilename, s, analysis_sr=44100, buffer_size=8192, hop=4096):
     fs, x = wavfile.read(ifilename)
+
+    if fs != analysis_sr:
+        buffer_size *= (fs/float(analysis_sr))
+        buffer_size = int(buffer_size)
+        hop *= (fs/float(analysis_sr))
+        hop = int(hop)
+
     mono = True
     if x.ndim == 2:
         mono = False
     xmat = []
     for i in range(0, len(x), hop):
-        if i+buffer_size >= len(x):
+        if i + buffer_size >= len(x):
             if mono:
-                x = np.append(x, np.zeros((i+buffer_size-len(x),)))
+                x = np.append(x, np.zeros((i + buffer_size - len(x),)))
             else:
-                x = np.vstack((x, np.zeros((i+buffer_size-len(x),2))))
-        new_mat = np.array(x[i:i+buffer_size]) # try changing array type?
+                x = np.vstack((x, np.zeros((i + buffer_size - len(x), 2))))
+        new_mat = np.array(x[i:i + buffer_size])  # try changing array type?
         xmat.append(new_mat)
     xmat = np.array(xmat)
 
     s = np.array(s) - 1
     xnewmat = xmat[s]
-    
+
     framelen = len(xnewmat[0])
     nframes = len(xnewmat)
     win = _make_win(framelen, mono)
 
     if mono:
-        wsum = np.zeros(((nframes-1) * hop + framelen,)) 
-        x_new = np.zeros(((nframes-1) * hop + framelen,))
+        wsum = np.zeros(((nframes - 1) * hop + framelen,))
+        x_new = np.zeros(((nframes - 1) * hop + framelen,))
     else:
-        wsum = np.zeros(((nframes-1) * hop + framelen, 2)) 
-        x_new = np.zeros(((nframes-1) * hop + framelen, 2))
-             
+        wsum = np.zeros(((nframes - 1) * hop + framelen, 2))
+        x_new = np.zeros(((nframes - 1) * hop + framelen, 2))
+
     win_pos = range(0, len(x_new), hop)
     for i in range(0, nframes):
         len_xnewmat = len(xnewmat[i])
-        x_new[win_pos[i]:win_pos[i]+len_xnewmat] = np.add(
-            x_new[win_pos[i]:win_pos[i]+len_xnewmat],
-            np.multiply(xnewmat[i], win))     
-        wsum[win_pos[i]:win_pos[i]+len_xnewmat] = np.add(
-            wsum[win_pos[i]:win_pos[i]+len_xnewmat],
-            win) 
-    x_new[hop:-hop] = np.divide(x_new[hop:-hop],wsum[hop:-hop])
+        x_new[win_pos[i]:win_pos[i] + len_xnewmat] = np.add(
+                x_new[win_pos[i]:win_pos[i] + len_xnewmat],
+                np.multiply(xnewmat[i], win))
+        wsum[win_pos[i]:win_pos[i] + len_xnewmat] = np.add(
+                wsum[win_pos[i]:win_pos[i] + len_xnewmat],
+                win)
+    x_new[hop:-hop] = np.divide(x_new[hop:-hop], wsum[hop:-hop])
     x_new = x_new.astype(np.int16)
-    wavfile.write(ofilename, fs, x_new)        
+    wavfile.write(ofilename, fs, x_new)
     return x_new, wsum
-    
-def generate_audio(ifilename, ofilename, buffer_size, hop, oracle, seq_len,
+
+
+def generate_audio(ifilename, ofilename, oracle, seq_len,
+                   analysis_sr=44100, buffer_size=8192, hop=4096,
                    p=0.5, k=0, lrs=0):
     """make audio output using audio oracle for generation.
     
@@ -270,17 +285,24 @@ def generate_audio(ifilename, ofilename, buffer_size, hop, oracle, seq_len,
     """
 
     fs, x = wavfile.read(ifilename)
+
+    if fs != analysis_sr:
+        buffer_size *= (fs/float(analysis_sr))
+        buffer_size = int(buffer_size)
+        hop *= (fs/float(analysis_sr))
+        hop = int(hop)
+
     mono = True
     if x.ndim == 2:
         mono = False
     xmat = []
     for i in range(0, len(x), hop):
-        if i+buffer_size >= len(x):
+        if i + buffer_size >= len(x):
             if mono:
-                x = np.append(x, np.zeros((i+buffer_size-len(x),)))
+                x = np.append(x, np.zeros((i + buffer_size - len(x),)))
             else:
-                x = np.vstack((x, np.zeros((i+buffer_size-len(x),2))))
-        new_mat = np.array(x[i:i+buffer_size]) # try changing array type?
+                x = np.vstack((x, np.zeros((i + buffer_size - len(x), 2))))
+        new_mat = np.array(x[i:i + buffer_size])  # try changing array type?
         xmat.append(new_mat)
     xmat = np.array(xmat)
 
@@ -293,24 +315,22 @@ def generate_audio(ifilename, ofilename, buffer_size, hop, oracle, seq_len,
     win = _make_win(framelen, mono)
 
     if mono:
-        wsum = np.zeros(((nframes-1) * hop + framelen,)) 
-        x_new = np.zeros(((nframes-1) * hop + framelen,))
+        wsum = np.zeros(((nframes - 1) * hop + framelen,))
+        x_new = np.zeros(((nframes - 1) * hop + framelen,))
     else:
-        wsum = np.zeros(((nframes-1) * hop + framelen, 2)) 
-        x_new = np.zeros(((nframes-1) * hop + framelen, 2))
-             
+        wsum = np.zeros(((nframes - 1) * hop + framelen, 2))
+        x_new = np.zeros(((nframes - 1) * hop + framelen, 2))
+
     win_pos = range(0, len(x_new), hop)
     for i in range(0, nframes):
         len_xnewmat = len(xnewmat[i])
-        x_new[win_pos[i]:win_pos[i]+len_xnewmat] = np.add(
-            x_new[win_pos[i]:win_pos[i]+len_xnewmat],
-            np.multiply(xnewmat[i], win))     
-        wsum[win_pos[i]:win_pos[i]+len_xnewmat] = np.add(
-            wsum[win_pos[i]:win_pos[i]+len_xnewmat],
-            win) 
-    x_new[hop:-hop] = np.divide(x_new[hop:-hop],wsum[hop:-hop])
+        x_new[win_pos[i]:win_pos[i] + len_xnewmat] = np.add(
+                x_new[win_pos[i]:win_pos[i] + len_xnewmat],
+                np.multiply(xnewmat[i], win))
+        wsum[win_pos[i]:win_pos[i] + len_xnewmat] = np.add(
+                wsum[win_pos[i]:win_pos[i] + len_xnewmat],
+                win)
+    x_new[hop:-hop] = np.divide(x_new[hop:-hop], wsum[hop:-hop])
     x_new = x_new.astype(np.int16)
     wavfile.write(ofilename, fs, x_new)
     return x_new, wsum
-
-    

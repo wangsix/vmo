@@ -3,5 +3,3 @@ scipy
 matplotlib
 scikit-learn
 librosa
-editdistance
-fuzzywuzzy
