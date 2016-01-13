@@ -29,7 +29,7 @@ def improvise_step(oracle, i, LRS=0, weight=None):
 
     trn_link = [s + 1 for s in oracle.latent[oracle.data[i]] if
                 (oracle.lrs[s] >= LRS and (s + 1) < oracle.n_states)]
-    if trn_link == []:
+    if not trn_link:
         if i == oracle.n_states - 1:
             n = 1
         else:
@@ -47,7 +47,7 @@ def improvise_step(oracle, i, LRS=0, weight=None):
     return n
 
 
-def improvise(oracle, seq_len, k=1, LRS=0, weight=None, continuity=None):
+def improvise(oracle, seq_len, k=1, LRS=0, weight=None, continuity=1):
     """Improvisation wrapper"""
 
     s = []
@@ -260,7 +260,7 @@ def audio_synthesis(ifilename, ofilename, s, analysis_sr=44100, buffer_size=8192
     x_new[hop:-hop] = np.divide(x_new[hop:-hop], wsum[hop:-hop])
     x_new = x_new.astype(np.int16)
     wavfile.write(ofilename, fs, x_new)
-    return x_new, wsum
+    return x_new, wsum, fs
 
 
 def generate_audio(ifilename, ofilename, oracle, seq_len,
@@ -333,4 +333,4 @@ def generate_audio(ifilename, ofilename, oracle, seq_len,
     x_new[hop:-hop] = np.divide(x_new[hop:-hop], wsum[hop:-hop])
     x_new = x_new.astype(np.int16)
     wavfile.write(ofilename, fs, x_new)
-    return x_new, wsum
+    return x_new, wsum, fs
