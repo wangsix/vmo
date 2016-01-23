@@ -784,7 +784,7 @@ def _build_oracle(flag, oracle, input_data, suffix_method='inc'):
 
 def build_oracle(input_data, flag,
                  threshold=0, suffix_method='inc',
-                 feature=None, weights=None, dfunc='euclidean',
+                 feature=None, weights=None, dfunc='cosine',
                  dfunc_handle=None, dim=1):
     # initialize weights if needed1
     if weights is None:
@@ -809,7 +809,7 @@ def build_oracle(input_data, flag,
 
 def find_threshold_sgd(input_data, r=(0, 1, 0.1), method='ir', flag='a',
                        suffix_method='inc', alpha=1.0, feature=None, ir_type='cum',
-                       dfunc='euclidean', dfunc_handle=None, dim=1):
+                       dfunc='cosine', dfunc_handle=None, dim=1):
     thresholds = np.arange(r[0], r[1], r[2])
     prev_ir = 0
     for t in thresholds:
@@ -826,7 +826,7 @@ def find_threshold_sgd(input_data, r=(0, 1, 0.1), method='ir', flag='a',
 
 def find_threshold_nt(input_data, r=(0, 1, 0.1), method='ir', flag='a',
                       suffix_method='inc', alpha=1.0, feature=None, ir_type='cum',
-                      dfunc='euclidean', dfunc_handle=None, dim=1):
+                      dfunc='cosine', dfunc_handle=None, dim=1):
     t = r[1] / 2.0
     tmp_oracle = build_oracle(input_data, flag=flag, threshold=t,
                               suffix_method=suffix_method, feature=feature,
@@ -875,7 +875,7 @@ def find_threshold_nt(input_data, r=(0, 1, 0.1), method='ir', flag='a',
 
 def find_threshold(input_data, r=(0, 1, 0.1), method='ir', flag='a',
                    suffix_method='inc', alpha=1.0, feature=None, ir_type='cum',
-                   dfunc='euclidean', dfunc_handle=None, dim=1,
+                   dfunc='cosine', dfunc_handle=None, dim=1,
                    verbose=False, entropy=False):
     if method == 'ir':
         return find_threshold_ir(input_data, r, flag, suffix_method, alpha,
@@ -888,7 +888,7 @@ def find_threshold(input_data, r=(0, 1, 0.1), method='ir', flag='a',
 
 def find_threshold_ir(input_data, r=(0, 1, 0.1), flag='a', suffix_method='inc',
                       alpha=1.0, feature=None, ir_type='cum',
-                      dfunc='euclidean', dfunc_handle=None, dim=1,
+                      dfunc='cosine', dfunc_handle=None, dim=1,
                       verbose=False, entropy=False):
     thresholds = np.arange(r[0], r[1], r[2])
     irs = []
