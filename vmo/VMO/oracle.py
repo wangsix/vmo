@@ -87,9 +87,9 @@ class FactorOracle(object):
         # Oracle default parameters
         self.params = {
             'threshold':0,
-            'dfunc': 'euclidean',
+            'dfunc':'euclidean',
             'dfunc_handle':None,
-            'dim': 1,
+            'dim':1,
             'include_rsfx':True
         }
         self.reset(**kwargs)
