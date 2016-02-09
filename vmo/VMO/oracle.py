@@ -89,7 +89,8 @@ class FactorOracle(object):
             'threshold':0,
             'dfunc': 'euclidean',
             'dfunc_handle':None,
-            'dim': 1
+            'dim': 1,
+            'include_rsfx':True
         }
         self.reset(**kwargs)
         
@@ -309,7 +310,7 @@ class FactorOracle(object):
         return _code, _compror
 
     def encode(self):
-        _c, _cmpr = self._encode()
+        _c, _cmpr = self._encode
         self.code.extend(_c)
         self.compror.extend(_cmpr)
 
@@ -621,8 +622,7 @@ class MO(FactorOracle):
         # self.f_array = [0]
         self.feature = feature_array(self.params['dim'])
         self.feature.add(np.zeros(self.params['dim'], ))
-       
-        self.feature = [0]
+        
         self.symbol[0] = 0
         self.latent = []
         self.suffix_method = suffix_method
@@ -798,7 +798,7 @@ class VMO(FactorOracle):
                 self.con[self.symbol[new_i-1]].add(self.symbol[new_i])
                 self.con.append(set([self.symbol[new_i]]))
             else:
-                self.con.append({})
+                self.con.append(set([]))
         else:
             # k is the first state of the longest repeated suffix
             self.sfx[new_i] = suffix_candidate
