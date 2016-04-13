@@ -107,7 +107,7 @@ def to_chord(chroma):
     >>> result = to_chord(chroma)
     >>> expected = music21.chord.Chord(['D', 'F#', 'A'])
 
-    Test normalForm equality, because Chord object have unique identifiers
+    Test normalForm equality, because Chord objects have unique identifiers
     >>> result.normalForm == expected.normalForm
     True
     """
