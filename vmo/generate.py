@@ -41,7 +41,6 @@ def improvise_step(oracle, i, LRS=0, weight=None):
                         (oracle.lrs[s] >= LRS and (s + 1) < oracle.n_states)]
             lrs_pop = list(itertools.chain.from_iterable(
                     [[[i] * _x for (i, _x) in zip(trn_link, lrs_link)]]))
-            n = random.choice(lrs_pop)[0]
         else:
             n = trn_link[int(np.floor(random.random() * len(trn_link)))]
     return n
@@ -162,7 +161,7 @@ def generate(oracle, seq_len, p=0.5, k=1, LRS=0, weight=None):
         else:
             if k < len(sfx) - 1:
                 s.append(k + 1)
-                k = k + 1
+                k += 1
                 ktrace.append(k)
             else:
                 sym = sfx[k] + 1
