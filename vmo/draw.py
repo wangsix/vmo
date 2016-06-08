@@ -1,4 +1,4 @@
-"""
+'''
 draw.py
 drawing routines for vmo
 
@@ -18,7 +18,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with vmo.  If not, see <http://www.gnu.org/licenses/>.
-"""
+'''
 
 from random import randint
 import numpy as np
@@ -26,7 +26,7 @@ import numpy as np
 try:
     from PIL import Image, ImageDraw, ImageFilter #@UnresolvedImport @UnusedImport
 except:
-    print('pil not loaded - hopefully running in max')
+    print 'pil not loaded - hopefully running in max'
 
 width = 900 * 4 
 height = 400 * 4
@@ -92,7 +92,7 @@ def draw_compror():
 
 def get_pattern_mat(oracle, pattern):
     pattern_mat = np.zeros((len(pattern), oracle.n_states-1))
-    for i, p in enumerate(pattern):
+    for i,p in enumerate(pattern):
         length = p[1]
         for s in p[0]:
             pattern_mat[i][s-length:s-1] = 1

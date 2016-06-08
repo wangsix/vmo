@@ -20,31 +20,28 @@ along with vmo.  If not, see <http://www.gnu.org/licenses/>.
 """
 
 import random, itertools
-from functools import partial
 import numpy as np
 from scipy.io import wavfile
-import copy
 
-import music21 as mus
 
 def improvise_step(oracle, i, LRS=0, weight=None):
     """Incremental improvisation function given an oracle and a state"""
-    
-    trn_link = [s+1 for s in oracle.latent[oracle.symbol[i]]
-                if (oracle.lrs[s] >= LRS and (s+1) < oracle.n_states)]
+
+    trn_link = [s + 1 for s in oracle.latent[oracle.data[i]] if
+                (oracle.lrs[s] >= LRS and (s + 1) < oracle.n_states)]
     if not trn_link:
-        if i == oracle.n_states-1:
+        if i == oracle.n_states - 1:
             n = 1
         else:
             n = i + 1
     else:
         if weight == 'lrs':
             lrs_link = [oracle.lrs[s] for s in
-                        oracle.latent[oracle.symbol[i]]
-                        if (oracle.lrs[s] >= LRS and (s+1) < oracle.n_states)]
+                        oracle.latent[oracle.data[i]] if
+                        (oracle.lrs[s] >= LRS and (s + 1) < oracle.n_states)]
             lrs_pop = list(itertools.chain.from_iterable(
                     [[[i] * _x for (i, _x) in zip(trn_link, lrs_link)]]))
-            n = random.choice(lrs_pop)[0]
+            n = np.random.choice(lrs_pop)
         else:
             n = trn_link[int(np.floor(random.random() * len(trn_link)))]
     return n
@@ -79,9 +76,9 @@ def generate(oracle, seq_len, p=0.5, k=1, LRS=0, weight=None):
     """ Generate a sequence based on traversing an oracle.
     
     Args:
-        oracle: an oracle object or dictionary already learned.
+        oracle: an oracle object or dictionary already already learned.
         seq_len: an integer for the length of the output sequence. 
-        p: a float, the probability of using forward links.
+        p: a float of the probability using the forward links.
         k: an integer for the starting state.
         LRS: an integer for the lower limit of the LRS of sfx/rsfx allowed to 
             jump to.
@@ -107,8 +104,8 @@ def generate(oracle, seq_len, p=0.5, k=1, LRS=0, weight=None):
     ktrace = [1]
 
     for _i in range(seq_len):
-        # iteratively generate each state, in seq_len steps
-        if sfx[k] is not None and sfx[k] != 0:
+        # generate each state
+        if sfx[k] != 0 and sfx[k] is not None:
             if (random.random() < p):
                 # copy forward according to transitions
                 I = trn[k]
@@ -118,11 +115,11 @@ def generate(oracle, seq_len, p=0.5, k=1, LRS=0, weight=None):
                     ktrace.append(k)
                     I = trn[k]
                 sym = I[int(np.floor(random.random() * len(I)))]
-                s.append(sym)  # TODO Why (sym-1) before?
+                s.append(sym)  # Why (sym-1) before?
                 k = sym
                 ktrace.append(k)
             else:
-                # copy any of the next symbols.
+                # copy any of the next symbols
                 ktrace.append(k)
                 _k = k
                 k_vec = []
@@ -146,12 +143,11 @@ def generate(oracle, seq_len, p=0.5, k=1, LRS=0, weight=None):
                     elif weight == 'max':
                         sym = k_vec[np.argmax([lrs[_i] for _i in k_vec])]
                     else:
-                        sym = k_vec[int(np.floor(
-                            random.random()*len(k_vec)))]
-                    
-                    if sym == len(sfx)-1:
-                        sym = sfx[sym] + 1                        
-                    else:                        
+                        sym = k_vec[int(np.floor(random.random() * len(k_vec)))]
+
+                    if sym == len(sfx) - 1:
+                        sym = sfx[sym] + 1
+                    else:
                         s.append(sym + 1)
                     k = sym + 1
                     ktrace.append(k)
@@ -166,7 +162,7 @@ def generate(oracle, seq_len, p=0.5, k=1, LRS=0, weight=None):
         else:
             if k < len(sfx) - 1:
                 s.append(k + 1)
-                k = k + 1
+                k += 1
                 ktrace.append(k)
             else:
                 sym = sfx[k] + 1
@@ -198,7 +194,7 @@ def _find_links(k_vec, sfx, rsfx, k):
 
 
 def _make_win(n, mono=False):
-    """Return a window for a given length.
+    """ Generate a window for a given length.
     
     Args:
         n: an integer for the length of the window.
@@ -270,7 +266,7 @@ def audio_synthesis(ifilename, ofilename, s, analysis_sr=44100, buffer_size=8192
 def generate_audio(ifilename, ofilename, oracle, seq_len,
                    analysis_sr=44100, buffer_size=8192, hop=4096,
                    p=0.5, k=0, lrs=0):
-    """Generate audio output using audio oracle for generation.
+    """make audio output using audio oracle for generation.
     
     Args:
         ifilename: input audio file path.

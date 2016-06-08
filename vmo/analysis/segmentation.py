@@ -100,7 +100,7 @@ def _segment_sim(mat):
             if i < 1 or j < 1:
                 qmat[i, j] = mat[i, j]
             else:
-                qmat[i, j] = np.max([qmat[i - 1, j - 1], qmat[i - 2, j - 1], qmat[i - 1, j - 2]]) + mat[i, j]
+                qmat[i, j] = np.max([qmat[i-1, j-1], qmat[i-2, j-1], qmat[i-1, j-2]]) + mat[i, j]
     return np.max(qmat) / np.min([u, v])
 
 
@@ -254,7 +254,7 @@ def _seg_by_spectral_agg_single_frame(connectivity, width=9):
 #     return boundaries, labels
 
 
-def clustering_by_entropy(eigen_vecs, k_min, width=9, hier=False):
+def clustering_by_entropy(eigen_vecs, k_min=1, width=9, hier=False):
     best_score = -np.inf
     best_boundaries = [0, eigen_vecs.shape[1] - 1]
     best_n_types = 1
