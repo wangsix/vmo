@@ -60,19 +60,22 @@ target/
 # Emacs temp files
 *~
 *#
+.#*
+
+# iPython notebooks aux files
+*.ipynb_checkpoints*
+
+# User-specific
 .idea/
 .idea/.name
-
 .idea/dictionaries/chwang.xml
-
 .idea/misc.xml
-
 .idea/modules.xml
-
 .idea/vcs.xml
-
 .idea/vmo.iml
-
 .idea/workspace.xml
 
-.ipynb_checkpoints/
+# PRISM models (might want some of those later, but for now they're poluting)
+*.pm
+*.sta
+*.tra
