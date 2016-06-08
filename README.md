@@ -8,8 +8,6 @@ Contacts
 --------
 Cheng-i Wang, chw160@ucsd.edu
 
-Theis Bazin, theis.bazin@ens-cachan.fr
-
 
 About
 -----
