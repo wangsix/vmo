@@ -3,6 +3,7 @@ vmo - Python Variable Markov Oracle Library
 Under development by the Center for Research in Entertainment and Learning 
 (CREL) @UCSD
 
+[![Binder](http://mybinder.org/badge.svg)](http://mybinder.org:/repo/wangsix/vmo/)
 
 Contacts
 --------
