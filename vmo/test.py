@@ -1,8 +1,7 @@
-from vmo.oracle import build_oracle
+from vmo.VMO.oracle import build_oracle
 import unittest
 
 SYMBOLIC_SEQ = ['a', 'b' , 'b', 'c', 'a', 'b', 'c', 'd', 'a', 'b', 'c']
-
 
 class VmoTest(unittest.TestCase):
 
