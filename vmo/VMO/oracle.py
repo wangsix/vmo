@@ -405,8 +405,7 @@ class FactorOracle(object):
     def _find_better(self, i, symbol):
         self.rsfx[i].sort()
         for j in self.rsfx[i]:
-            if (self.lrs[j] == self.lrs[i] and
-                        self.data[j - self.lrs[i]] == symbol):
+            if self.lrs[j] == self.lrs[i] and self.data[j - self.lrs[i]] == symbol:
                 return j
         return None
 
@@ -600,6 +599,12 @@ class MO(FactorOracle):
                 self.lrs[i] = self._len_common_suffix(pi_1, self.sfx[i] - 1) + 1
                 self.latent[self.data[self.sfx[i]]].append(i)
                 self.data.append(self.data[self.sfx[i]])
+
+        # Temporary adjustment
+        k = self._find_better(i, self.data[i - self.lrs[i]])
+        if k is not None:
+            self.lrs[i] += 1
+            self.sfx[i] = k
 
         self.rsfx[self.sfx[i]].append(i)
 
