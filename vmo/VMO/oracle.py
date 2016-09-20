@@ -403,8 +403,8 @@ class FactorOracle(object):
         return min(self.lrs[p1], self.lrs[p2])
 
     def _find_better(self, i, symbol):
-        self.rsfx[i].sort()
-        for j in self.rsfx[i]:
+        self.rsfx[self.sfx[i]].sort()
+        for j in self.rsfx[self.sfx[i]]:
             if (self.lrs[j] == self.lrs[i] and
                         self.data[j - self.lrs[i]] == symbol):
                 return j
