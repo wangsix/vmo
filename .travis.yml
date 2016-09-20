@@ -3,6 +3,11 @@ python:
   - "2.6"
   - "2.7"
 
+before_install:
+  - sudo apt-get install libblas-dev
+  - sudo apt-get install liblapack-dev
+  - sudo apt-get install gfortran
+
 # command to install dependencies
 install: "cat requirements.txt | xargs -n 1 pip install"
 
