@@ -41,7 +41,7 @@ def create_selfsim(oracle, method='rsfx'):
             "sfx" - use suffix links
             "rsfx" - use reverse suffix links
             "lrs" - use LRS values
-            "pttr" - use patterns found
+            "seg" - use patterns found
         
     """
     len_oracle = oracle.n_states - 1
