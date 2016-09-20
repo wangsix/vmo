@@ -700,7 +700,7 @@ class VMO(FactorOracle):
             self.centroid.append(new_data)
             if i > 1:
                 self.con[self.data[i - 1]].add(self.data[i])
-                self.con.append({self.data[i]})
+                self.con.append(set(self.data[i]))
             else:
                 self.con.append(set([]))
         else:
