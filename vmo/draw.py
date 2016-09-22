@@ -32,6 +32,7 @@ width = 900 * 4
 height = 400 * 4
 lrs_threshold = 0
 
+
 def start_draw(_oracle, size=(900*4, 400*4)):
     
     width = size[0]
@@ -40,6 +41,7 @@ def start_draw(_oracle, size=(900*4, 400*4)):
     image = Image.new('RGB', (width, height))
     oracle = _oracle 
     return draw(oracle, current_state, image, width, height)
+
 
 def draw(oracle, current_state, image, width=width, height=height):
     

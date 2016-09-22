@@ -237,7 +237,7 @@ def _rsfx_count(oracle, s, count, hist, ab):
 """Query-matching and gesture tracking algorithms"""
 
 
-def query_complete(oracle, query, trn_type=1, smooth=False, weight=0.5):
+def query(oracle, query, trn_type=1, smooth=False, weight=0.5):
     """ Return the closest path in target oracle given a query sequence
     
     Args:
@@ -421,35 +421,6 @@ def create_pttr_vmo(oracle, pattern):
         gesture_vmo_vec.append(pttr_vmo)
 
     return gesture_vmo_vec
-
-
-# def query(oracle, query):
-#     if oracle.kind == 'a':
-#         mean = [np.mean([oracle.f_array[i] for i in la], axis=0) for la in oracle.latent]
-#     elif oracle.kind == 'v':
-#         mean = oracle.centroid[:]
-#
-#     tran_mat, hist = create_transition(oracle)
-#     hist = hist / hist.sum()
-#
-#     N = len(query)
-#     K = oracle.num_clusters()
-#     covariance = [np.cov([oracle.f_array[i] for i in la], rowvar=0) for la in oracle.latent]
-#     rv = [multivariate_normal(mean[i], covariance[i]) for i in range(K)]
-#     C = np.zeros(K)
-#     A = np.zeros((N, K))
-#     L = np.zeros(N)
-#     # Initialization
-#     for k in range(K):
-#         A[0][k] = hist[k] * rv[k].pdf(query[0])
-#     L[0] = A[0].sum()
-#     # Induction
-#     for i in range(1, N):
-#         for k in range(K):
-#             A[i][k] = (A[i - 1] * tran_mat[k]).sum() * rv[k].pdf(query[i])
-#         L[i] = A[i].sum()
-#
-#     return A, L
 
 
 def create_reverse_oracle(oracle):

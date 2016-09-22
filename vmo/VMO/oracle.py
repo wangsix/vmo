@@ -125,7 +125,7 @@ class FactorOracle(object):
         # Oracle parameters
         self.params = {
             'threshold': 0,
-            'dfunc': 'euclidean',
+            'dfunc': 'cosine',
             'dfunc_handle': None,
             'dim': 1
         }
@@ -207,7 +207,6 @@ class FactorOracle(object):
 
         return self.code, self.compror
 
-    @property
     def segment(self):
         """An non-overlap version Compror"""
 
@@ -618,115 +617,6 @@ class MO(FactorOracle):
                             self.lrs[i] * (1.0 / (self.n_states - 1.0)))
 
 
-class VMO(FactorOracle):
-    def __init__(self, **kwargs):
-        super(VMO, self).__init__(**kwargs)
-        self.kind = 'v'
-        self.f_array = [0]
-        self.data[0] = None
-        self.latent = []
-        self.centroid = []
-        self.hist = []
-
-        # including connectivity
-        self.con = []
-        self.transition = []
-
-    def reset(self, **kwargs):
-        super(VMO, self).reset(**kwargs)
-
-        self.kind = 'v'
-        self.f_array = [0]
-        self.data[0] = None
-        self.latent = []
-        self.centroid = []
-        self.hist = []
-
-        # including connectivity
-        self.con = []
-        self.transition = []
-
-    def add_state(self, new_data):
-        self.sfx.append(0)
-        self.rsfx.append([])
-        self.trn.append([])
-        self.lrs.append(0)
-
-        # Experiment with pointer-based  
-        self.f_array.append(new_data)
-
-        self.n_states += 1
-        i = self.n_states - 1
-
-        # assign new transition from state i-1 to i
-        self.trn[i - 1].append(i)
-        k = self.sfx[i - 1]
-        pi_1 = i - 1
-
-        dvec = []
-        trn_list = []
-        suffix_candidate = 0
-
-        while k is not None:
-            # NEW Implementation
-
-            if self.params['dfunc'] == 'others':
-                dvec = self.dfunc_handle(new_data,
-                                         [self.centroid[self.data[t]] for
-                                          t in self.trn[k]])
-            else:
-                dvec = dist.cdist([new_data], np.array([self.centroid[self.data[t]] for
-                                                        t in self.trn[k]]),
-                                  metric=self.params['dfunc'])[0]
-
-            # if no transition from suffix
-            I = np.where(dvec < self.params['threshold'])[0]
-            if len(I) == 0:
-                self.trn[k].append(i)  # Create a new forward link to unvisited state
-                trn_list.append(k)
-                pi_1 = k
-                k = self.sfx[k]
-            else:
-                suffix_candidate = self.trn[k][I[np.argmin(dvec[I])]]
-                trn_list.append(i - 1)
-                break
-
-        if k is None:
-            self.sfx[i] = 0
-            self.lrs[i] = 0
-            self.latent.append([i])
-            self.hist.append(1)
-            self.data.append(len(self.latent) - 1)
-            self.centroid.append(new_data)
-            if i > 1:
-                self.con[self.data[i - 1]].add(self.data[i])
-                self.con.append(set(self.data[i]))
-            else:
-                self.con.append(set([]))
-        else:
-            self.sfx[i] = suffix_candidate
-            self.lrs[i] = self._len_common_suffix(pi_1, self.sfx[i] - 1) + 1
-            _i = self.data[self.sfx[i]]
-            self.latent[_i].append(i)
-            self.hist[_i] += 1
-            self.data.append(_i)
-            self.centroid[_i] = ((self.centroid[_i] * (self.hist[_i] - 1)
-                                  + new_data) /
-                                 self.hist[_i])
-            self.con[self.data[i - 1]].add(self.data[i])
-            map(set.add, [self.con[self.data[c]] for c in trn_list],
-                [self.data[i]] * len(trn_list))
-        self.rsfx[self.sfx[i]].append(i)
-
-        if self.lrs[i] > self.max_lrs[i - 1]:
-            self.max_lrs.append(self.lrs[i])
-        else:
-            self.max_lrs.append(self.max_lrs[i - 1])
-
-        self.avg_lrs.append(self.avg_lrs[i - 1] * ((i - 1.0) / (self.n_states - 1.0)) +
-                            self.lrs[i] * (1.0 / (self.n_states - 1.0)))
-
-
 class feature_array:
     def __init__(self, dim):
         self.data = np.zeros((100, dim))
@@ -757,8 +647,6 @@ def _create_oracle(oracle_type, **kwargs):
         return FO(**kwargs)
     elif oracle_type == 'a':
         return MO(**kwargs)
-    elif oracle_type == 'v':
-        return VMO(**kwargs)
     else:
         return MO(**kwargs)
 
@@ -778,13 +666,9 @@ def _build_oracle(flag, oracle, input_data, suffix_method='inc'):
 
     if flag == 'a':
         [oracle.add_state(obs, suffix_method) for obs in input_data]
-        # for obs in input_data:
-        #     oracle.add_state(obs, suffix_method)
         oracle.f_array.finalize()
     else:
         [oracle.add_state(obs) for obs in input_data]
-        # for obs in input_data:
-        #     oracle.add_state(obs)
     return oracle
 
 
@@ -792,7 +676,7 @@ def build_oracle(input_data, flag,
                  threshold=0, suffix_method='inc',
                  feature=None, weights=None, dfunc='cosine',
                  dfunc_handle=None, dim=1):
-    # initialize weights if needed1
+    # initialize weights if needed
     if weights is None:
         weights = {}
         weights.setdefault(feature, 1.0)
@@ -813,72 +697,6 @@ def build_oracle(input_data, flag,
     return oracle
 
 
-def find_threshold_sgd(input_data, r=(0, 1, 0.1), method='ir', flag='a',
-                       suffix_method='inc', alpha=1.0, feature=None, ir_type='cum',
-                       dfunc='cosine', dfunc_handle=None, dim=1):
-    thresholds = np.arange(r[0], r[1], r[2])
-    prev_ir = 0
-    for t in thresholds:
-        tmp_oracle = build_oracle(input_data, flag=flag, threshold=t,
-                                  suffix_method=suffix_method, feature=feature,
-                                  dfunc=dfunc, dfunc_handle=dfunc_handle, dim=dim)
-        tmp_ir, h0, h1 = tmp_oracle.IR(ir_type=ir_type, alpha=alpha)
-        ir = tmp_ir.sum()
-        if ir < prev_ir:
-            return t - r[2], prev_ir
-        else:
-            prev_ir = ir
-
-
-def find_threshold_nt(input_data, r=(0, 1, 0.1), method='ir', flag='a',
-                      suffix_method='inc', alpha=1.0, feature=None, ir_type='cum',
-                      dfunc='cosine', dfunc_handle=None, dim=1):
-    t = r[1] / 2.0
-    tmp_oracle = build_oracle(input_data, flag=flag, threshold=t,
-                              suffix_method=suffix_method, feature=feature,
-                              dfunc=dfunc, dfunc_handle=dfunc_handle, dim=dim)
-    tmp_ir, h0, h1 = tmp_oracle.IR(ir_type=ir_type, alpha=alpha)
-    ir = tmp_ir.sum()
-
-    t_tmp = t + r[2]
-    tmp_oracle = build_oracle(input_data, flag=flag, threshold=t_tmp,
-                              suffix_method=suffix_method, feature=feature,
-                              dfunc=dfunc, dfunc_handle=dfunc_handle, dim=dim)
-    tmp_ir, h0, h1 = tmp_oracle.IR(ir_type=ir_type, alpha=alpha)
-    ir_tmp = tmp_ir.sum()
-
-    if ir_tmp > ir:
-        while ir_tmp > ir:
-            t = t_tmp
-            ir = ir_tmp
-
-            t_tmp = t + r[2]
-            tmp_oracle = build_oracle(input_data, flag=flag, threshold=t_tmp,
-                                      suffix_method=suffix_method, feature=feature,
-                                      dfunc=dfunc, dfunc_handle=dfunc_handle, dim=dim)
-            tmp_ir, h0, h1 = tmp_oracle.IR(ir_type=ir_type, alpha=alpha)
-            ir_tmp = tmp_ir.sum()
-    else:
-        t_tmp = t - r[2]
-        tmp_oracle = build_oracle(input_data, flag=flag, threshold=t_tmp,
-                                  suffix_method=suffix_method, feature=feature,
-                                  dfunc=dfunc, dfunc_handle=dfunc_handle, dim=dim)
-        tmp_ir, h0, h1 = tmp_oracle.IR(ir_type=ir_type, alpha=alpha)
-        ir_tmp = tmp_ir.sum()
-
-        while ir_tmp > ir:
-            t = t_tmp
-            ir = ir_tmp
-
-            t_tmp = t - r[2]
-            tmp_oracle = build_oracle(input_data, flag=flag, threshold=t_tmp,
-                                      suffix_method=suffix_method, feature=feature,
-                                      dfunc=dfunc, dfunc_handle=dfunc_handle, dim=dim)
-            tmp_ir, h0, h1 = tmp_oracle.IR(ir_type=ir_type, alpha=alpha)
-            ir_tmp = tmp_ir.sum()
-    return t, ir
-
-
 def find_threshold(input_data, r=(0, 1, 0.1), method='ir', flag='a',
                    suffix_method='inc', alpha=1.0, feature=None, ir_type='cum',
                    dfunc='cosine', dfunc_handle=None, dim=1,
@@ -887,9 +705,6 @@ def find_threshold(input_data, r=(0, 1, 0.1), method='ir', flag='a',
         return find_threshold_ir(input_data, r, flag, suffix_method, alpha,
                                  feature, ir_type, dfunc, dfunc_handle, dim,
                                  verbose, entropy)
-    # elif method == 'motif':
-    #     return find_threshold_motif(input_data, r, flag, suffix_method, alpha,
-    #                                 feature, dfunc, dfunc_handle, dim, verbose)
 
 
 def find_threshold_ir(input_data, r=(0, 1, 0.1), flag='a', suffix_method='inc',
@@ -922,32 +737,3 @@ def find_threshold_ir(input_data, r=(0, 1, 0.1), flag='a', suffix_method='inc',
     else:
         return ir_thresh_pairs[0], pairs_return
 
-# def find_threshold_motif(input_data, r=(0, 1, 0.1), flag='a',
-#                          suffix_method='inc', alpha=1.0, feature=None,
-#                          dfunc='euclidean', dfunc_handle=None, dim=1,
-#                          verbose=False):
-#     thresholds = np.arange(r[0], r[1], r[2])
-#     avg_len = []
-#     avg_occ = []
-#     avg_num = []
-#
-#     for t in thresholds:
-#         tmp_oracle = build_oracle(input_data, flag=flag, threshold=t,
-#                                   suffix_method=suffix_method, feature=feature,
-#                                   dfunc=dfunc, dfunc_handle=dfunc_handle, dim=dim)
-#         pttr = van.find_repeated_patterns(tmp_oracle, alpha)
-#         if not pttr:
-#             avg_len.append(np.mean([float(p[1]) for p in pttr]))
-#             avg_occ.append(np.mean([float(len(p[0])) for p in pttr]))
-#             avg_num.append(len(pttr))
-#         else:
-#             avg_len.append(0.0)
-#             avg_occ.append(0.0)
-#             avg_num.append(0.0)
-#         if verbose:
-#             print 'Testing threshold:', t
-#             print '          avg_len:', avg_len[-1]
-#             print '          avg_occ:', avg_occ[-1]
-#             print '          avg_num:', avg_num[-1]
-#
-#     return avg_len, avg_occ, avg_num, thresholds
