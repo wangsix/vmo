@@ -1,4 +1,4 @@
-'''
+"""
 draw.py
 drawing routines for vmo
 
@@ -18,7 +18,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with vmo.  If not, see <http://www.gnu.org/licenses/>.
-'''
+"""
 
 from random import randint
 import numpy as np
@@ -34,6 +34,12 @@ lrs_threshold = 0
 
 
 def start_draw(_oracle, size=(900*4, 400*4)):
+    """
+
+    :param _oracle: input vmo object
+    :param size: the size of the output image
+    :return: an update call the draw()
+    """
     
     width = size[0]
     height = size[1]
@@ -44,6 +50,15 @@ def start_draw(_oracle, size=(900*4, 400*4)):
 
 
 def draw(oracle, current_state, image, width=width, height=height):
+    """
+
+    :param oracle: input vmo object
+    :param current_state:
+    :param image: an PIL image object
+    :param width: width of the image
+    :param height: height of the image
+    :return: the updated PIL image object
+    """
     
     trn = oracle.trn
     sfx = oracle.sfx
@@ -89,10 +104,19 @@ def draw(oracle, current_state, image, width=width, height=height):
     image.resize((900, 400), (Image.BILINEAR))
     return image
 
+
 def draw_compror():
     raise NotImplementedError("Compror drawing is under construction, coming soon!")
 
+
 def get_pattern_mat(oracle, pattern):
+    """Output a matrix containing patterns in rows from a vmo.
+
+    :param oracle: input vmo object
+    :param pattern: pattern extracted from oracle
+    :return: a numpy matrix that could be used to visualize the pattern extracted.
+    """
+
     pattern_mat = np.zeros((len(pattern), oracle.n_states-1))
     for i,p in enumerate(pattern):
         length = p[1]

@@ -19,13 +19,22 @@ You should have received a copy of the GNU General Public License
 along with vmo.  If not, see <http://www.gnu.org/licenses/>.
 """
 
-import random, itertools
+import random
+import itertools
 import numpy as np
 from scipy.io import wavfile
 
 
-def improvise_step(oracle, i, LRS=0, weight=None):
-    """Incremental improvisation function given an oracle and a state"""
+def improvise_step(oracle, i, LRS = 0, weight = None):
+    """ Given the current time step, improvise (generate) the next time step based on the oracle structure.
+
+    :param oracle: an indexed vmo object
+    :param i: current improvisation time step
+    :param LRS: the length of minimum longest repeated suffixes allowed to jump
+    :param weight: if None, jump to possible candidate time step uniformly, if "lrs", the probability is proportional
+    to the LRS of each candidate time step
+    :return: the next time step
+    """
 
     trn_link = [s + 1 for s in oracle.latent[oracle.data[i]] if
                 (oracle.lrs[s] >= LRS and (s + 1) < oracle.n_states)]
@@ -48,7 +57,17 @@ def improvise_step(oracle, i, LRS=0, weight=None):
 
 
 def improvise(oracle, seq_len, k=1, LRS=0, weight=None, continuity=1):
-    """Improvisation wrapper"""
+    """ Given an oracle and length, generate an improvised sequence of the given length.
+
+    :param oracle: an indexed vmo object
+    :param seq_len: the length of the returned improvisation sequence
+    :param k: the starting improvisation time step in oracle
+    :param LRS: the length of minimum longest repeated suffixes allowed to jump
+    :param weight: if None, jump to possible candidate time step uniformly, if "lrs", the probability is proportional
+    to the LRS of each candidate time step
+    :param continuity: the number of time steps guaranteed to continue before next jump is executed
+    :return: the improvised sequence
+    """
 
     s = []
     if k + continuity < oracle.n_states - 1:
@@ -74,27 +93,25 @@ def improvise(oracle, seq_len, k=1, LRS=0, weight=None, continuity=1):
 
 def generate(oracle, seq_len, p=0.5, k=1, LRS=0, weight=None):
     """ Generate a sequence based on traversing an oracle.
-    
-    Args:
-        oracle: an oracle object or dictionary already already learned.
-        seq_len: an integer for the length of the output sequence. 
-        p: a float of the probability using the forward links.
-        k: an integer for the starting state.
-        LRS: an integer for the lower limit of the LRS of sfx/rsfx allowed to 
-            jump to.
-        weight:
-            None: choose uniformly among all the possible sfx/rsfx given 
+
+    :param oracle: a indexed vmo object
+    :param seq_len: the length of the returned improvisation sequence
+    :param p: a float between (0,1) representing the probability using the forward links.
+    :param k: the starting improvisation time step in oracle
+    :param LRS: the length of minimum longest repeated suffixes allowed to jump
+    :param weight:
+            None: choose uniformly among all the possible sfx/rsfx given
                 current state.
             "max": always choose the sfx/rsfx having the longest LRS.
-            "weight": choose sfx/rsfx in a way that favors longer ones than 
+            "weight": choose sfx/rsfx in a way that favors longer ones than
             shorter ones.
-    
-    Returns:
-        s: a list containing the sequence generated, each element represents a 
+    :return:
+            s: a list containing the sequence generated, each element represents a
             state.
-        kend: the ending state.
-        ktrace: 
+            kend: the ending state.
+            ktrace:
     """
+
     trn = oracle.trn[:]
     sfx = oracle.sfx[:]
     lrs = oracle.lrs[:]
@@ -195,14 +212,12 @@ def _find_links(k_vec, sfx, rsfx, k):
 
 def _make_win(n, mono=False):
     """ Generate a window for a given length.
-    
-    Args:
-        n: an integer for the length of the window.
-        mono: True for a mono window, False for a stereo window.
-    
-    Returns:
-        win: an numpy array containing the window value.
+
+    :param n: an integer for the length of the window.
+    :param mono: True for a mono window, False for a stereo window.
+    :return: an numpy array containing the window value.
     """
+
     if mono:
         win = np.hanning(n) + 0.00001
     else:
@@ -212,6 +227,16 @@ def _make_win(n, mono=False):
 
 
 def audio_synthesis(ifilename, ofilename, s, analysis_sr=44100, buffer_size=8192, hop=4096):
+    """
+
+    :param ifilename:
+    :param ofilename:
+    :param s:
+    :param analysis_sr:
+    :param buffer_size:
+    :param hop:
+    :return:
+    """
     fs, x = wavfile.read(ifilename)
 
     if fs != analysis_sr:
@@ -266,22 +291,19 @@ def audio_synthesis(ifilename, ofilename, s, analysis_sr=44100, buffer_size=8192
 def generate_audio(ifilename, ofilename, oracle, seq_len,
                    analysis_sr=44100, buffer_size=8192, hop=4096,
                    p=0.5, k=0, lrs=0):
-    """make audio output using audio oracle for generation.
-    
-    Args:
-        ifilename: input audio file path.
-        ofilename: output audio file path.
-        buffer_size: should match fft/frame size of oracle analysis.
-        hop: hop size, should be 1/2 buffer_size.
-        oracle: oracle built on ifilename.
-        seq_len: length of sequence to be generated, in frames.
-        p: continuity parameter.
-        k: start frame.
-        lrs: lrs constraint.
-        
-    Returns:
-        x_new: generated sequence
-        wsum: generated sequence with compensation for windowing
+    """
+
+    :param ifilename: input audio file path.
+    :param ofilename: output audio file path.
+    :param oracle: an oracle indexed on ifilename
+    :param seq_len: length of sequence to be generated, in frames.
+    :param analysis_sr: the sampling frequency of the ifilename.
+    :param buffer_size: should match fft/frame size of oracle analysis.
+    :param hop: hop size, should be 1/2 buffer_size.
+    :param p: continuity parameter.
+    :param k: start frame number.
+    :param lrs: the length of minimum longest repeated suffixes allowed to jump
+    :return: the improvised sequence
     """
 
     fs, x = wavfile.read(ifilename)
