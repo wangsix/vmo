@@ -25,19 +25,23 @@ import numpy as np
 from scipy.io import wavfile
 
 
-def improvise_step(oracle, i, LRS = 0, weight = None):
+def improvise_step(oracle, i, lrs=0, weight=None, prune=False):
     """ Given the current time step, improvise (generate) the next time step based on the oracle structure.
 
     :param oracle: an indexed vmo object
     :param i: current improvisation time step
-    :param LRS: the length of minimum longest repeated suffixes allowed to jump
+    :param lrs: the length of minimum longest repeated suffixes allowed to jump
     :param weight: if None, jump to possible candidate time step uniformly, if "lrs", the probability is proportional
     to the LRS of each candidate time step
+    :param prune: whether to prune improvisation steps based on regular beat structure or not
     :return: the next time step
     """
 
-    trn_link = [s + 1 for s in oracle.latent[oracle.data[i]] if
-                (oracle.lrs[s] >= LRS and (s + 1) < oracle.n_states)]
+    if prune:
+        pass
+    else:
+        trn_link = [s + 1 for s in oracle.latent[oracle.data[i]] if
+                    (oracle.lrs[s] >= lrs and (s + 1) < oracle.n_states)]
     if not trn_link:
         if i == oracle.n_states - 1:
             n = 1
@@ -47,7 +51,7 @@ def improvise_step(oracle, i, LRS = 0, weight = None):
         if weight == 'lrs':
             lrs_link = [oracle.lrs[s] for s in
                         oracle.latent[oracle.data[i]] if
-                        (oracle.lrs[s] >= LRS and (s + 1) < oracle.n_states)]
+                        (oracle.lrs[s] >= lrs and (s + 1) < oracle.n_states)]
             lrs_pop = list(itertools.chain.from_iterable(
                     [[[i] * _x for (i, _x) in zip(trn_link, lrs_link)]]))
             n = np.random.choice(lrs_pop)
