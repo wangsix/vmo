@@ -38,7 +38,11 @@ def improvise_step(oracle, i, lrs=0, weight=None, prune=False):
     """
 
     if prune:
-        pass
+        prune_list = range(prune, oracle.n_states-1, prune)
+        trn_link = [s + 1 for s in oracle.latent[oracle.data[i]] if
+                    (oracle.lrs[s] >= lrs and
+                     (s + 1) < oracle.n_states) and
+                    s in prune_list]
     else:
         trn_link = [s + 1 for s in oracle.latent[oracle.data[i]] if
                     (oracle.lrs[s] >= lrs and (s + 1) < oracle.n_states)]
