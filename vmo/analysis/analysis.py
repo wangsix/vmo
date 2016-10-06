@@ -31,19 +31,18 @@ from functools import partial
 
 
 def create_selfsim(oracle, method='rsfx'):
-    """ Create self similarity matrix from compror codes or suffix links
-    
-    :type oracle: a vmo object
-    Args:
-        oracle: a encoded vmo object
-        method: 
-            "comp" - use the compression codes
-            "sfx" - use suffix links
-            "rsfx" - use reverse suffix links
-            "lrs" - use LRS values
-            "seg" - use patterns found
-        
+    """ Create self similarity matrix from attributes of a vmo object
+
+    :param oracle: a encoded vmo object
+    :param method:
+        "comp":use the compression codes
+        "sfx" - use suffix links
+        "rsfx" - use reverse suffix links
+        "lrs" - use LRS values
+        "seg" - use patterns found
+    :return: the created self-similarity matrix
     """
+
     len_oracle = oracle.n_states - 1
     mat = np.zeros((len_oracle, len_oracle))
     if method == 'com':
@@ -129,6 +128,14 @@ Symbolic sequence prediction by an oracle
 
 
 def predict(oracle, context, ab=None, verbose=False):
+    """
+
+    :param oracle:
+    :param context:
+    :param ab:
+    :param verbose:
+    :return:
+    """
     if verbose:
         print "original context: ", context
     if ab is None:

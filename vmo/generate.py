@@ -229,13 +229,13 @@ def _make_win(n, mono=False):
 def audio_synthesis(ifilename, ofilename, s, analysis_sr=44100, buffer_size=8192, hop=4096):
     """
 
-    :param ifilename:
-    :param ofilename:
-    :param s:
-    :param analysis_sr:
-    :param buffer_size:
-    :param hop:
-    :return:
+    :param ifilename: input audio file path.
+    :param ofilename: output audio file path.
+    :param s: frame sequence to be generated.
+    :param analysis_sr: the sampling frequency of the ifilename.
+    :param buffer_size: should match fft/frame size of oracle analysis.
+    :param hop: hop size, should be 1/2 the buffer_size.
+    :return: the improvised sequence in audio wave file
     """
     fs, x = wavfile.read(ifilename)
 
@@ -299,11 +299,11 @@ def generate_audio(ifilename, ofilename, oracle, seq_len,
     :param seq_len: length of sequence to be generated, in frames.
     :param analysis_sr: the sampling frequency of the ifilename.
     :param buffer_size: should match fft/frame size of oracle analysis.
-    :param hop: hop size, should be 1/2 buffer_size.
+    :param hop: hop size, should be 1/2 the buffer_size.
     :param p: continuity parameter.
     :param k: start frame number.
     :param lrs: the length of minimum longest repeated suffixes allowed to jump
-    :return: the improvised sequence
+    :return: the improvised sequence in audio wave file
     """
 
     fs, x = wavfile.read(ifilename)

@@ -516,7 +516,7 @@ class MO(FactorOracle):
         self.data[0] = None
         self.latent = []
 
-    def add_state(self, new_data, method='inc'):
+    def add_state(self, new_data, method='inc', metrical=False):
         """Create new state and update related links and compressed state"""
         self.sfx.append(0)
         self.rsfx.append([])
@@ -657,7 +657,7 @@ def create_oracle(flag, threshold=0, dfunc='euclidean',
                           dfunc_handle=dfunc_handle, dim=dim)
 
 
-def _build_oracle(flag, oracle, input_data, suffix_method='inc'):
+def _build_oracle(flag, oracle, input_data, suffix_method='inc', metrical_pruing=False):
     if type(input_data) != np.ndarray or type(input_data[0]) != np.ndarray:
         input_data = np.array(input_data)
 
@@ -665,10 +665,10 @@ def _build_oracle(flag, oracle, input_data, suffix_method='inc'):
         input_data = np.expand_dims(input_data, axis=1)
 
     if flag == 'a':
-        [oracle.add_state(obs, suffix_method) for obs in input_data]
+        [oracle.add_state(obs, suffix_method, metrical_pruing) for obs in input_data]
         oracle.f_array.finalize()
     else:
-        [oracle.add_state(obs) for obs in input_data]
+        [oracle.add_state(obs, metrical_pruing) for obs in input_data]
     return oracle
 
 
