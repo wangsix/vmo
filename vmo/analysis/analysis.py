@@ -122,19 +122,20 @@ def _create_trn_mat_symbolic(oracle, method):
     return mat, hist, n
 
 
-'''
+"""
 Symbolic sequence prediction by an oracle
-'''
+
+"""
 
 
 def predict(oracle, context, ab=None, verbose=False):
-    """
+    """Single symbolic prediction given a context, an oracle and an alphabet.
 
-    :param oracle:
-    :param context:
-    :param ab:
-    :param verbose:
-    :return:
+    :param oracle: a learned vmo object from a symbolic sequence.
+    :param context: the context precedes the predicted symbol
+    :param ab: alphabet
+    :param verbose: to show if the context if pruned or not
+    :return: a probability distribution over the alphabet for the prediction.
     """
     if verbose:
         print "original context: ", context
@@ -245,6 +246,15 @@ def _rsfx_count(oracle, s, count, hist, ab):
 
 
 def query(oracle, query, trn_type=1, smooth=False, weight=0.5):
+    """
+
+    :param oracle:
+    :param query:
+    :param trn_type:
+    :param smooth:
+    :param weight:
+    :return:
+    """
     """ Return the closest path in target oracle given a query sequence
     
     Args:

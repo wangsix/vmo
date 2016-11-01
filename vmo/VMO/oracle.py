@@ -546,7 +546,7 @@ class MO(FactorOracle):
 
             if self.params['dfunc'] == 'other':
                 dvec = self.dfunc_handle(new_data,
-                                         self.f_array[self.trn[k]])
+                                         self.f_array[self.trn[k]])[0]
             else:
                 dvec = dist.cdist([new_data],
                                   self.f_array[self.trn[k]],

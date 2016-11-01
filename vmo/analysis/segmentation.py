@@ -9,6 +9,7 @@ import scipy.cluster.hierarchy as scihc
 from collections import OrderedDict
 from .analysis import create_selfsim, find_fragments
 from ..VMO.utility import entropy
+
 """Segmentation algorithms
 """
 
@@ -264,7 +265,9 @@ def segmentation(oracle, method='symbol_agglomerative', **kwargs):
 
 
 """Adapted from Brian McFee`s spectral clustering algorithm for music structural segmentation
+
 https://github.com/bmcfee/laplacian_segmentation
+
 """
 
 
