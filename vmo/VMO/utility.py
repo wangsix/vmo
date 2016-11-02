@@ -98,7 +98,7 @@ def _to_tonnetz(chromagram):
     # print _tonnetz.shape
     # one_norm = np.sum(np.abs(_tonnetz))  # Non-zero value
     # _tonnetz = _tonnetz / float(one_norm)  # Normalize tonnetz vector
-    _tonnetz = pre.normalize(_tonnetz, axis=1)
+    # _tonnetz = pre.normalize(_tonnetz, axis=1)
     return _tonnetz
 
 
@@ -123,6 +123,7 @@ def tonnetz_dist(a, b):
     >>> tonnetz_dist(C, G) < tonnetz_dist(C, D)
     True
     """
-    [a_tonnetz, b_tonnetz] = [_to_tonnetz(x) for x in [a.reshape((1,-1)), b]]
-    return dist.cdist(a_tonnetz, b_tonnetz, metric='euclidean')
+    # [a_tonnetz, b_tonnetz] = [_to_tonnetz(x) for x in [a.reshape((1,-1)), b]]
+    [a_tonnetz, b_tonnetz] = [_to_tonnetz(x) for x in [a, b]]
+    return dist.cdist(a_tonnetz, b_tonnetz, metric='cosine')
     # return np.linalg.norm(b_tonnetz - a_tonnetz)
