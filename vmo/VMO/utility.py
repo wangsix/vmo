@@ -29,6 +29,7 @@ import scipy.stats as stats
 import sklearn.preprocessing as pre
 import scipy.spatial.distance as dist
 
+
 def entropy(x):
     return stats.entropy(x)
 
@@ -127,3 +128,20 @@ def tonnetz_dist(a, b):
     [a_tonnetz, b_tonnetz] = [_to_tonnetz(x) for x in [a, b]]
     return dist.cdist(a_tonnetz, b_tonnetz, metric='cosine')
     # return np.linalg.norm(b_tonnetz - a_tonnetz)
+
+
+def get_sfx(oracle, s_set, k):
+    while oracle.sfx[k] != 0:
+        s_set.add(oracle.sfx[k])
+        k = oracle.sfx[k]
+    return s_set
+
+
+def get_rsfx(oracle, rs_set, k):
+    if not oracle.rsfx[k]:
+        return rs_set
+    else:
+        rs_set = rs_set.union(oracle.rsfx[k])
+        for _k in oracle.rsfx[k]:
+            rs_set = rs_set.union(get_rsfx(oracle, rs_set, _k))
+        return rs_set

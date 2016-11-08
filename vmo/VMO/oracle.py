@@ -496,6 +496,15 @@ class FO(FactorOracle):
         dictionary = dict(zip(alphabet, range(len(alphabet))))
         return dictionary
 
+    @property
+    def latent(self):
+        latent = []
+        for s in self.trn[0]:
+            indices = set([s])
+            indices = utl.get_rsfx(self, indices, s)
+            latent.append(list(indices))
+        return latent
+
 
 class MO(FactorOracle):
     def __init__(self, **kwargs):

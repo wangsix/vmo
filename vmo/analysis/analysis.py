@@ -622,20 +622,3 @@ def find_fragments(oracle):
             seg_rsfx[i] += i
 
     return seg_list, seg_rsfx
-
-
-def _get_sfx(oracle, s_set, k):
-    while oracle.sfx[k] != 0:
-        s_set.add(oracle.sfx[k])
-        k = oracle.sfx[k]
-    return s_set
-
-
-def _get_rsfx(oracle, rs_set, k):
-    if not oracle.rsfx[k]:
-        return rs_set
-    else:
-        rs_set = rs_set.union(oracle.rsfx[k])
-        for _k in oracle.rsfx[k]:
-            rs_set = rs_set.union(_get_rsfx(oracle, rs_set, _k))
-        return rs_set
