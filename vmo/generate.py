@@ -56,8 +56,8 @@ def improvise_step(oracle, i, lrs=0, weight=None, prune=False):
             lrs_link = [oracle.lrs[s] for s in
                         oracle.latent[oracle.data[i]] if
                         (oracle.lrs[s] >= lrs and (s + 1) < oracle.n_states)]
-            lrs_pop = list(itertools.chain.from_iterable(
-                    [[[i] * _x for (i, _x) in zip(trn_link, lrs_link)]]))
+            lrs_pop = list(itertools.chain.from_iterable(itertools.chain.from_iterable(
+                    [[[i] * _x for (i, _x) in zip(trn_link, lrs_link)]])))
             n = np.random.choice(lrs_pop)
         else:
             n = trn_link[int(np.floor(random.random() * len(trn_link)))]
