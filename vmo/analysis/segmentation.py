@@ -52,7 +52,7 @@ def _seg_by_structure_feature(oracle, delta=0.05, width=9, hier=False, connectiv
                 np.greater(tmp_novelty[i + offset], tmp_novelty[i + offset + 1:i + bound_width]).all() and
                     tmp_novelty[i + offset] > delta):
             boundaries.append(i)
-    boundaries.append(oracle.n_states-1)
+    boundaries.append(oracle.n_states-2)
 
     seg_sim_mat = np.zeros((len(boundaries) - 1, len(boundaries) - 1))
     intervals = zip(boundaries[:-1], boundaries[1:])
@@ -294,7 +294,7 @@ def find_boundaries(frame_labels, width=9):
                              for (i, j) in zip(range(0, len(frame_labels) - width),
                                                range(width, len(frame_labels)))])
     boundaries = 1 + np.asarray(np.where(frame_labels[:-1] != frame_labels[1:])).reshape((-1,))
-    boundaries = np.unique(np.concatenate([[0], boundaries, [len(frame_labels)]]))
+    boundaries = np.unique(np.concatenate([[0], boundaries, [len(frame_labels)-1]]))
     return boundaries
 
 
