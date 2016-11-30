@@ -4,6 +4,7 @@ vmo/__init__.py
 vmo/draw.py
 vmo/generate.py
 vmo/io.py
+vmo/test.py
 vmo/VMO/__init__.py
 vmo/VMO/oracle.py
 vmo/VMO/utility.py
