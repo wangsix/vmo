@@ -289,7 +289,7 @@ def segment_labeling(x, boundaries, c_method='kmeans', k=5):
 
 
 def find_boundaries(frame_labels, width=9):
-    frame_labels = np.pad(frame_labels, (width / 2, width / 2 + 1), mode='reflect')
+    frame_labels = np.pad(frame_labels, (int(width / 2), int(width / 2) + 1), mode='reflect')
     frame_labels = np.array([stats.mode(frame_labels[i:j])[0][0]
                              for (i, j) in zip(range(0, len(frame_labels) - width),
                                                range(width, len(frame_labels)))])
