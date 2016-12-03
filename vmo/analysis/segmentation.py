@@ -258,7 +258,7 @@ def segmentation(oracle, method='symbol_agglomerative', **kwargs):
         elif method == 'structure_feature':
             return _seg_by_structure_feature(oracle, **kwargs)
         else:
-            print "Method unknown. Use spectral clustering."
+            print("Method unknown. Use spectral clustering.")
             return _seg_by_single_frame(oracle, cluster_method='spectral', **kwargs)
     else:
         raise TypeError('Oracle is None')
@@ -272,7 +272,7 @@ https://github.com/bmcfee/laplacian_segmentation
 
 
 def segment_labeling(x, boundaries, c_method='kmeans', k=5):
-    x_sync = librosa.feature.sync(x.T, boundaries)
+    x_sync = librosa.util.utils.sync(x.T, boundaries)
 
     if c_method == 'kmeans':
         c = sklhc.KMeans(n_clusters=k, n_init=100)

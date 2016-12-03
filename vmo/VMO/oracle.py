@@ -727,7 +727,7 @@ def find_threshold_ir(input_data, r=(0, 1, 0.1), flag='a', suffix_method='inc',
         h1_vec = []
     for t in thresholds:
         if verbose:
-            print 'Testing threshold:', t
+            print('Testing threshold:', t)
         tmp_oracle = build_oracle(input_data, flag=flag, threshold=t,
                                   suffix_method=suffix_method, feature=feature,
                                   dfunc=dfunc, dfunc_handle=dfunc_handle, dim=dim)

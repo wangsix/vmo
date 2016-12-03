@@ -26,7 +26,7 @@ import numpy as np
 try:
     from PIL import Image, ImageDraw, ImageFilter #@UnresolvedImport @UnusedImport
 except:
-    print 'pil not loaded - hopefully running in max'
+    print('pil not loaded - hopefully running in max')
 
 width = 900 * 4 
 height = 400 * 4

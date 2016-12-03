@@ -47,7 +47,7 @@ def create_selfsim(oracle, method='rsfx'):
     mat = np.zeros((len_oracle, len_oracle))
     if method == 'com':
         if not oracle.code:
-            print "Codes not generated. Generating codes with encode()."
+            print("Codes not generated. Generating codes with encode().")
             oracle.encode()
         ind = 0  # index
         for l, p in oracle.code:  # l for length, p for position
@@ -115,7 +115,7 @@ def _create_trn_mat_symbolic(oracle, method):
                 _j = sym_list.index(oracle.data[j])
                 mat[_i][_j] += 1
             else:
-                print "index " + str(j) + " is out of bounds."
+                print("index " + str(j) + " is out of bounds.")
             hist[_i] += 1
     mat = mat.transpose() / hist
     mat = mat.transpose()
@@ -138,7 +138,7 @@ def predict(oracle, context, ab=None, verbose=False):
     :return: a probability distribution over the alphabet for the prediction.
     """
     if verbose:
-        print "original context: ", context
+        print("original context: ", context)
     if ab is None:
         ab = oracle.get_alphabet()
 
@@ -156,8 +156,8 @@ def predict(oracle, context, ab=None, verbose=False):
             _b, _s = oracle.accept(context)
             _lrs = [oracle.lrs[k] for k in oracle.rsfx[_s]]
     if verbose:
-        print "final context: ", context
-        print "context_state: ", context_state
+        print("final context: ", context)
+        print("context_state: ", context_state)
     d_count = len(ab)
     hist = [1.0] * len(ab)  # initialize all histograms with 1s.
 
@@ -178,7 +178,7 @@ def log_loss(oracle, test_seq, ab=[], m_order=None, verbose=False):
     if not ab:
         ab = oracle.get_alphabet()
     if verbose:
-        print ' '
+        print(' ')
 
     logP = 0.0
     context = []
