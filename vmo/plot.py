@@ -1,5 +1,5 @@
 """
-draw.py
+plot.py
 drawing routines for vmo
 
 Copyright (C) 8.20.2014 Cheng-i Wang
@@ -20,8 +20,9 @@ You should have received a copy of the GNU General Public License
 along with vmo.  If not, see <http://www.gnu.org/licenses/>.
 """
 
-from random import randint
 import numpy as np
+import music21
+import pretty_midi
 
 try:
     from PIL import Image, ImageDraw, ImageFilter #@UnresolvedImport @UnusedImport
@@ -124,5 +125,37 @@ def get_pattern_mat(oracle, pattern):
             pattern_mat[i][s-length:s-1] = 1
     
     return pattern_mat
+
+
+def plot_midi_frame(midi_data, beat_positions, frame_ind):
+
+    beat_start = beat_positions[frame_ind]
+    beat_end = beat_positions[frame_ind + 1]
+    n_list = []
+    for i in midi_data.instruments:
+        if not i.is_drum:
+            for n in i.notes:
+                if (n.start >= beat_start) & (n.start < beat_end) \
+                        or (n.end >= beat_start) & (n.end < beat_end)\
+                        or (n.start <= beat_start) & (n.end > beat_end):
+                    note = music21.note.Note(pretty_midi.utilities.note_number_to_name(n.pitch))
+                    if not note in n_list:
+                        n_list.append(note)
+
+    chord = music21.chord.Chord(n_list)
+    return chord
+
+
+def plot_chroma_as_chord(chroma_frame, n_pitch=3):
+
+    pitch_rank = np.argsort(chroma_frame)
+    n_list = []
+    for p in pitch_rank[-n_pitch:]:
+        note = pretty_midi.utilities.note_number_to_name(p + 60)
+        n_list.append(note)
+    chroma = music21.chord.Chord(n_list)
+
+    return chroma
+
 
 
