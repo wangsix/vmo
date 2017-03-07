@@ -22,6 +22,7 @@ along with vmo.  If not, see <http://www.gnu.org/licenses/>.
 import random
 import itertools
 import numpy as np
+import analysis.hmm as hmm
 from scipy.io import wavfile
 
 
@@ -97,6 +98,10 @@ def improvise(oracle, seq_len, k=1, LRS=0, weight=None, continuity=1):
         seq_len -= 1
 
     return s
+
+
+def markov_improvise():
+    pass
 
 
 def generate(oracle, seq_len, p=0.5, k=1, LRS=0, weight=None):

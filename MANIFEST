@@ -7,6 +7,11 @@ vmo/plot.py
 vmo/test.py
 vmo/VMO/__init__.py
 vmo/VMO/oracle.py
+vmo/VMO/utility/__init__.py
+vmo/VMO/utility/misc.py
+vmo/VMO/utility/distances/__init__.py
+vmo/VMO/utility/distances/tonnetz.py
 vmo/analysis/__init__.py
 vmo/analysis/analysis.py
+vmo/analysis/hmm.py
 vmo/analysis/segmentation.py
