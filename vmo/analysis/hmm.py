@@ -58,12 +58,12 @@ def recognition(obs, oracle, order=1, smooth=False):
     cluster_means = (cluster_means.T / np.sum(cluster_means, axis=1)).T
 
     a = hmm_tensor[-1]
-    # a += np.finfo('float').eps
+    a += np.finfo('float').eps
     a += 1.0
     divider = np.sum(a, axis=1)
     a = np.divide(a.T, divider).T
     log_a = np.log(a)
-    hist = np.array([len(c) for c in oracle.latent])/float(oracle.n_states-1)
+    # hist = np.array([len(c) for c in oracle.latent])/float(oracle.n_states-1)
 
     v = np.zeros((len(obs), len(oracle.latent)))
     p = np.zeros(v.shape)
