@@ -291,7 +291,7 @@ def query(oracle, query, trn_type=1, smooth=False, weight=0.5):
 
     argmin = np.argmin
     distance_cache = np.zeros(oracle.n_states)
-    for i in xrange(1, N):  # iterate over the rest of query
+    for i in range(1, N):  # iterate over the rest of query
         state_cache = []
         dist_cache = distance_cache
 
@@ -343,7 +343,7 @@ def tracking(oracle, obs, trn_type=1, reverse_init=False, method='else', decay=1
 
     distance_cache = np.zeros(oracle.n_states)
 
-    for i in xrange(1, N):  # iterate over the rest of query
+    for i in range(1, N):  # iterate over the rest of query
         state_cache = []
         dist_cache = distance_cache
 
@@ -408,7 +408,7 @@ def align(oracle, obs, trn_type=1, method='else'):
 
     distance_cache = np.zeros(oracle.n_states)
 
-    for i in xrange(1, N):  # iterate over the rest of query
+    for i in range(1, N):  # iterate over the rest of query
         state_cache = []
         dist_cache = distance_cache
 
