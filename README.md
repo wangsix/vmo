@@ -24,7 +24,7 @@ Numpy, Scipy, librosa & sklearn.
 
 Installation
 ------------
-run python setup.py install
+run python setup.py install or pip install vmo
 
 Friendly Reminder
 -----------------
