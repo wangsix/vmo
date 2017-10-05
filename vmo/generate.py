@@ -22,8 +22,9 @@ along with vmo.  If not, see <http://www.gnu.org/licenses/>.
 import random
 import itertools
 import numpy as np
-import analysis.hmm as hmm
-from scipy.io import wavfile
+# import analysis.hmm as hmm
+# from scipy.io import wavfile
+import librosa
 
 
 def improvise_step(oracle, i, lrs=0, weight=None, prune=False):
@@ -250,7 +251,7 @@ def audio_synthesis(ifilename, ofilename, s, analysis_sr=44100, buffer_size=8192
     :param hop: hop size, should be 1/2 the buffer_size.
     :return: the improvised sequence in audio wave file
     """
-    fs, x = wavfile.read(ifilename)
+    x, fs = librosa.load(ifilename,sr=analysis_sr)
 
     if fs != analysis_sr:
         buffer_size *= (fs/float(analysis_sr))
@@ -296,8 +297,8 @@ def audio_synthesis(ifilename, ofilename, s, analysis_sr=44100, buffer_size=8192
                 wsum[win_pos[i]:win_pos[i] + len_xnewmat],
                 win)
     x_new[hop:-hop] = np.divide(x_new[hop:-hop], wsum[hop:-hop])
-    x_new = x_new.astype(np.int16)
-    wavfile.write(ofilename, fs, x_new)
+    x_new = x_new.astype(np.float32)
+    librosa.output.write_wav(path=ofilename,y=x_new,sr=analysis_sr)
     return x_new, wsum, fs
 
 
@@ -319,7 +320,7 @@ def generate_audio(ifilename, ofilename, oracle, seq_len,
     :return: the improvised sequence in audio wave file
     """
 
-    fs, x = wavfile.read(ifilename)
+    x, fs = librosa.load(ifilename,sr=analysis_sr)
 
     if fs != analysis_sr:
         buffer_size *= (fs/float(analysis_sr))
@@ -366,6 +367,6 @@ def generate_audio(ifilename, ofilename, oracle, seq_len,
                 wsum[win_pos[i]:win_pos[i] + len_xnewmat],
                 win)
     x_new[hop:-hop] = np.divide(x_new[hop:-hop], wsum[hop:-hop])
-    x_new = x_new.astype(np.int16)
-    wavfile.write(ofilename, fs, x_new)
+    # x_new = x_new.astype(np.int16)
+    librosa.output.write_wav(path=ofilename,y=x_new,sr=analysis_sr)
     return x_new, wsum, fs
