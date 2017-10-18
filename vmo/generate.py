@@ -40,7 +40,7 @@ def improvise_step(oracle, i, lrs=0, weight=None, prune=False):
     """
 
     if prune:
-        prune_list = range(i%prune, oracle.n_states-1, prune)
+        prune_list = range(i % prune, oracle.n_states - 1, prune)
         trn_link = [s + 1 for s in oracle.latent[oracle.data[i]] if
                     (oracle.lrs[s] >= lrs and
                      (s + 1) < oracle.n_states) and
@@ -59,7 +59,7 @@ def improvise_step(oracle, i, lrs=0, weight=None, prune=False):
                         oracle.latent[oracle.data[i]] if
                         (oracle.lrs[s] >= lrs and (s + 1) < oracle.n_states)]
             lrs_pop = list(itertools.chain.from_iterable(itertools.chain.from_iterable(
-                    [[[i] * _x for (i, _x) in zip(trn_link, lrs_link)]])))
+                [[[i] * _x for (i, _x) in zip(trn_link, lrs_link)]])))
             n = np.random.choice(lrs_pop)
         else:
             n = trn_link[int(np.floor(random.random() * len(trn_link)))]
@@ -165,11 +165,11 @@ def generate(oracle, seq_len, p=0.5, k=1, LRS=0, weight=None):
                         if query_lrs in lrs_vec:
                             _tmp = np.where(lrs_vec == query_lrs)[0]
                             _tmp = _tmp[int(
-                                    np.floor(random.random() * len(_tmp)))]
+                                np.floor(random.random() * len(_tmp)))]
                             sym = k_vec[_tmp]
                         else:
                             _tmp = np.argmin(abs(
-                                    np.subtract(lrs_vec, query_lrs)))
+                                np.subtract(lrs_vec, query_lrs)))
                             sym = k_vec[_tmp]
                     elif weight == 'max':
                         sym = k_vec[np.argmax([lrs[_i] for _i in k_vec])]
@@ -251,12 +251,12 @@ def audio_synthesis(ifilename, ofilename, s, analysis_sr=44100, buffer_size=8192
     :param hop: hop size, should be 1/2 the buffer_size.
     :return: the improvised sequence in audio wave file
     """
-    x, fs = librosa.load(ifilename,sr=analysis_sr)
+    x, fs = librosa.load(ifilename, sr=analysis_sr)
 
     if fs != analysis_sr:
-        buffer_size *= (fs/float(analysis_sr))
+        buffer_size *= (fs / float(analysis_sr))
         buffer_size = int(buffer_size)
-        hop *= (fs/float(analysis_sr))
+        hop *= (fs / float(analysis_sr))
         hop = int(hop)
 
     mono = True
@@ -291,14 +291,14 @@ def audio_synthesis(ifilename, ofilename, s, analysis_sr=44100, buffer_size=8192
     for i in range(0, nframes):
         len_xnewmat = len(xnewmat[i])
         x_new[win_pos[i]:win_pos[i] + len_xnewmat] = np.add(
-                x_new[win_pos[i]:win_pos[i] + len_xnewmat],
-                np.multiply(xnewmat[i], win))
+            x_new[win_pos[i]:win_pos[i] + len_xnewmat],
+            np.multiply(xnewmat[i], win))
         wsum[win_pos[i]:win_pos[i] + len_xnewmat] = np.add(
-                wsum[win_pos[i]:win_pos[i] + len_xnewmat],
-                win)
+            wsum[win_pos[i]:win_pos[i] + len_xnewmat],
+            win)
     x_new[hop:-hop] = np.divide(x_new[hop:-hop], wsum[hop:-hop])
     x_new = x_new.astype(np.float32)
-    librosa.output.write_wav(path=ofilename,y=x_new,sr=analysis_sr)
+    librosa.output.write_wav(path=ofilename, y=x_new, sr=analysis_sr)
     return x_new, wsum, fs
 
 
@@ -320,12 +320,12 @@ def generate_audio(ifilename, ofilename, oracle, seq_len,
     :return: the improvised sequence in audio wave file
     """
 
-    x, fs = librosa.load(ifilename,sr=analysis_sr)
+    x, fs = librosa.load(ifilename, sr=analysis_sr)
 
     if fs != analysis_sr:
-        buffer_size *= (fs/float(analysis_sr))
+        buffer_size *= (fs / float(analysis_sr))
         buffer_size = int(buffer_size)
-        hop *= (fs/float(analysis_sr))
+        hop *= (fs / float(analysis_sr))
         hop = int(hop)
 
     mono = True
@@ -361,12 +361,12 @@ def generate_audio(ifilename, ofilename, oracle, seq_len,
     for i in range(0, nframes):
         len_xnewmat = len(xnewmat[i])
         x_new[win_pos[i]:win_pos[i] + len_xnewmat] = np.add(
-                x_new[win_pos[i]:win_pos[i] + len_xnewmat],
-                np.multiply(xnewmat[i], win))
+            x_new[win_pos[i]:win_pos[i] + len_xnewmat],
+            np.multiply(xnewmat[i], win))
         wsum[win_pos[i]:win_pos[i] + len_xnewmat] = np.add(
-                wsum[win_pos[i]:win_pos[i] + len_xnewmat],
-                win)
+            wsum[win_pos[i]:win_pos[i] + len_xnewmat],
+            win)
     x_new[hop:-hop] = np.divide(x_new[hop:-hop], wsum[hop:-hop])
     # x_new = x_new.astype(np.int16)
-    librosa.output.write_wav(path=ofilename,y=x_new,sr=analysis_sr)
+    librosa.output.write_wav(path=ofilename, y=x_new, sr=analysis_sr)
     return x_new, wsum, fs

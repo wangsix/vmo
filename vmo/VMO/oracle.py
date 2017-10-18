@@ -748,4 +748,3 @@ def find_threshold_ir(input_data, r=(0, 1, 0.1), flag='a', suffix_method='inc',
         return ir_thresh_pairs[0], pairs_return, h0_vec, h1_vec
     else:
         return ir_thresh_pairs[0], pairs_return
-
