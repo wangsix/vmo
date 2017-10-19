@@ -684,7 +684,7 @@ def _build_oracle(flag, oracle, input_data, suffix_method='inc'):
     return oracle
 
 
-def build_oracle(input_data, flag,
+def build_oracle(input_data, flag='a',
                  threshold=0, suffix_method='inc',
                  feature=None, weights=None, dfunc='cosine',
                  dfunc_handle=None, dim=1):
