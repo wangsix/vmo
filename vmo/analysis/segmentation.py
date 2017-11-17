@@ -182,7 +182,7 @@ def _seg_by_spectral_agg_single_frame(connectivity, width=9):
     graph_lap = normalized_graph_laplacian(connectivity)
     eigen_vecs = eigen_decomposition(graph_lap)
 
-    x = librosa.util.normalize(eigen_vecs.T, norm=2, axis=1)
+    x = librosa.util.normalize(eigen_vecs, norm=2, axis=1)
     z = scihc.linkage(x, method='ward')
 
     t = 0.75 * np.max(z[:, 2])
@@ -191,17 +191,17 @@ def _seg_by_spectral_agg_single_frame(connectivity, width=9):
 
 def clustering_by_entropy(eigen_vecs, k_min=1, width=9, hier=False):
     best_score = -np.inf
-    best_boundaries = [0, eigen_vecs.shape[1] - 1]
+    best_boundaries = [0, eigen_vecs.shape[0] - 1]
     best_n_types = 1
-    y_best = eigen_vecs[:1].T
+    y_best = eigen_vecs[:, :1]
 
     if hier:
         label_dict = OrderedDict()
         boundary_dict = OrderedDict()
         k_min = 2
 
-    for n_types in range(k_min, 1 + len(eigen_vecs)):
-        y = librosa.util.normalize(eigen_vecs[:n_types, :].T, norm=2, axis=1)
+    for n_types in range(k_min, eigen_vecs.shape[1]):
+        y = librosa.util.normalize(eigen_vecs[:, :n_types], norm=2, axis=1)
 
         # Try to label the data with n_types
         c = sklhc.KMeans(n_clusters=n_types, n_init=100)
@@ -272,8 +272,7 @@ https://github.com/bmcfee/laplacian_segmentation
 
 
 def segment_labeling(x, boundaries, c_method='kmeans', k=5):
-    x_sync = librosa.util.utils.sync(x.T, boundaries)
-
+    x_sync = librosa.util.utils.sync(x.T, boundaries[:-1])
     if c_method == 'kmeans':
         c = sklhc.KMeans(n_clusters=k, n_init=100)
         seg_labels = c.fit_predict(x_sync.T)
@@ -289,11 +288,12 @@ def segment_labeling(x, boundaries, c_method='kmeans', k=5):
 
 
 def find_boundaries(frame_labels, width=9):
-    frame_labels = np.pad(frame_labels, (int(width / 2), int(width / 2) + 1), mode='reflect')
-    frame_labels = np.array([stats.mode(frame_labels[i:j])[0][0]
-                             for (i, j) in zip(range(0, len(frame_labels) - width),
-                                               range(width, len(frame_labels)))])
-    boundaries = 1 + np.asarray(np.where(frame_labels[:-1] != frame_labels[1:])).reshape((-1,))
+    # frame_labels = np.pad(frame_labels, (int(width / 2), int(width / 2) + 1), mode='edge')
+    # frame_labels = np.array([stats.mode(frame_labels[i:j])[0][0]
+    #                          for (i, j) in zip(range(0, len(frame_labels) - width),
+    #                                            range(width, len(frame_labels)))])
+    boundaries = 1 + np.flatnonzero(frame_labels[:-1] != frame_labels[1:])
+                 # np.asarray(np.where(frame_labels[:-1] != frame_labels[1:])).reshape((-1,))
     boundaries = np.unique(np.concatenate([[0], boundaries, [len(frame_labels)-1]]))
     return boundaries
 
@@ -307,7 +307,7 @@ def normalized_graph_laplacian(mat):
     return laplacian
 
 
-def eigen_decomposition(mat, k=5):  # Changed from 11 to 8 then to 6(7/22)
+def eigen_decomposition(mat, k=6):  # Changed from 11 to 8 then to 6(7/22)
     vals, vecs = linalg.eig(mat)
     vals = vals.real
     vecs = vecs.real
@@ -318,5 +318,5 @@ def eigen_decomposition(mat, k=5):  # Changed from 11 to 8 then to 6(7/22)
 
     if len(vals) < k + 1:
         k = -1
-
-    return vecs[:, :k].T
+    vecs = scipy.ndimage.median_filter(vecs, size=(5,1))
+    return vecs[:, :k]
