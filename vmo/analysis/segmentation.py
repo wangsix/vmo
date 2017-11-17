@@ -1,13 +1,12 @@
 import librosa
 import scipy
 import scipy.linalg as linalg
-import scipy.stats as stats
 import scipy.signal as sig
 import numpy as np
 import sklearn.cluster as sklhc
 import scipy.cluster.hierarchy as scihc
 from collections import OrderedDict
-from .analysis import create_selfsim, find_fragments
+from .analysis import create_selfsim
 from ..VMO.utility.misc import entropy
 
 """Segmentation algorithms

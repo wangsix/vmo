@@ -20,9 +20,9 @@ along with vmo.  If not, see <http://www.gnu.org/licenses/>.
 """
 
 import sys, itertools
-from vmo.VMO.oracle import build_oracle
 import numpy as np
 import scipy.spatial.distance as dist
+from vmo.VMO.oracle import build_oracle
 from functools import partial
 
 

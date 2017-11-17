@@ -19,7 +19,7 @@ determine oracle structure and query-matching algorithms.
 
 Dependencies
 ------------
-Numpy, Scipy, librosa & sklearn. 
+Numpy, Scipy, librosa & sklearn, music21 and pretty_midi. 
 
 
 Installation

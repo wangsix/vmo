@@ -47,23 +47,11 @@ def array_rotate(a, shift=1, step=None):
 
 
 def trnspose_inv(a, b, shift=1, step=None):
-    d_vec = []
     a = np.array(a)
     a_mat = array_rotate(a, shift, step)
     d = a_mat - np.array(b)
     d = np.sqrt((d*d).sum(axis=1))
     return d.min()
-
-
-# def transpose_inv(a, b_vec, shift=1, step=None):
-#     d_vec = []
-#     a = np.array(a)
-#     a_mat = array_rotate(a, shift, step)
-#     for b in b_vec:
-#         d = a_mat - np.array(b)
-#         d = np.sqrt((d * d).sum(axis=1))
-#         d_vec.append(d.min())
-#     return np.array(d_vec)
 
 
 def get_sfx(oracle, s_set, k):

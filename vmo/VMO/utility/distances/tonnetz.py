@@ -116,8 +116,3 @@ def distance(a, b):
     """
     [a_tonnetz, b_tonnetz] = [_to_tonnetz(x) for x in [a, b]]
     return np.linalg.norm(b_tonnetz - a_tonnetz)
-
-
-# if __name__ == "__main__":
-#     import doctest
-#     doctest.testmod()

@@ -22,8 +22,6 @@ along with vmo.  If not, see <http://www.gnu.org/licenses/>.
 import random
 import itertools
 import numpy as np
-# import analysis.hmm as hmm
-# from scipy.io import wavfile
 import librosa
 
 
