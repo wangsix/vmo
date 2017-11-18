@@ -15,3 +15,5 @@ vmo/analysis/__init__.py
 vmo/analysis/analysis.py
 vmo/analysis/hmm.py
 vmo/analysis/segmentation.py
+vmo/realtime/__init__.py
+vmo/realtime/tracker.py

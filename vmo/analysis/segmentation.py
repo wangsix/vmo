@@ -15,11 +15,8 @@ from ..VMO.utility.misc import entropy
 
 def segment_by_connectivity(connectivity, median_filter_width, cluster_method, **kwargs):
     obs_len = connectivity.shape[0]
-    connectivity = librosa.segment.recurrence_to_lag(connectivity, pad=False)
-    connectivity = np.pad(connectivity, [(0, 0), [median_filter_width, median_filter_width]], mode='reflect')
-    connectivity = sig.medfilt(connectivity, [1, median_filter_width])
-    connectivity = connectivity[:, median_filter_width:-median_filter_width]
-    connectivity = librosa.segment.lag_to_recurrence(connectivity)
+    df = librosa.segment.timelag_filter(scipy.ndimage.median_filter)
+    connectivity = df(connectivity, size=(1, median_filter_width))
 
     connectivity[range(1, obs_len), range(obs_len - 1)] = 1.0
     connectivity[range(obs_len - 1), range(1, obs_len)] = 1.0
@@ -248,8 +245,6 @@ def segmentation(oracle, method='symbol_agglomerative', **kwargs):
     if oracle:
         if method == 'symbol_agglomerative':
             return _seg_by_single_frame(oracle, cluster_method='agglomerative', **kwargs)
-        # elif method == 'string_agglomerative':
-        #     return _seg_by_hc_string_matching(oracle, **kwargs)
         elif method == 'symbol_spectral':
             return _seg_by_single_frame(oracle, cluster_method='spectral', **kwargs)
         elif method == 'symbol_spectral_agglomerative':
