@@ -69,3 +69,8 @@ def get_rsfx(oracle, rs_set, k):
         for _k in oracle.rsfx[k]:
             rs_set = rs_set.union(get_rsfx(oracle, rs_set, _k))
         return rs_set
+
+
+def saveOracle(oracle,fileName):
+    with open(fileName, 'wb') as output:
+        pickle.dump(oracle, output, pickle.HIGHEST_PROTOCOL)
