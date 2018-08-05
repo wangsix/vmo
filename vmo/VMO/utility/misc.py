@@ -26,7 +26,7 @@ along with vmo.  If not, see <http://www.gnu.org/licenses/>.
 
 import numpy as np
 import scipy.stats as stats
-
+import pickle
 
 def entropy(x):
     return stats.entropy(x)
@@ -74,3 +74,66 @@ def get_rsfx(oracle, rs_set, k):
 def saveOracle(oracle,fileName):
     with open(fileName, 'wb') as output:
         pickle.dump(oracle, output, pickle.HIGHEST_PROTOCOL)
+
+
+def calculateDistance(a,b,c):
+    return abs(a-b) + abs(b-c)
+
+
+def calculatedistance(a,b):
+    return abs(a-b)
+
+# def findNonEmpty(sfx1 = [], sfx2 = [], sfx3 = []):
+#     if not sfx2 and not sfx3 and sfx1:
+#         return min(sfx1)
+
+#     if not sfx1 and not sfx3 and sfx2:
+#         return min(sfx2)
+
+#     if not sfx2 and not sfx1 and sfx3:
+#         return min(sfx3)
+
+
+def findTriplets(sfx1, sfx2, sfx3):
+    i,j,k = 0,0,0
+    indices = [0,0,0]
+    min_value = float('Inf')
+
+    while(i < len(sfx1) and j < len(sfx2) and k < len(sfx3)):
+        dist = calculateDistance(sfx1[i],sfx2[j],sfx3[k])
+
+        if dist < min_value:
+            min_value = dist
+            indices[0],indices[1],indices[2] = i,j,k
+
+        if sfx1[i]<sfx2[j] and sfx1[i]<sfx3[k] and i<len(sfx1):
+            i += 1
+
+        elif sfx2[j]<sfx3[k] and j<len(sfx2):
+            j += 1
+
+        else:
+            k += 1
+    
+    return [sfx1[indices[0]],sfx2[indices[1]],sfx3[indices[2]]]
+
+
+def findDoublets(sfx1, sfx2):
+    i,j= 0,0
+    indices = [0,0]
+    min_value = float('Inf')
+
+    while(i < len(sfx1) and j < len(sfx2)):
+        dist = calculatedistance(sfx1[i],sfx2[j])
+
+        if dist < min_value:
+            min_value = dist
+            indices[0],indices[1] = i,j
+
+        if sfx1[i]<sfx2[j] and i<len(sfx1):
+            i += 1
+
+        else:
+            j += 1
+    
+    return [sfx1[indices[0]],sfx2[indices[1]]]
