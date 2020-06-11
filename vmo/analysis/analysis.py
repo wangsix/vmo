@@ -24,8 +24,9 @@ import numpy as np
 import scipy.spatial.distance as dist
 from vmo.VMO.oracle import build_oracle
 from functools import partial
-
-
+import pdb
+from vmo.VMO.utility.misc import findTriplets,findDoublets # least distance query
+# import bisect
 '''Self-similarity matrix and transition matrix from an oracle
 '''
 
@@ -303,6 +304,54 @@ def query(oracle, query, trn_type=1, smooth=False, weight=0.5):
     i_hat = argmin(C)
     P = map(list, zip(*P))
     return P, C, i_hat
+
+
+def batchGenerator(n, iterable):
+    it = iter(iterable)
+    while True:
+       chunk = list(itertools.islice(it, n))
+       if not chunk:
+           return
+       yield chunk    
+
+
+def getBestQuery(paths,leastCostIndex):
+    count = 0
+
+    for p in paths:  
+        bestPath = p
+        if count == leastCostIndex:
+            break
+        count += 1
+
+    return bestPath
+
+
+def getContinuousQuery(sfxList):
+    if len(sfxList) == 1:
+        return [min(sfxList[0])]
+
+    if len(sfxList)==2:
+        return findDoublets(sfxList[0],sfxList[1])
+        
+    return findTriplets(sfxList[0],sfxList[1],sfxList[2])
+
+
+# For now can only do queries with continuity factor of 3 and is an offline feature
+def queryWithContinuity(oracle, queryFeatures, trn_type=1, smooth=False, weight=0.5 ,continuityFactor = 3):
+    batches = batchGenerator(continuityFactor,queryFeatures)
+    path = []
+    
+    for batch in batches:
+        # print(type(oracle))
+        # print(type(batch))
+        # pdb.set_trace()
+        paths,costs,besti = query(oracle, batch, trn_type=1, smooth=False, weight=0.5)
+        bestPath = getBestQuery(paths,besti)
+        sfxs = [[i]+oracle.trn[i] for i in bestPath] # only works if the index is lesser than the elements in the suffix link
+        path.extend(getContinuousQuery(sfxs))
+
+    return path
 
 
 def tracking(oracle, obs, trn_type=1, reverse_init=False, method='else', decay=1.0):

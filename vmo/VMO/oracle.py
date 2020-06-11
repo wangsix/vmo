@@ -687,7 +687,7 @@ def _build_oracle(flag, oracle, input_data, suffix_method='inc'):
 def build_oracle(input_data, flag='a',
                  threshold=0, suffix_method='inc',
                  feature=None, weights=None, dfunc='cosine',
-                 dfunc_handle=None, dim=1):
+                 dfunc_handle=None, dim=1, save_file = None):
     # initialize weights if needed
     if weights is None:
         weights = {}
@@ -705,6 +705,9 @@ def build_oracle(input_data, flag='a',
         oracle = _create_oracle('a', threshold=threshold, dfunc=dfunc,
                                 dfunc_handle=dfunc_handle, dim=dim)
         oracle = _build_oracle(flag, oracle, input_data, suffix_method)
+
+    if save_file:
+        utl.saveOracle(oracle,save_file)
 
     return oracle
 
