@@ -1,15 +1,25 @@
-from distutils.core import setup
+import setuptools
 
-setup(name="vmo",
-      packages=['vmo', 'vmo.VMO', 'vmo.analysis', 'vmo.realtime', 'vmo.VMO.utility', 'vmo.VMO.utility.distances'],
-      version="0.3.4",
-      description="vmo - Variable Markov Oracle in Python",
-      author="Cheng-i Wang",
-      author_email='chw160@ucsd.edu',
-      url='https://github.com/wangsix/vmo',
-      long_description='vmo is a Python library for time series and symbolic sequence analysis/synthesis in the family '
-                       'of software built around the Factor Oracle and Variable Markov Oracle algorithms. One of the '
-                       'main innovations in vmo is using functions related to Information Dynamics to determine oracle '
-                       'structure and query-matching algorithms.',
-      license='GNU GPL 3.0'
-      )
+with open("README.md", "r", encoding="utf-8") as fh:
+    long_description = fh.read()
+
+setuptools.setup(
+    name="vmo",
+    version="0.3.4",
+    author="Cheng-i Wang",
+    author_email="chw160@ucsd.edu",
+    description="Variable Markov Oracle in Python",
+    long_description=long_description,
+    long_description_content_type="text/markdown",
+    url="https://github.com/wangsix/vmo",
+    project_urls={
+        "Bug Tracker": "https://github.com/wangsix/vmo/issues",
+    },
+    classifiers=[
+        "Programming Language :: Python :: 3",
+        "License :: OSI Approved :: GNU GPL 3.0",
+        "Operating System :: OS Independent",
+    ],
+    packages=['vmo', 'vmo.VMO', 'vmo.analysis', 'vmo.realtime', 'vmo.VMO.utility', 'vmo.VMO.utility.distances'],
+    python_requires=">=3.7",
+)
