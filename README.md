@@ -1,11 +1,13 @@
 vmo - Python Variable Markov Oracle Library
-=============================================
-Under development by the Center for Research in Entertainment and Learning 
+[![Build Status](https://travis-ci.org/wangsix/vmo.svg?branch=master)](https://travis-ci.org/wangsix/vmo)
+
+Maintained by the Center for Research in Entertainment and Learning 
 (CREL) @UCSD
 
 Contacts
 --------
 Cheng-i Wang, chw160@ucsd.edu
+Shlomo Dubnov, sdubnov@ucsd.edu
 
 
 About
