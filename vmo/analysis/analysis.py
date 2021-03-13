@@ -24,8 +24,9 @@ import numpy as np
 import scipy.spatial.distance as dist
 from vmo.VMO.oracle import build_oracle
 from functools import partial
-import pdb
-from vmo.VMO.utility.misc import findTriplets,findDoublets # least distance query
+# import pdb
+from vmo.VMO.utility.misc import findTriplets, findDoublets  # least distance query
+
 # import bisect
 '''Self-similarity matrix and transition matrix from an oracle
 '''
@@ -243,6 +244,7 @@ def _rsfx_count(oracle, s, count, hist, ab):
 
     return count, hist
 
+
 """Query-matching and gesture tracking algorithms"""
 
 
@@ -302,54 +304,52 @@ def query(oracle, query, trn_type=1, smooth=False, weight=0.5):
         C += np.array(_c)
 
     i_hat = argmin(C)
-    P = map(list, zip(*P))
+    P = list(map(list, zip(*P)))
     return P, C, i_hat
 
 
-def batchGenerator(n, iterable):
+def batch_generator(n, iterable):
     it = iter(iterable)
     while True:
-       chunk = list(itertools.islice(it, n))
-       if not chunk:
-           return
-       yield chunk    
+        chunk = list(itertools.islice(it, n))
+        if not chunk:
+            return
+        yield chunk
 
 
-def getBestQuery(paths,leastCostIndex):
+def get_best_query(paths, least_cost_index):
     count = 0
-
-    for p in paths:  
-        bestPath = p
-        if count == leastCostIndex:
+    best_path = []
+    for p in paths:
+        best_path = p
+        if count == least_cost_index:
             break
         count += 1
 
-    return bestPath
+    return best_path
 
 
-def getContinuousQuery(sfxList):
-    if len(sfxList) == 1:
-        return [min(sfxList[0])]
+def get_continuous_query(sfx_list):
+    if len(sfx_list) == 1:
+        return [min(sfx_list[0])]
 
-    if len(sfxList)==2:
-        return findDoublets(sfxList[0],sfxList[1])
-        
-    return findTriplets(sfxList[0],sfxList[1],sfxList[2])
+    if len(sfx_list) == 2:
+        return findDoublets(sfx_list[0], sfx_list[1])
+
+    return findTriplets(sfx_list[0], sfx_list[1], sfx_list[2])
 
 
 # For now can only do queries with continuity factor of 3 and is an offline feature
-def queryWithContinuity(oracle, queryFeatures, trn_type=1, smooth=False, weight=0.5 ,continuityFactor = 3):
-    batches = batchGenerator(continuityFactor,queryFeatures)
+def query_with_continuity(oracle, query_features, trn_type=1, smooth=False, weight=0.5, continuity_factor=3):
+    batches = batch_generator(continuity_factor, query_features)
     path = []
-    
+
     for batch in batches:
-        # print(type(oracle))
-        # print(type(batch))
-        # pdb.set_trace()
-        paths,costs,besti = query(oracle, batch, trn_type=1, smooth=False, weight=0.5)
-        bestPath = getBestQuery(paths,besti)
-        sfxs = [[i]+oracle.trn[i] for i in bestPath] # only works if the index is lesser than the elements in the suffix link
-        path.extend(getContinuousQuery(sfxs))
+        paths, costs, besti = query(oracle, batch, trn_type=1, smooth=False, weight=0.5)
+        best_path = get_best_query(paths, besti)
+        sfxs = [[i] + oracle.trn[i] for i in
+                best_path]  # only works if the index is lesser than the elements in the suffix link
+        path.extend(get_continuous_query(sfxs))
 
     return path
 
@@ -375,7 +375,6 @@ def tracking(oracle, obs, trn_type=1, reverse_init=False, method='else', decay=1
     T = np.zeros((N,), dtype='int')
     map_k_outer = partial(_query_k, oracle=oracle, query=obs)
     map_query = partial(_query_init, oracle=oracle, query=obs[0], method=method)
-    #     map_query = partial(_query_init, oracle=oracle, query=obs[0], method)
 
     argmin = np.argmin
 
@@ -606,7 +605,7 @@ def find_repeated_patterns(oracle, lower=1):
         # if (sfx != 0  # not pointing to zeroth state
         #     and i - oracle.lrs[i] + 1 > sfx and oracle.lrs[i] > lower):  # constraint on length of patterns
         if (sfx != 0  # not pointing to zeroth state
-            and oracle.lrs[i] > lower):  # constraint on length of patterns
+                and oracle.lrs[i] > lower):  # constraint on length of patterns
             for p in pattern_list:  # for existing pattern
                 if not [_p for _p in p[0] if _p - p[1] < i < _p]:
                     if sfx in p[0]:
@@ -623,12 +622,12 @@ def find_repeated_patterns(oracle, lower=1):
                     _rsfx.extend([i, sfx])
                     _len = np.array(oracle.lrs)[_rsfx[:-1]].min()
                     if i - _len + 1 < sfx:
-                        _len = i-sfx
+                        _len = i - sfx
                     if _len > lower:
                         pattern_list.append([_rsfx, _len])
                 else:
                     if i - oracle.lrs[i] + 1 < sfx:
-                        pattern_list.append([[i, sfx], i-sfx])
+                        pattern_list.append([[i, sfx], i - sfx])
                     else:
                         pattern_list.append([[i, sfx], oracle.lrs[i]])
             prev_sfx = sfx

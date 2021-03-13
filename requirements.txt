@@ -5,3 +5,5 @@ scikit-learn
 librosa
 music21
 pretty_midi
+pillow
+soundfile

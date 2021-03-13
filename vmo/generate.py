@@ -23,6 +23,7 @@ import random
 import itertools
 import numpy as np
 import librosa
+import soundfile as sf
 
 
 def improvise_step(oracle, i, lrs=0, weight=None, prune=False):
@@ -296,7 +297,7 @@ def audio_synthesis(ifilename, ofilename, s, analysis_sr=44100, buffer_size=8192
             win)
     x_new[hop:-hop] = np.divide(x_new[hop:-hop], wsum[hop:-hop])
     x_new = x_new.astype(np.float32)
-    librosa.output.write_wav(path=ofilename, y=x_new, sr=analysis_sr)
+    sf.write(ofilename, x_new, analysis_sr)
     return x_new, wsum, fs
 
 
@@ -366,5 +367,5 @@ def generate_audio(ifilename, ofilename, oracle, seq_len,
             win)
     x_new[hop:-hop] = np.divide(x_new[hop:-hop], wsum[hop:-hop])
     # x_new = x_new.astype(np.int16)
-    librosa.output.write_wav(path=ofilename, y=x_new, sr=analysis_sr)
+    sf.write(ofilename, x_new, analysis_sr)
     return x_new, wsum, fs
