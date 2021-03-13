@@ -16,12 +16,6 @@ One of the main innovations in vmo is using functions related to Information Dyn
 determine oracle structure and query-matching algorithms.
 
 
-
-Dependencies
-------------
-Numpy, Scipy, librosa & sklearn, music21 and pretty_midi. 
-
-
 Installation
 ------------
 run 
@@ -33,8 +27,11 @@ Friendly Reminder
 -----------------
 If the VMO package is used for any research works result in publications, please cite the following paper.
 
->@InProceedings{Wang2014,
-  Title                    = {Guided Music Synthesis with Variable Markov Oracle},
-  Author                   = {Wang, Cheng-i and Dubnov, Shlomo},
-  Booktitle                = {3rd International Workshop on Musical Metacreation, 10th Artificial Intelligence and Interactive Digital Entertainment Conference},
-  Year                     = {2014}}
+For machine improvisation and sequence generation,
+[![DOI:10.1145/2905371](https://zenodo.org/badge/DOI/https://doi.org/10.1145/2905371.svg)](https://doi.org/10.1145/2905371).
+
+For motif discovery and segmentation,
+[![DOI:10.1109/icassp.2015.7178056](https://zenodo.org/badge/DOI/https://doi.org/10.1109/icassp.2015.7178056.svg)](https://doi.org/10.1109/icassp.2015.7178056).
+
+For human gesture applications,
+[![DOI:10.1109/mmul.2015.76](https://zenodo.org/badge/DOI/https://doi.org/10.1109/mmul.2015.76.svg)](https://doi.org/10.1109/mmul.2015.76).
