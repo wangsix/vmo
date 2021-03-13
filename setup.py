@@ -17,7 +17,7 @@ setuptools.setup(
     },
     classifiers=[
         "Programming Language :: Python :: 3",
-        "License :: OSI Approved :: GNU GPL 3.0",
+        "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
         "Operating System :: OS Independent",
     ],
     packages=['vmo', 'vmo.VMO', 'vmo.analysis', 'vmo.realtime', 'vmo.VMO.utility', 'vmo.VMO.utility.distances'],
