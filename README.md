@@ -1,4 +1,4 @@
-#vmo - Python Variable Markov Oracle Library
+# vmo - Python Variable Markov Oracle Library
 [![Build Status](https://travis-ci.org/wangsix/vmo.svg?branch=master)](https://travis-ci.org/wangsix/vmo)
 
 Maintained by the Center for Research in Entertainment and Learning 
