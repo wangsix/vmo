@@ -5,5 +5,5 @@ scikit-learn==0.24.1
 librosa==0.8.0
 music21==6.7.1
 pretty_midi==0.2.9
-Pillow==8.1.1
+Pillow==8.3.2
 SoundFile==0.10.3.post1
