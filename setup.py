@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setuptools.setup(
     name="vmo",
-    version="0.30.4",
+    version="0.30.5",
     author="Cheng-i Wang",
     author_email="chw160@ucsd.edu",
     description="Variable Markov Oracle in Python",

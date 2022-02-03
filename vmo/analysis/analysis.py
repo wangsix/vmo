@@ -24,10 +24,8 @@ import numpy as np
 import scipy.spatial.distance as dist
 from vmo.VMO.oracle import build_oracle
 from functools import partial
-# import pdb
 from vmo.VMO.utility.misc import findTriplets, findDoublets  # least distance query
 
-# import bisect
 '''Self-similarity matrix and transition matrix from an oracle
 '''
 
@@ -248,64 +246,71 @@ def _rsfx_count(oracle, s, count, hist, ab):
 """Query-matching and gesture tracking algorithms"""
 
 
-def query(oracle, query, trn_type=1, smooth=False, weight=0.5):
+def query(oracle, query, trn_type='forward_self', smooth=False, weight=0.5, distance_metric='sqeuclidean'):
+    """Given a query sequence, and a VMO object, return the closest path through the VMO to the query sequence
+
+    Parameters
+    ----------
+    oracle : VMO.oracle.MO
+    query : array_like
+    trn_type : {'forward', 'forward_self', 'suffix'}, default='forward_self'
+        'forward': use only the forward links to retrieve transitions
+        'forward_self': add self transition to 'forward' transitions
+        'suffix': use suffix(and reverse) links to retrieve possible transitions
+    smooth : bool, default=False
+        whether to use a distance matrix to smooth the transitions
+    weight : float, default=0.5
+        how much the distance matrix smooth the transitions
+    distance_metric: str, default='sqeuclidean'
+        one of the distance metric string used for scipy.spatial.distance.pdist
+    Returns
+    -------
+    path_mat : array_like
+        the path matrix
+    cost_mat : array_like
+        the cost matrix
+    i_hat : array_like
+        the matched sequence from the features of the VMO object
     """
 
-    :param oracle:
-    :param query:
-    :param trn_type:
-    :param smooth:
-    :param weight:
-    :return:
-    """
-    """ Return the closest path in target oracle given a query sequence
-    
-    Args:
-        oracle: an oracle object already learned, the target. 
-        query: the query sequence in a matrix form such that 
-             the ith row is the feature at the ith time point
-        method: 
-        trn_type:
-        smooth:(off-line only)
-        weight:
-    
-    """
-    N = len(query)
-    K = oracle.num_clusters()
-    P = [[0] * K for _i in range(N)]
+    query_len = len(query)
+    cluster_num = oracle.num_clusters()
+    path_mat = [[0] * cluster_num for _i in range(query_len)]
     if smooth:
-        D = dist.pdist(oracle.f_array[1:], 'sqeuclidean')
-        D = dist.squareform(D, checks=False)
-        map_k_outer = partial(_query_k, oracle=oracle, query=query, smooth=smooth, D=D, weight=weight)
+        distance_mat = dist.pdist(oracle.f_array[1:], metric=distance_metric)
+        distance_mat = dist.squareform(distance_mat, checks=False)
+        map_k_outer = partial(_query_k, oracle=oracle, query=query, smooth=smooth, D=distance_mat, weight=weight)
     else:
         map_k_outer = partial(_query_k, oracle=oracle, query=query)
 
     map_query = partial(_query_init, oracle=oracle, query=query[0])
-    P[0], C = zip(*map(map_query, oracle.rsfx[0][:]))
-    P[0] = list(P[0])
-    C = np.array(C)
+    path_mat[0], cost_mat = zip(*map(map_query, oracle.rsfx[0][:]))
+    path_mat[0] = list(path_mat[0])
+    cost_mat = np.array(cost_mat)
 
-    if trn_type == 1:
+    if trn_type == 'forward_self':
         trn = _create_trn_self
-    elif trn_type == 2:
+    elif trn_type == 'suffix':
         trn = _create_trn_sfx_rsfx
-    else:
+    elif trn_type == 'forward':
         trn = _create_trn
+    else:
+        raise ValueError("Wrong trn_type specified.")
 
     argmin = np.argmin
     distance_cache = np.zeros(oracle.n_states)
-    for i in range(1, N):  # iterate over the rest of query
+    for i in range(1, query_len):  # iterate over the rest of query
         state_cache = []
         dist_cache = distance_cache
 
-        map_k_inner = partial(map_k_outer, i=i, P=P, trn=trn, state_cache=state_cache, dist_cache=dist_cache)
-        P[i], _c = zip(*map(map_k_inner, range(K)))
-        P[i] = list(P[i])
-        C += np.array(_c)
+        map_k_inner = partial(map_k_outer, i=i, P=path_mat, trn=trn, state_cache=state_cache, dist_cache=dist_cache)
+        path_mat[i], _c = zip(*map(map_k_inner, range(cluster_num)))
+        path_mat[i] = list(path_mat[i])
+        cost_mat += np.array(_c)
 
-    i_hat = argmin(C)
-    P = list(map(list, zip(*P)))
-    return P, C, i_hat
+    i_hat = argmin(cost_mat)
+    path_mat = list(map(list, zip(*path_mat)))
+    return path_mat, cost_mat, i_hat
 
 
 def batch_generator(n, iterable):
@@ -340,12 +345,12 @@ def get_continuous_query(sfx_list):
 
 
 # For now can only do queries with continuity factor of 3 and is an offline feature
-def query_with_continuity(oracle, query_features, trn_type=1, smooth=False, weight=0.5, continuity_factor=3):
+def query_with_continuity(oracle, query_features, trn_type='forward_self', smooth=False, weight=0.5, continuity_factor=3):
     batches = batch_generator(continuity_factor, query_features)
     path = []
 
     for batch in batches:
-        paths, costs, besti = query(oracle, batch, trn_type=1, smooth=False, weight=0.5)
+        paths, costs, besti = query(oracle, batch, trn_type=trn_type, smooth=smooth, weight=weight)
         best_path = get_best_query(paths, besti)
         sfxs = [[i] + oracle.trn[i] for i in
                 best_path]  # only works if the index is lesser than the elements in the suffix link
