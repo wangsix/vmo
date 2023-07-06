@@ -1,5 +1,5 @@
 numpy==1.21.0
-scipy==1.6.0
+scipy==1.10.0
 matplotlib==3.3.4
 scikit-learn==0.24.1
 librosa==0.8.0
