@@ -6,7 +6,7 @@ Maintained by the Center for Research in Entertainment and Learning
 
 Contacts
 --------
-Cheng-i Wang, chw160@ucsd.edu
+Cheng-i Wang, wangsix@gmail.com
 Shlomo Dubnov, sdubnov@ucsd.edu
 
 
